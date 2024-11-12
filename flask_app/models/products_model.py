@@ -1,0 +1,119 @@
+from flask_app.config.mysqlconnection import connectToMySQL
+
+class Product:
+    def __init__(self, data):
+        self.id = data.get('id')
+        self.name = data.get('name')
+        self.screenshot_photo = data.get('screenshot_photo')
+        self.description = data.get('description')
+        self.price = data.get('price')
+        self.created_at = data.get('created_at')
+        self.updated_at = data.get('updated_at')
+    
+    def serialize(self):
+        return{
+            'id': self.id,
+            'name': self.name,
+            'screenshot_photo': self.screenshot_photo if self.screenshot_photo else None,
+            'description': self.description,
+            'price': self.price,
+            'created_at': str(self.created_at), 
+            'updated_at': str(self.updated_at),
+        }
+
+    @classmethod
+    def save(cls, data):
+        """Create a new product record."""
+        query = """
+        INSERT INTO products (name, screenshot_photo, description, price, created_at, updated_at) 
+        VALUES (%(name)s, %(screenshot_photo)s, %(description)s, %(price)s, NOW(), NOW());
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+    @classmethod
+    def get_by_id(cls, product_id):
+        """Retrieve a product by its ID."""
+        query = "SELECT * FROM products WHERE id = %(id)s;"
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': product_id})
+        return cls(result[0]) if result else None
+
+    @classmethod
+    def get_all(cls):
+        """Retrieve all products."""
+        query = "SELECT * FROM products;"
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        return [cls(row) for row in results]
+
+    @classmethod
+    def update(cls, data):
+        """Update an existing product's information."""
+        query = """
+        UPDATE products 
+        SET name = %(name)s, screenshot_photo = %(screenshot_photo)s, description = %(description)s, 
+        price = %(price)s, updated_at = NOW() 
+        WHERE id = %(id)s;
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+    @classmethod
+    def delete(cls, product_id):
+        """Delete a product record."""
+        query = "DELETE FROM products WHERE id = %(id)s;"
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': product_id})
+
+    ### Search and Filtering Methods ###
+
+    @classmethod
+    def search_by_name(cls, name):
+        """Search for products by name."""
+        query = "SELECT * FROM products WHERE name LIKE %(name)s;"
+        results = connectToMySQL('maria_ortegas_project_schema').query_db({'name': f"%{name}%"})
+        return [cls(row) for row in results]
+
+    @classmethod
+    def filter_by_price_range(cls, min_price, max_price):
+        """Filter products within a specified price range."""
+        query = "SELECT * FROM products WHERE price BETWEEN %(min_price)s AND %(max_price)s;"
+        results = connectToMySQL('maria_ortegas_project_schema').query_db({'min_price': min_price, 'max_price': max_price})
+        return [cls(row) for row in results]
+
+    ### Additional Methods for Business Logic ###
+
+    @classmethod
+    def get_products_with_sizes(cls):
+        """Retrieve all products along with their available sizes."""
+        query = """
+        SELECT products.*, sizes.size
+        FROM products
+        JOIN sizes ON products.id = sizes.product_id;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        
+        # Organize products with sizes
+        products = {}
+        for row in results:
+            if row['id'] not in products:
+                products[row['id']] = {
+                    'product': cls(row),
+                    'sizes': []
+                }
+            products[row['id']]['sizes'].append(row['size'])
+        return products
+
+    @classmethod
+    def update_price(cls, product_id, new_price):
+        """Update only the price of a specific product."""
+        query = """
+        UPDATE products SET price = %(price)s, updated_at = NOW() 
+        WHERE id = %(id)s;
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': product_id, 'price': new_price})
+
+    @classmethod
+    def update_description(cls, product_id, new_description):
+        """Update only the description of a specific product."""
+        query = """
+        UPDATE products SET description = %(description)s, updated_at = NOW() 
+        WHERE id = %(id)s;
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': product_id, 'description': new_description})
