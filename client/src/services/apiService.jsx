@@ -26,6 +26,11 @@ const apiService = {
   deleteProduct: (productId) => {
     return axios.delete(`http://localhost:5000/api/delete_product/${productId}`);
   },
+  addClient: (formData) =>
+    axios.post('http://localhost:5000/api/add_client', formData
+
+    ),
+
 };
 
 export default apiService;

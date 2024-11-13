@@ -3,20 +3,20 @@ import re
 from datetime import datetime
 
 EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9.+_-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]+$')
-PHONE_REGEX = re.compile(r'^\d{3}-\d{3}-\d{4}$')
+PHONE_REGEX = re.compile(r'^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$')
 
 
 class Client:
     def __init__(self, data):
-        self.id = data['id']
-        self.first_name = data['first_name']
-        self.last_name = data['last_name']
-        self.contact_method = data['contact_method']
-        self.contact_details = data['contact_details']
-        self.preferred_payment_method = data['preferred_payment_method']
-        self.additional_notes = data['additional_notes']
-        self.created_at = data['created_at']
-        self.updated_at = data['updated_at']
+        self.id = data.get('id')
+        self.first_name = data.get('first_name')
+        self.last_name = data.get('last_name')
+        self.contact_method = data.get('contact_method')
+        self.contact_details = data.get('contact_details')
+        self.preferred_payment_method = data.get('preferred_payment_method')
+        self.additional_notes = data.get('additional_notes')
+        self.created_at = data.get('created_at')
+        self.updated_at = data.get('updated_at')
     
     def serialize(self):
         return{
@@ -41,12 +41,33 @@ class Client:
     
     @staticmethod
     def is_valid(data):
-        is_valid = True
-        if not EMAIL_REGEX.match(data['contact_details']):
-            is_valid = False
-        if not PHONE_REGEX.match(data['contact_details']):
-            is_valid = False
-        return is_valid
+        contact_method = data.get('contact_method', '').strip().lower()
+        contact_details = data.get('contact_details', '').strip()
+        
+        print(f"Validating contact_method: '{contact_method}'")
+        print(f"Validating contact_details: '{contact_details}'")
+
+        if not contact_details:
+            print("Validation failed: contact_details is empty")
+            return False
+
+        if contact_method == 'email':
+            if not EMAIL_REGEX.match(contact_details):
+                print("Validation failed: contact_details does not match EMAIL_REGEX")
+                return False
+        elif contact_method == 'phone':
+            if not PHONE_REGEX.match(contact_details):
+                print("Validation failed: contact_details does not match PHONE_REGEX")
+                return False
+        else:
+            print("Validation failed: Invalid contact_method")
+            return False  # Invalid contact method
+
+        print("Validation passed")
+        return True
+
+
+
 
 
     @classmethod

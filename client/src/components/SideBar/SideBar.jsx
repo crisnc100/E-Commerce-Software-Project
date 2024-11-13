@@ -18,7 +18,7 @@ const SideBar = () => {
           Products
         </Link>
         <Link to="clients" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
-          Clients
+          Customers
         </Link>
         <Link to="payments" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
           Payments

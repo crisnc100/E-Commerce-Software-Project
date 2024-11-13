@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { FaUserPlus } from 'react-icons/fa';
+import ReactTypingEffect from 'react-typing-effect';  // Import the typing effect component
+import AddClientModal from './AddClientModal';
+
 
 const MainPage = () => {
   const [currentTime, setCurrentTime] = useState('');
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+
 
   useEffect(() => {
     const updateClock = () => {
@@ -20,6 +25,13 @@ const MainPage = () => {
   return (
     <div className="p-4 space-y-6">
       {/* Clock Section */}
+      <ReactTypingEffect
+          text={['Welcome Back!']}
+          className="text-2xl font-semibold text-center text-gray-800 mb-6"
+          speed={100}
+          eraseDelay={1000000} // Prevents erasing the text
+          typingDelay={500}    // Delay before typing starts
+        />
       <div className="flex justify-end">
         <div className="bg-gray-800 text-white p-4 rounded-lg shadow-md">
           <h2 className="text-lg font-semibold">Current Time</h2>
@@ -29,9 +41,12 @@ const MainPage = () => {
       
       {/* Add New Client Button */}
       <div className="flex justify-start mt-4">
-        <button className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow">
+        <button
+        onClick={() => setIsClientModalOpen(true)}
+        className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow">
+          
           <FaUserPlus />
-          <span>Add New Client</span>
+          <span>Add New Customer</span>
         </button>
       </div>
 
@@ -89,7 +104,10 @@ const MainPage = () => {
             <p className="text-2xl font-bold text-blue-600">$1,500</p>
           </div>
         </div>
+        {isClientModalOpen && <AddClientModal onClose={() => setIsClientModalOpen(false)} />}
+
       </div>
+
     </div>
   );
 };

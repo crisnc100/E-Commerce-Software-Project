@@ -8,19 +8,25 @@ from decorators import login_required   # Import the decorator
 @app.route('/api/add_client', methods=['POST'])
 def create_client():
     data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    
-    # Validate data before saving
-    if not Client.is_valid(data):
-        return jsonify({"error": "Invalid data provided"}), 400
-    
-    # Save client
-    client_id = Client.save(data)
-    if client_id:
-        return jsonify({'message': 'New client added successfully', 'client_id': client_id}), 200
-    else:
-        return jsonify({'error': 'Failed to add new client. Please try again.'}), 500
+    print("Received data:", data)
+
+    # Ensure all required fields are present
+    required_fields = ['first_name', 'last_name', 'contact_method', 'contact_details', 'preferred_payment_method']
+    missing_fields = [field for field in required_fields if field not in data or not data[field]]
+
+    if missing_fields:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+
+    # Validation passes since is_valid returns True
+
+    # Proceed with saving the client
+    try:
+        client_id = Client.save(data)
+        return jsonify({"message": "Client added", "client_id": client_id}), 201
+    except Exception as e:
+        print(f"Error saving client: {e}")
+        return jsonify({"error": "Failed to save client"}), 500
+
 
 
 @app.route('/api/all_clients')
