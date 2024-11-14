@@ -8,16 +8,21 @@ from decorators import login_required   # Import the decorator
 @app.route('/api/add_client', methods=['POST'])
 def create_client():
     data = request.get_json()
-    print("Received data:", data)
-
     # Ensure all required fields are present
     required_fields = ['first_name', 'last_name', 'contact_method', 'contact_details', 'preferred_payment_method']
     missing_fields = [field for field in required_fields if field not in data or not data[field]]
 
+    print(f"Missing fields: {missing_fields}")
+
     if missing_fields:
+        print("Missing required fields:", missing_fields)
         return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
 
-    # Validation passes since is_valid returns True
+    print("Starting validation")
+    if not Client.is_valid(data):
+        print("Validation failed")
+        return jsonify({"error": "Invalid contact details. Must be a valid email or phone number."}), 400
+    print("Validation passed")
 
     # Proceed with saving the client
     try:
@@ -26,6 +31,8 @@ def create_client():
     except Exception as e:
         print(f"Error saving client: {e}")
         return jsonify({"error": "Failed to save client"}), 500
+
+
 
 
 
@@ -71,8 +78,7 @@ def update_client(client_id):
 def delete_client(client_id):
     print(f"Received DELETE request for client ID {client_id}")
     try:
-        
-        success = Client.delete(client_id)  
+        success = Client.delete(client_id)
         if success:
             print(f"Successfully deleted client {client_id}")
             return jsonify({"success": True}), 200
@@ -82,6 +88,7 @@ def delete_client(client_id):
     except Exception as e:
         print(f"Exception during delete: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 
 # SEARCH Client by Name

@@ -80,7 +80,7 @@ const UploadProductModal = ({ onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="mr-4 bg-gray-500 text-white py-2 px-4 rounded-lg"
+              className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
             >
               Cancel
             </button>

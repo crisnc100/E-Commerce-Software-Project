@@ -30,6 +30,12 @@ const apiService = {
     axios.post('http://localhost:5000/api/add_client', formData
 
     ),
+  allClients:() => {
+    return axios.get('http://localhost:5000/api/all_clients');
+  },
+  deleteClient: (clientId) => {
+    return axios.delete(`http://localhost:5000/api/delete_client/${clientId}`);
+  },
 
 };
 

@@ -4,9 +4,12 @@ import ReactTypingEffect from 'react-typing-effect';  // Import the typing effec
 import AddClientModal from './AddClientModal';
 
 
+
 const MainPage = () => {
   const [currentTime, setCurrentTime] = useState('');
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
 
 
   useEffect(() => {
@@ -26,25 +29,31 @@ const MainPage = () => {
     <div className="p-4 space-y-6">
       {/* Clock Section */}
       <ReactTypingEffect
-          text={['Welcome Back!']}
-          className="text-2xl font-semibold text-center text-gray-800 mb-6"
-          speed={100}
-          eraseDelay={1000000} // Prevents erasing the text
-          typingDelay={500}    // Delay before typing starts
-        />
+        text={['Welcome Back!']}
+        className="text-2xl font-semibold text-center text-gray-800 mb-6"
+        speed={100}
+        eraseDelay={1000000} // Prevents erasing the text
+        typingDelay={500}    // Delay before typing starts
+      />
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-green-100 text-green-700 p-2 mb-4 rounded-md">
+          {successMessage}
+        </div>
+      )}
       <div className="flex justify-end">
         <div className="bg-gray-800 text-white p-4 rounded-lg shadow-md">
           <h2 className="text-lg font-semibold">Current Time</h2>
           <p id="clock" className="text-2xl mt-2">{currentTime}</p>
         </div>
       </div>
-      
+
       {/* Add New Client Button */}
       <div className="flex justify-start mt-4">
         <button
-        onClick={() => setIsClientModalOpen(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow">
-          
+          onClick={() => setIsClientModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow">
+
           <FaUserPlus />
           <span>Add New Customer</span>
         </button>
@@ -104,7 +113,16 @@ const MainPage = () => {
             <p className="text-2xl font-bold text-blue-600">$1,500</p>
           </div>
         </div>
-        {isClientModalOpen && <AddClientModal onClose={() => setIsClientModalOpen(false)} />}
+        {isClientModalOpen && (
+          <AddClientModal
+            onClose={() => setIsClientModalOpen(false)}
+            onSuccess={(message) => {
+              setSuccessMessage(message);
+              setTimeout(() => setSuccessMessage(''), 3000); // Clears after 3 seconds
+            }}
+          />
+        )}
+
 
       </div>
 

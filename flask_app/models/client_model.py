@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 
 EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9.+_-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]+$')
-PHONE_REGEX = re.compile(r'^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$')
+PHONE_REGEX = re.compile(r'^\d{10}$')
 
 
 class Client:
@@ -41,32 +41,42 @@ class Client:
     
     @staticmethod
     def is_valid(data):
-        contact_method = data.get('contact_method', '').strip().lower()
-        contact_details = data.get('contact_details', '').strip()
-        
-        print(f"Validating contact_method: '{contact_method}'")
-        print(f"Validating contact_details: '{contact_details}'")
+        print("Entered is_valid method")
+        try:
+            contact_method = (data.get('contact_method', '') or '').strip().lower()
+            contact_details = (data.get('contact_details', '') or '').strip()
 
-        if not contact_details:
-            print("Validation failed: contact_details is empty")
+            print(f"contact_method: '{contact_method}'")
+            print(f"contact_details: '{contact_details}'")
+
+            errors = []
+
+            if not contact_details:
+                errors.append("Contact details are required.")
+                print("Validation error: Contact details are required.")
+
+            if contact_method == 'email':
+                if not EMAIL_REGEX.match(contact_details):
+                    errors.append("Invalid email address.")
+                    print("Validation error: Invalid email address.")
+            elif contact_method == 'phone':
+                if not PHONE_REGEX.match(contact_details):
+                    errors.append("Invalid phone number. It must be exactly 10 digits.")
+                    print("Validation error: Invalid phone number.")
+            else:
+                errors.append("Invalid contact method. Must be 'email' or 'phone'.")
+                print("Validation error: Invalid contact method.")
+
+            if errors:
+                for error in errors:
+                    print(f"Validation error: {error}")
+                return False
+
+            print("Validation passed")
+            return True
+        except Exception as e:
+            print(f"Exception in is_valid method: {e}")
             return False
-
-        if contact_method == 'email':
-            if not EMAIL_REGEX.match(contact_details):
-                print("Validation failed: contact_details does not match EMAIL_REGEX")
-                return False
-        elif contact_method == 'phone':
-            if not PHONE_REGEX.match(contact_details):
-                print("Validation failed: contact_details does not match PHONE_REGEX")
-                return False
-        else:
-            print("Validation failed: Invalid contact_method")
-            return False  # Invalid contact method
-
-        print("Validation passed")
-        return True
-
-
 
 
 
@@ -99,9 +109,20 @@ class Client:
 
     @classmethod
     def delete(cls, client_id):
-        """Delete a client record."""
-        query = "DELETE FROM clients WHERE id = %(id)s;"
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': client_id})
+        # Check if the client exists
+        select_query = "SELECT id FROM clients WHERE id = %(id)s;"
+        data = {'id': client_id}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(select_query, data)
+        
+        if not result:
+            # Client does not exist
+            return False
+        
+        # Delete the client
+        delete_query = "DELETE FROM clients WHERE id = %(id)s;"
+        connectToMySQL('maria_ortegas_project_schema').query_db(delete_query, data)
+        return True
+
 
     ### Search and Validation Methods ###
 
@@ -120,7 +141,7 @@ class Client:
             is_valid = False
         if len(data['last_name']) < 2:
             is_valid = False
-        if data['contact_method'] not in ['Instagram', 'Facebook', 'WhatsApp']:
+        if data['contact_method'] not in ['email', 'phone']:
             is_valid = False
         if not EMAIL_REGEX.match(data['contact_details']) and not PHONE_REGEX.match(data['contact_details']):
             is_valid = False

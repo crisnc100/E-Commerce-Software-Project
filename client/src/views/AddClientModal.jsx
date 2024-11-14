@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import apiService from '../services/apiService';
 
-const AddClientModal = ({ onClose }) => {
+const AddClientModal = ({ onClose, onSuccess }) => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [contactMethod, setContactMethod] = useState('phone'); // Default to phone
+    const [contactMethod, setContactMethod] = useState('phone');
     const [contactDetail, setContactDetail] = useState('');
     const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
     const [otherPaymentMethod, setOtherPaymentMethod] = useState('');
     const [additionalNotes, setAdditionalNotes] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    const [successMessage, setSuccessMessage] = useState('');
+
 
     const validateFields = () => {
         const newErrors = {};
@@ -28,8 +30,9 @@ const AddClientModal = ({ onClose }) => {
             newErrors.contactDetail = 'Invalid email address';
         }
 
-        if (!preferredPaymentMethod) newErrors.preferredPaymentMethod = 'Please select a payment method';
-        if (preferredPaymentMethod === 'Other' && !otherPaymentMethod.trim()) {
+        if (!preferredPaymentMethod) {
+            newErrors.preferredPaymentMethod = 'Please select a payment method';
+        } else if (preferredPaymentMethod === 'Other' && !otherPaymentMethod.trim()) {
             newErrors.otherPaymentMethod = 'Please specify other payment method';
         }
 
@@ -46,16 +49,15 @@ const AddClientModal = ({ onClose }) => {
         const clientData = {
             first_name: firstName,
             last_name: lastName,
-            contact_method: contactMethod, // 'phone' or 'email'
-            contact_details: contactDetail, // Actual phone number or email address
+            contact_method: contactMethod,
+            contact_details: contactDetail,
             preferred_payment_method: preferredPaymentMethod === 'Other' ? otherPaymentMethod : preferredPaymentMethod,
             additional_notes: additionalNotes,
         };
 
-
         try {
             const response = await apiService.addClient(clientData);
-            alert(response.data.message);
+            onSuccess(response.data.message);
             onClose();
         } catch (error) {
             console.error('Error adding client:', error);
@@ -69,6 +71,7 @@ const AddClientModal = ({ onClose }) => {
             <div className="bg-white p-6 rounded-lg shadow-lg w-1/3">
                 <h2 className="text-lg font-bold mb-4">New Customer</h2>
                 <form onSubmit={handleSubmit}>
+                    {/* First Name Input */}
                     <input
                         type="text"
                         placeholder="First Name"
@@ -78,6 +81,7 @@ const AddClientModal = ({ onClose }) => {
                     />
                     {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
 
+                    {/* Last Name Input */}
                     <input
                         type="text"
                         placeholder="Last Name"
@@ -87,6 +91,7 @@ const AddClientModal = ({ onClose }) => {
                     />
                     {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
 
+                    {/* Contact Method */}
                     <div className="mb-4">
                         <label className="font-semibold mb-2 block">Contact Method</label>
                         <div className="flex items-center mb-2">
@@ -121,6 +126,7 @@ const AddClientModal = ({ onClose }) => {
                         {errors.contactDetail && <p className="text-red-500 text-sm">{errors.contactDetail}</p>}
                     </div>
 
+                    {/* Preferred Payment Method */}
                     <div className="mb-4">
                         <label className="block mb-2">Preferred Payment Method</label>
                         <div className="flex flex-col space-y-2">
@@ -146,10 +152,12 @@ const AddClientModal = ({ onClose }) => {
                                     className={`w-full p-2 border ${errors.otherPaymentMethod ? 'border-red-500' : 'border-gray-300'} rounded-lg`}
                                 />
                             )}
+                            {errors.preferredPaymentMethod && <p className="text-red-500 text-sm">{errors.preferredPaymentMethod}</p>}
                             {errors.otherPaymentMethod && <p className="text-red-500 text-sm">{errors.otherPaymentMethod}</p>}
                         </div>
                     </div>
 
+                    {/* Additional Notes */}
                     <textarea
                         placeholder="Additional Notes (Optional)"
                         value={additionalNotes}
@@ -162,7 +170,7 @@ const AddClientModal = ({ onClose }) => {
                         <button
                             type="button"
                             onClick={onClose}
-                            className="mr-4 bg-gray-500 text-white py-2 px-4 rounded-lg"
+                            className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
                         >
                             Cancel
                         </button>

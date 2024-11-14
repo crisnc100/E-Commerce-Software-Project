@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 import { FiEdit, FiTrash } from 'react-icons/fi';
 
-
 const Spinner = () => (
   <div className="w-5 h-5 border-4 border-t-white border-gray-300 rounded-full animate-spin"></div>
 );
@@ -15,7 +14,9 @@ const ProductsTab = () => {
   const [editProductData, setEditProductData] = useState(null);
   const [newImage, setNewImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [deleteProductId, setDeleteProductId] = useState(null);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -46,15 +47,22 @@ const ProductsTab = () => {
     setExpandedProductId((prevId) => (prevId === productId ? null : productId));
   };
 
-  const handleDelete = async (productId) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this product?');
-    if (confirmDelete) {
-      try {
-        await apiService.deleteProduct(productId);
-        setProducts(products.filter((product) => product.id !== productId));
-      } catch (error) {
-        console.error('Error deleting product:', error);
-      }
+  const confirmDelete = (productId) => {
+    setDeleteProductId(productId);
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await apiService.deleteProduct(deleteProductId);
+      setProducts(prevProducts => prevProducts.filter((product) => product.id !== deleteProductId));
+      setSuccessMessage('Product deleted successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    } finally {
+      setIsConfirmModalOpen(false);
+      setDeleteProductId(null);
     }
   };
 
@@ -73,35 +81,44 @@ const ProductsTab = () => {
   };
 
   const handleEditSubmit = async () => {
+    setIsLoading(true);
     try {
       const formData = new FormData();
       formData.append('name', editProductData.name);
       formData.append('description', editProductData.description);
       formData.append('price', editProductData.price);
       if (newImage) {
-        formData.append('screenshot_photo', newImage); // Attach new image if present
+        formData.append('screenshot_photo', newImage);
       }
 
       await apiService.updateProduct(editProductData.id, formData);
       setIsEditModalOpen(false);
 
-      // Re-fetch the updated product list from the server
+      // Re-fetch the updated product list
       const response = await apiService.getAllProducts();
       setProducts(response.data);
 
-      alert('Product updated successfully!');
+      setSuccessMessage('Product updated successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error updating product:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
-
-
 
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Products</h1>
       </div>
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-green-100 text-green-700 p-2 mb-4 rounded-md">
+          {successMessage}
+        </div>
+      )}
 
       <div className="flex justify-between items-center mb-4">
         <label htmlFor="sort" className="font-semibold mr-2">
@@ -152,7 +169,7 @@ const ProductsTab = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(product.id);
+                      confirmDelete(product.id);
                     }}
                     className="flex items-center bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg"
                   >
@@ -164,6 +181,33 @@ const ProductsTab = () => {
           </div>
         ))}
       </div>
+
+      {/* Confirmation Modal */}
+      {isConfirmModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold mb-4">Confirm Deletion</h2>
+            <p>Are you sure you want to delete this product?</p>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => {
+                  setIsConfirmModalOpen(false);
+                  setDeleteProductId(null);
+                }}
+                className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {isEditModalOpen && (
@@ -217,8 +261,6 @@ const ProductsTab = () => {
                 Save
               </button>
             </div>
-
-
           </div>
         </div>
       )}
