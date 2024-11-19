@@ -10,7 +10,7 @@ def create_purchase():
     data = request.get_json()
 
     # Check for required fields
-    required_fields = ['client_id', 'product_id', 'size_id', 'purchase_date', 'amount']
+    required_fields = ['client_id', 'product_id', 'size', 'purchase_date', 'amount']
     if not all(field in data for field in required_fields):
         return jsonify({"error": "Missing required fields"}), 400
 

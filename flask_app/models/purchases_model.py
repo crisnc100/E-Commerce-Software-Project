@@ -5,7 +5,7 @@ class Purchase:
         self.id = data.get('id')
         self.client_id = data.get('client_id')
         self.product_id = data.get('product_id')
-        self.size_id = data.get('size_id')
+        self.size = data.get('size')
         self.purchase_date = data.get('purchase_date')
         self.amount = data.get('amount')
         self.payment_status = data.get('payment_status')
@@ -18,7 +18,7 @@ class Purchase:
             'id': self.id,
             'client_id': self.client_id,
             'product_id': self.product_id,
-            'size_id': self.size_id,
+            'size': self.size,
             'purchase_date': self.purchase_date,
             'amount': self.amount,
             'payment_status': self.payment_status,
@@ -32,8 +32,8 @@ class Purchase:
     def save(cls, data):
         """Create a new purchase record."""
         query = """
-        INSERT INTO purchases (client_id, product_id, size_id, purchase_date, amount, payment_status, shipping_status, created_at, updated_at) 
-        VALUES (%(client_id)s, %(product_id)s, %(size_id)s, %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, NOW(), NOW());
+        INSERT INTO purchases (client_id, product_id, size, purchase_date, amount, payment_status, shipping_status, created_at, updated_at) 
+        VALUES (%(client_id)s, %(product_id)s, %(size)s, %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, NOW(), NOW());
         """
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
@@ -56,7 +56,7 @@ class Purchase:
         """Update an existing purchase record."""
         query = """
         UPDATE purchases 
-        SET client_id = %(client_id)s, product_id = %(product_id)s, size_id = %(size_id)s, 
+        SET client_id = %(client_id)s, product_id = %(product_id)s, size = %(size)s, 
         purchase_date = %(purchase_date)s, amount = %(amount)s, payment_status = %(payment_status)s, 
         shipping_status = %(shipping_status)s, updated_at = NOW() 
         WHERE id = %(id)s;

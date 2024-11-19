@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { FaUserPlus } from 'react-icons/fa';
-import ReactTypingEffect from 'react-typing-effect';  // Import the typing effect component
-import AddClientModal from './AddClientModal';
-
-
+import { FaUserPlus, FaShoppingCart } from 'react-icons/fa';
+import ReactTypingEffect from 'react-typing-effect';
+import AddClientModal from './AddClientModal'; // Assuming this is for adding clients
+import AddPurchaseModal from './AddPurchaseModal'; // New modal for creating purchases
 
 const MainPage = () => {
   const [currentTime, setCurrentTime] = useState('');
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-
-
 
   useEffect(() => {
     const updateClock = () => {
@@ -27,7 +25,7 @@ const MainPage = () => {
 
   return (
     <div className="p-4 space-y-6">
-      {/* Clock Section */}
+      {/* Welcome Message */}
       <ReactTypingEffect
         text={['Welcome Back!']}
         className="text-2xl font-semibold text-center text-gray-800 mb-6"
@@ -35,12 +33,15 @@ const MainPage = () => {
         eraseDelay={1000000} // Prevents erasing the text
         typingDelay={500}    // Delay before typing starts
       />
+
       {/* Success Message */}
       {successMessage && (
         <div className="bg-green-100 text-green-700 p-2 mb-4 rounded-md">
           {successMessage}
         </div>
       )}
+
+      {/* Clock Section */}
       <div className="flex justify-end">
         <div className="bg-gray-800 text-white p-4 rounded-lg shadow-md">
           <h2 className="text-lg font-semibold">Current Time</h2>
@@ -48,14 +49,24 @@ const MainPage = () => {
         </div>
       </div>
 
-      {/* Add New Client Button */}
-      <div className="flex justify-start mt-4">
+      {/* Quick Actions Section */}
+      <div className="flex justify-start space-x-4 mt-4">
+        {/* Add New Customer Button */}
         <button
           onClick={() => setIsClientModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow">
-
+          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow"
+        >
           <FaUserPlus />
           <span>Add New Customer</span>
+        </button>
+
+        {/* Create New Purchase Button */}
+        <button
+          onClick={() => setIsPurchaseModalOpen(true)}
+          className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow"
+        >
+          <FaShoppingCart />
+          <span>Create New Purchase</span>
         </button>
       </div>
 
@@ -79,7 +90,6 @@ const MainPage = () => {
               />
               <p className="mt-2 text-sm text-center">Product Name</p>
             </div>
-            {/* Repeat similar blocks for more product items */}
           </div>
         </div>
 
@@ -95,7 +105,6 @@ const MainPage = () => {
               <span>Client B</span>
               <span>$150</span>
             </li>
-            {/* Add more purchase items here */}
           </ul>
         </div>
       </div>
@@ -113,19 +122,27 @@ const MainPage = () => {
             <p className="text-2xl font-bold text-blue-600">$1,500</p>
           </div>
         </div>
-        {isClientModalOpen && (
-          <AddClientModal
-            onClose={() => setIsClientModalOpen(false)}
-            onSuccess={(message) => {
-              setSuccessMessage(message);
-              setTimeout(() => setSuccessMessage(''), 3000); // Clears after 3 seconds
-            }}
-          />
-        )}
-
-
       </div>
 
+      {/* Modals */}
+      {isClientModalOpen && (
+        <AddClientModal
+          onClose={() => setIsClientModalOpen(false)}
+          onSuccess={(message) => {
+            setSuccessMessage(message);
+            setTimeout(() => setSuccessMessage(''), 3000);
+          }}
+        />
+      )}
+      {isPurchaseModalOpen && (
+        <AddPurchaseModal
+          onClose={() => setIsPurchaseModalOpen(false)}
+          onSuccess={(message) => {
+            setSuccessMessage(message);
+            setTimeout(() => setSuccessMessage(''), 3000);
+          }}
+        />
+      )}
     </div>
   );
 };
