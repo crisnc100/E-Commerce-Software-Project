@@ -16,7 +16,7 @@ const AutoLogout = () => {
         apiService.logout().then(() => {
           navigate('/');
         });
-      }, 10 * 60 * 1000); // Auto-lock after 10 minutes
+      }, 60 * 60 * 1000); // Auto-lock after 10 minutes
     };
 
     // Reset the timer on user activity

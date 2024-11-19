@@ -76,10 +76,17 @@ class Payment:
 
     @classmethod
     def get_payments_by_purchase(cls, purchase_id):
-        """Retrieve all payments associated with a specific purchase."""
+        """Retrieve all payments for a specific purchase."""
         query = "SELECT * FROM payments WHERE purchase_id = %(purchase_id)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db({'purchase_id': purchase_id})
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'purchase_id': purchase_id})
+        
+        # Check if results are valid
+        if not results or isinstance(results, bool):
+            return []  # Return an empty list if no results or query fails
+
+        # Map results to Payment instances
         return [cls(row) for row in results]
+
 
     @classmethod
     def get_total_paid_for_purchase(cls, purchase_id):
@@ -94,8 +101,10 @@ class Payment:
     def validate_payment(data):
         """Validate payment details before saving or updating."""
         is_valid = True
+        errors = []
+
+        # Validate amount_paid
         if data['amount_paid'] <= 0:
             is_valid = False
-        if data['payment_method'] not in ['Credit Card', 'Bank Transfer', 'PayPal', 'Venmo', 'Zelle']:
-            is_valid = False
-        return is_valid
+            errors.append("The payment amount must be greater than zero.")
+        return is_valid, errors

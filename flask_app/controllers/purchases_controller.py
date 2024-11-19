@@ -59,7 +59,6 @@ def get_one_purchase(purchase_id):
 @app.route('/api/update_purchase/<int:purchase_id>', methods=['PUT'])
 def update_purchase(purchase_id):
     data = request.get_json()
-    data['id'] = purchase_id
 
     # Check if purchase exists
     purchase = Purchase.get_by_id(purchase_id)
@@ -67,8 +66,10 @@ def update_purchase(purchase_id):
         return jsonify({"error": "Purchase not found"}), 404
 
     # Update the purchase
+    data['id'] = purchase_id  # Ensure 'id' is in data if required by Purchase.update
     Purchase.update(data)
     return jsonify({"message": "Purchase updated"}), 200
+
 
 
 # DELETE Purchase

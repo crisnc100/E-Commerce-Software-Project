@@ -30,16 +30,29 @@ const apiService = {
     axios.post('http://localhost:5000/api/add_client', formData
 
     ),
-  allClients:() => {
+  allClients: () => {
     return axios.get('http://localhost:5000/api/all_clients');
   },
   deleteClient: (clientId) => {
     return axios.delete(`http://localhost:5000/api/delete_client/${clientId}`);
   },
-  createPurchase: (formData) => 
+  createPurchase: (formData) =>
     axios.post('http://localhost:5000/api/create_purchase', formData
 
     ),
+  updatePurchase: (purchaseId, formData) => axios.put(`http://localhost:5000/api/update_purchase/${purchaseId}`, formData
+
+  ),
+  createPayment: (formData) => axios.post('http://localhost:5000/api/create_payment', formData
+
+  ),
+  getPaymentsByPurchaseId: (purchaseId) => axios.get(`http://localhost:5000/api/get_payments_by_purchase/${purchaseId}`
+    
+  ),
+
+
+
+
 
 };
 
