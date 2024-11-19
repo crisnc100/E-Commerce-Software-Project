@@ -66,7 +66,7 @@ const MainPage = () => {
           className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow"
         >
           <FaShoppingCart />
-          <span>Create New Purchase</span>
+          <span>Create New Order</span>
         </button>
       </div>
 

@@ -12,12 +12,24 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [customSize, setCustomSize] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [newPurchaseId, setNewPurchaseId] = useState(null);
 
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imageToShow, setImageToShow] = useState('');
+
+  const [addPaymentNow, setAddPaymentNow] = useState(false);
+
+  // New state for payment modal
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [amountPaid, setAmountPaid] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentErrors, setPaymentErrors] = useState({});
 
   useEffect(() => {
     // Fetch clients and products on modal load
@@ -62,6 +74,16 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const validatePaymentFields = () => {
+    const newErrors = {};
+    if (!paymentDate) newErrors.paymentDate = 'Payment date is required.';
+    if (!amountPaid || isNaN(amountPaid) || amountPaid <= 0)
+      newErrors.amountPaid = 'Valid amount is required.';
+    if (!paymentMethod.trim()) newErrors.paymentMethod = 'Payment method is required.';
+    setPaymentErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -75,18 +97,58 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
       client_id: selectedClient.value,
       product_id: selectedProduct.value,
       size: sizeToSave,
-      purchase_date: new Date().toISOString().split('T')[0],
+      purchase_date: purchaseDate,
       amount: parseFloat(amount),
       payment_status: 'Pending',
       shipping_status: 'Pending',
     };
 
     try {
-      await apiService.createPurchase(purchaseData);
-      onSuccess('Purchase created successfully!');
-      onClose();
+      const response = await apiService.createPurchase(purchaseData);
+      setNewPurchaseId(response.data.purchase_id); // Store the new purchase ID
+
+      if (addPaymentNow) {
+        setIsPurchaseModalOpen(false); // Hide the purchase modal
+        setIsPaymentModalOpen(true); // Open the payment modal
+      } else {
+        onSuccess('Order created successfully'); // Show success message
+        onClose(); // Close the component
+      }
     } catch (error) {
       console.error('Error creating purchase:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const closePaymentModal = () => {
+    setIsPaymentModalOpen(false);
+    onSuccess('Order created successfully');
+    onClose(); // Close the component
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validatePaymentFields()) return;
+
+    setIsLoading(true);
+
+    const paymentData = {
+      client_id: selectedClient.value,
+      purchase_id: newPurchaseId,
+      payment_date: paymentDate,
+      amount_paid: parseFloat(amountPaid),
+      payment_method: paymentMethod,
+    };
+
+    try {
+      await apiService.createPayment(paymentData);
+      setIsPaymentModalOpen(false); // Close the payment modal
+      onSuccess('Payment added successfully'); // Show success message
+      onClose(); // Close the component
+    } catch (error) {
+      console.error('Error creating payment:', error);
     } finally {
       setIsLoading(false);
     }
@@ -153,132 +215,227 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
   const sizeOptions = ['Small', 'Medium', 'Large', 'X-Large', 'XX-Large', 'Custom'];
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
-        <h2 className="text-xl font-bold mb-4">Create New Purchase</h2>
-        <form onSubmit={handleSubmit}>
-          {/* Client Selection */}
-          <label className="block mb-2 font-semibold">Select Client</label>
-          <Select
-            options={clientOptions}
-            value={selectedClient}
-            onChange={setSelectedClient}
-            placeholder="Search and select client..."
-            className="mb-4"
-            components={{ Option: ClientOption }}
-            styles={{
-              control: (base) => (errors.selectedClient ? { ...base, borderColor: 'red' } : base),
-            }}
-          />
-          {errors.selectedClient && (
-            <p className="text-red-500 text-sm">{errors.selectedClient}</p>
-          )}
+    <>
+      {/* Purchase Modal */}
+      {isPurchaseModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
+            <h2 className="text-xl font-bold mb-4">Create New Order</h2>
+            <form onSubmit={handleSubmit}>
+              {/* Client Selection */}
+              <label className="block mb-2 font-semibold">Select Client</label>
+              <Select
+                options={clientOptions}
+                value={selectedClient}
+                onChange={setSelectedClient}
+                placeholder="Search and select client..."
+                className="mb-4"
+                components={{ Option: ClientOption }}
+                styles={{
+                  control: (base) => (errors.selectedClient ? { ...base, borderColor: 'red' } : base),
+                }}
+              />
+              {errors.selectedClient && (
+                <p className="text-red-500 text-sm">{errors.selectedClient}</p>
+              )}
 
-          {/* Product Selection */}
-          <label className="block mb-2 font-semibold">Select Product</label>
-          <Select
-            options={productOptions}
-            value={selectedProduct}
-            onChange={setSelectedProduct}
-            placeholder="Search and select product..."
-            className="mb-4"
-            components={{ Option: ProductOption, SingleValue: ProductSingleValue }}
-            styles={{
-              control: (base) =>
-                errors.selectedProduct ? { ...base, borderColor: 'red' } : base,
-            }}
-          />
-          {errors.selectedProduct && (
-            <p className="text-red-500 text-sm">{errors.selectedProduct}</p>
-          )}
+              {/* Product Selection */}
+              <label className="block mb-2 font-semibold">Select Product</label>
+              <Select
+                options={productOptions}
+                value={selectedProduct}
+                onChange={setSelectedProduct}
+                placeholder="Search and select product..."
+                className="mb-4"
+                components={{ Option: ProductOption, SingleValue: ProductSingleValue }}
+                styles={{
+                  control: (base) =>
+                    errors.selectedProduct ? { ...base, borderColor: 'red' } : base,
+                }}
+              />
+              {errors.selectedProduct && (
+                <p className="text-red-500 text-sm">{errors.selectedProduct}</p>
+              )}
 
-          {/* Size Selection */}
-          <label className="block mb-2 font-semibold">Select Size</label>
-          <div className="mb-4">
-            {sizeOptions.map((size) => (
-              <label key={size} className="inline-flex items-center mr-4">
+              {/* Size Selection */}
+              <label className="block mb-2 font-semibold">Select Size</label>
+              <div className="mb-4">
+                {sizeOptions.map((size) => (
+                  <label key={size} className="inline-flex items-center mr-4">
+                    <input
+                      type="radio"
+                      name="size"
+                      value={size}
+                      checked={selectedSize === size}
+                      onChange={(e) => setSelectedSize(e.target.value)}
+                      className="form-radio"
+                    />
+                    <span className="ml-2">{size}</span>
+                  </label>
+                ))}
+                {errors.selectedSize && (
+                  <p className="text-red-500 text-sm">{errors.selectedSize}</p>
+                )}
+              </div>
+
+              {/* Custom Size Input */}
+              {selectedSize === 'Custom' && (
+                <div className="mb-4">
+                  <label className="block mb-2 font-semibold">Enter Custom Size</label>
+                  <input
+                    type="text"
+                    value={customSize}
+                    onChange={(e) => setCustomSize(e.target.value)}
+                    className={`w-full p-2 border ${errors.customSize ? 'border-red-500' : 'border-gray-300'
+                      } rounded-lg`}
+                    placeholder="Enter custom size"
+                  />
+                  {errors.customSize && (
+                    <p className="text-red-500 text-sm">{errors.customSize}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Purchase Date */}
+              <label className="block mb-2 font-semibold">Order Date</label>
+              <input
+                type="date"
+                value={purchaseDate}
+                onChange={(e) => setPurchaseDate(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg mb-4"
+              />
+
+              {/* Amount */}
+              <label className="block mb-2 font-semibold">Amount</label>
+              <div className="flex items-center border border-gray-300 rounded-lg mb-4">
+                <span className="px-3 bg-gray-200 text-gray-700">$</span>
                 <input
-                  type="radio"
-                  name="size"
-                  value={size}
-                  checked={selectedSize === size}
-                  onChange={(e) => setSelectedSize(e.target.value)}
-                  className="form-radio"
+                  type="number"
+                  placeholder="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className={`w-full p-2 border-l border-gray-300 rounded-r-lg focus:outline-none ${errors.amount ? 'border-red-500' : ''
+                    }`}
                 />
-                <span className="ml-2">{size}</span>
-              </label>
-            ))}
-            {errors.selectedSize && (
-              <p className="text-red-500 text-sm">{errors.selectedSize}</p>
-            )}
-          </div>
+              </div>
+              {errors.amount && <p className="text-red-500 text-sm">{errors.amount}</p>}
 
-          {/* Custom Size Input */}
-          {selectedSize === 'Custom' && (
-            <div className="mb-4">
-              <label className="block mb-2 font-semibold">Enter Custom Size</label>
+              {/* Add Payment Now Checkbox */}
+              <label className="inline-flex items-center mt-4">
+                <input
+                  type="checkbox"
+                  checked={addPaymentNow}
+                  onChange={(e) => setAddPaymentNow(e.target.checked)}
+                  className="form-checkbox"
+                />
+                <span className="ml-2">Add payment now</span>
+              </label>
+
+              {/* Buttons */}
+              <div className="flex justify-end mt-6">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mr-4 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg ${isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Creating...' : 'Create Order'}
+                </button>
+              </div>
+            </form>
+
+            {/* Image Modal */}
+            <Modal
+              open={isImageModalOpen}
+              onClose={() => setIsImageModalOpen(false)}
+              center
+            >
+              <img src={imageToShow} alt="Product" className="w-full h-auto" />
+            </Modal>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4">Add Payment</h3>
+            <form onSubmit={handlePaymentSubmit}>
+              {/* Payment Date */}
+              <label className="block mb-2 font-semibold">Payment Date</label>
+              <input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                className={`w-full p-2 border ${paymentErrors.paymentDate ? 'border-red-500' : 'border-gray-300'
+                  } rounded-lg mb-4`}
+              />
+              {paymentErrors.paymentDate && (
+                <p className="text-red-500 text-sm">{paymentErrors.paymentDate}</p>
+              )}
+
+              {/* Amount Paid */}
+              <label className="block mb-2 font-semibold">Amount Paid</label>
+              <div className="flex items-center border border-gray-300 rounded-lg mb-4">
+                <span className="px-3 bg-gray-200 text-gray-700">$</span>
+                <input
+                  type="number"
+                  placeholder="Amount Paid"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(e.target.value)}
+                  className={`w-full p-2 border-l border-gray-300 rounded-r-lg focus:outline-none ${paymentErrors.amountPaid ? 'border-red-500' : ''
+                    }`}
+                />
+              </div>
+              {paymentErrors.amountPaid && (
+                <p className="text-red-500 text-sm">{paymentErrors.amountPaid}</p>
+              )}
+
+              {/* Payment Method */}
+              <label className="block mb-2 font-semibold">Payment Method</label>
               <input
                 type="text"
-                value={customSize}
-                onChange={(e) => setCustomSize(e.target.value)}
-                className={`w-full p-2 border ${
-                  errors.customSize ? 'border-red-500' : 'border-gray-300'
-                } rounded-lg`}
-                placeholder="Enter custom size"
+                placeholder="Payment Method"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className={`w-full p-2 border ${paymentErrors.paymentMethod ? 'border-red-500' : 'border-gray-300'
+                  } rounded-lg mb-4`}
               />
-              {errors.customSize && (
-                <p className="text-red-500 text-sm">{errors.customSize}</p>
+              {paymentErrors.paymentMethod && (
+                <p className="text-red-500 text-sm">{paymentErrors.paymentMethod}</p>
               )}
-            </div>
-          )}
 
-          {/* Amount */}
-          <label className="block mb-2 font-semibold">Amount</label>
-          <div className="flex items-center border border-gray-300 rounded-lg mb-4">
-            <span className="px-3 bg-gray-200 text-gray-700">$</span>
-            <input
-              type="number"
-              placeholder="Amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className={`w-full p-2 border-l border-gray-300 rounded-r-lg focus:outline-none ${
-                errors.amount ? 'border-red-500' : ''
-              }`}
-            />
+              {/* Buttons */}
+              <div className="flex justify-end mt-6">
+                <button
+                  type="button"
+                  onClick={closePaymentModal}
+                  className="mr-4 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg ${isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Saving...' : 'Add Payment'}
+                </button>
+              </div>
+            </form>
           </div>
-          {errors.amount && <p className="text-red-500 text-sm">{errors.amount}</p>}
-
-          {/* Buttons */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="mr-4 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={`bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg ${
-                isLoading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Creating...' : 'Create Purchase'}
-            </button>
-          </div>
-        </form>
-
-        {/* Image Modal */}
-        <Modal
-          open={isImageModalOpen}
-          onClose={() => setIsImageModalOpen(false)}
-          center
-        >
-          <img src={imageToShow} alt="Product" className="w-full h-auto" />
-        </Modal>
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 };
 

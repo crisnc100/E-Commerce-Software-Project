@@ -3,6 +3,7 @@ from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.purchases_model import Purchase
+from datetime import datetime
 
 # CREATE Purchase
 @app.route('/api/create_purchase', methods=['POST'])
@@ -10,13 +11,32 @@ def create_purchase():
     data = request.get_json()
 
     # Check for required fields
-    required_fields = ['client_id', 'product_id', 'size', 'purchase_date', 'amount']
-    if not all(field in data for field in required_fields):
-        return jsonify({"error": "Missing required fields"}), 400
+    required_fields = ['client_id', 'product_id', 'size', 'amount']
+    missing_fields = [field for field in required_fields if field not in data or not data[field]]
+    if missing_fields:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+
+    # Validate amount
+    try:
+        data['amount'] = float(data['amount'])
+        if data['amount'] <= 0:
+            return jsonify({"error": "Amount must be greater than 0"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid amount format"}), 400
+
+    # Add default values
+    data['purchase_date'] = data.get('purchase_date', datetime.now().strftime('%Y-%m-%d'))
+    data['payment_status'] = 'Pending'
+    data['shipping_status'] = 'Pending'
 
     # Save purchase
-    purchase_id = Purchase.save(data)
-    return jsonify({"message": "Purchase created", "purchase_id": purchase_id}), 201
+    try:
+        purchase_id = Purchase.save(data)
+        return jsonify({"message": "Purchase created", "purchase_id": purchase_id}), 201
+    except Exception as e:
+        print(f"Error saving purchase: {str(e)}")
+        return jsonify({"error": "Failed to save purchase"}), 500
+
 
 
 # READ All Purchases

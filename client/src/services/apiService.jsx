@@ -36,6 +36,10 @@ const apiService = {
   deleteClient: (clientId) => {
     return axios.delete(`http://localhost:5000/api/delete_client/${clientId}`);
   },
+  createPurchase: (formData) => 
+    axios.post('http://localhost:5000/api/create_purchase', formData
+
+    ),
 
 };
 
