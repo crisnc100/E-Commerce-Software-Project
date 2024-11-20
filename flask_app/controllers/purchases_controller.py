@@ -70,6 +70,27 @@ def update_purchase(purchase_id):
     Purchase.update(data)
     return jsonify({"message": "Purchase updated"}), 200
 
+@app.route('/api/update_purchase_status/<int:purchase_id>', methods=['PUT'])
+def update_purchase_status(purchase_id):
+    data = request.get_json()
+
+    # Check if purchase exists
+    purchase = Purchase.get_by_id(purchase_id)
+    if not purchase:
+        return jsonify({"error": "Purchase not found"}), 404
+
+    # Check if payment_status is in the payload
+    if 'payment_status' in data:
+        try:
+            Purchase.update_payment_status(purchase_id, data['payment_status'])
+            return jsonify({"message": "Payment status updated successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": f"Something went wrong: {str(e)}"}), 500
+
+    # If other fields are intended to be updated (not currently in use), raise an error or handle appropriately
+    return jsonify({"error": "Invalid fields provided for update"}), 400
+
+
 
 
 # DELETE Purchase

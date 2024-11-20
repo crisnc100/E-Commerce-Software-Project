@@ -86,13 +86,19 @@ class Purchase:
         return [cls(row) for row in results]
 
     @classmethod
-    def update_payment_status(cls, purchase_id, new_status):
+    def update_payment_status(cls, purchase_id, payment_status):
         """Update the payment status for a specific purchase."""
         query = """
-        UPDATE purchases SET payment_status = %(payment_status)s, updated_at = NOW() 
+        UPDATE purchases 
+        SET payment_status = %(payment_status)s, updated_at = NOW() 
         WHERE id = %(id)s;
         """
-        return connectToMySQL('maria_ortegas_project_schema').query_db({'id': purchase_id, 'payment_status': new_status})
+        data = {
+            'id': purchase_id,
+            'payment_status': payment_status,
+        }
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
 
     @classmethod
     def update_shipping_status(cls, purchase_id, new_status):

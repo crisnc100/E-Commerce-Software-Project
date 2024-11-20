@@ -55,7 +55,7 @@ const ClientTab = () => {
 
     return (
         <div className="p-6 bg-gray-100 h-full">
-            <h2 className="text-2xl font-bold mb-4">Clients</h2>
+            <h2 className="text-2xl font-bold mb-4">Customers</h2>
 
             {/* Success Message */}
             {successMessage && (
@@ -74,7 +74,7 @@ const ClientTab = () => {
 
             <div className="bg-white shadow-lg rounded-lg p-4 mt-4">
                 {isLoading ? (
-                    <p>Loading clients...</p>
+                    <p>Loading customers...</p>
                 ) : filteredClients.length > 0 ? (
                     <table className="w-full table-auto">
                         <thead>

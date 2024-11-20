@@ -194,7 +194,7 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
                 id: newPurchaseId,
                 payment_status: paymentStatus,
             };
-            await apiService.updatePurchase(newPurchaseId, updateData);
+            await apiService.updatePurchaseStatus(newPurchaseId, updateData);
 
             setIsPaymentModalOpen(false); // Close the payment modal
             onSuccess('Payment added successfully'); // Show success message
