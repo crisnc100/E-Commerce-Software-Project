@@ -12,12 +12,18 @@ class Purchase:
         self.shipping_status = data.get('shipping_status')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
+        self.product_name = data.get('product_name')  # New field
+        self.product_description = data.get('product_description')  # New field
+        self.product_screenshot_photo = data.get('product_screenshot_photo')
+        self.payments = data.get('payments', [])
+
     
     def serialize(self):
         return {
             'id': self.id,
             'client_id': self.client_id,
             'product_id': self.product_id,
+            'product_name': self.product_name,
             'size': self.size,
             'purchase_date': self.purchase_date,
             'amount': self.amount,
@@ -25,6 +31,11 @@ class Purchase:
             'shipping_status': self.shipping_status,
             'created_at': str(self.created_at), 
             'updated_at': str(self.updated_at),
+            'product_name': self.product_name,
+            'product_description': self.product_description,
+            'product_screenshot_photo': self.product_screenshot_photo,
+            'payments': self.payments,
+
         }
     
 
@@ -75,8 +86,14 @@ class Purchase:
     def get_purchases_by_client(cls, client_id):
         """Retrieve all purchases made by a specific client."""
         query = "SELECT * FROM purchases WHERE client_id = %(client_id)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db({'client_id': client_id})
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        
+        # Check if results are valid
+        if not results or isinstance(results, bool):
+            return []  # Return an empty list if no results or query fails
+        
         return [cls(row) for row in results]
+
 
     @classmethod
     def get_purchases_by_product(cls, product_id):
@@ -84,6 +101,64 @@ class Purchase:
         query = "SELECT * FROM purchases WHERE product_id = %(product_id)s;"
         results = connectToMySQL('maria_ortegas_project_schema').query_db({'product_id': product_id})
         return [cls(row) for row in results]
+    
+    @classmethod
+    def get_purchases_with_product_by_client(cls, client_id):
+        query = """
+        SELECT purchases.*, products.name AS product_name, products.description AS product_description
+        FROM purchases
+        JOIN products ON purchases.product_id = products.id
+        WHERE purchases.client_id = %(client_id)s;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        if not results or isinstance(results, bool):
+            return []
+        return [cls(row) for row in results]
+    
+    @classmethod
+    def get_purchases_with_payments_by_client(cls, client_id):
+        query = """
+        SELECT purchases.*, products.name AS product_name, products.screenshot_photo AS product_screenshot_photo,
+        GROUP_CONCAT(JSON_OBJECT(
+            'id', IFNULL(payments.id, 0),
+            'amount_paid', payments.amount_paid,
+            'payment_date', payments.payment_date,
+            'payment_method', payments.payment_method
+        )) AS payments
+        FROM purchases
+        JOIN products ON purchases.product_id = products.id
+        LEFT JOIN payments ON purchases.id = payments.purchase_id
+        WHERE purchases.client_id = %(client_id)s
+        GROUP BY purchases.id;
+        """
+
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        if not results or isinstance(results, bool):
+            return []
+        purchases = []
+        for row in results:
+            purchase = cls(row)
+            if row['payments']:
+                import json
+                payments_list = json.loads(f'[{row["payments"]}]')
+
+                # Check if the payments are all NULL and convert to an empty list
+                if all(
+                    payment['amount_paid'] is None and
+                    payment['payment_date'] is None and
+                    payment['payment_method'] is None
+                    for payment in payments_list
+                ):
+                    payments_list = []
+
+                purchase.payments = payments_list
+            else:
+                purchase.payments = []
+
+            purchases.append(purchase)
+        return purchases
+
+
 
     @classmethod
     def update_payment_status(cls, purchase_id, payment_status):
@@ -102,12 +177,14 @@ class Purchase:
 
     @classmethod
     def update_shipping_status(cls, purchase_id, new_status):
-        """Update the shipping status for a specific purchase."""
         query = """
-        UPDATE purchases SET shipping_status = %(shipping_status)s, updated_at = NOW() 
+        UPDATE purchases 
+        SET shipping_status = %(shipping_status)s, updated_at = NOW() 
         WHERE id = %(id)s;
         """
-        return connectToMySQL('maria_ortegas_project_schema').query_db({'id': purchase_id, 'shipping_status': new_status})
+        data = {'id': purchase_id, 'shipping_status': new_status}
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
 
     @classmethod
     def get_total_amount_by_client(cls, client_id):

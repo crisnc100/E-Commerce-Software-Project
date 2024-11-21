@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 import { FiTrash2 } from 'react-icons/fi';
+import { NavLink, useNavigate, useParams } from 'react-router-dom';
+
 
 const ClientTab = () => {
     const [clients, setClients] = useState([]);
@@ -10,6 +12,8 @@ const ClientTab = () => {
     const [successMessage, setSuccessMessage] = useState('');
     const [deleteClientId, setDeleteClientId] = useState(null);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const navigate = useNavigate();
+
 
     useEffect(() => {
         const fetchClients = async () => {
@@ -33,13 +37,18 @@ const ClientTab = () => {
         setIsConfirmModalOpen(true);
     };
 
+    const handleViewDetails = (client) => {
+        const clientNameSlug = `${client.first_name}-${client.last_name}`.toLowerCase().replace(/ /g, '-');
+        navigate(`/dashboard/clients/${client.id}/${clientNameSlug}`);
+    };
+
     const handleDelete = async () => {
         try {
             const response = await apiService.deleteClient(deleteClientId);
             if (response.data.success) {
                 setClients(prevClients => prevClients.filter(client => client.id !== deleteClientId));
                 setFilteredClients(prevFilteredClients => prevFilteredClients.filter(client => client.id !== deleteClientId));
-                
+
                 setSuccessMessage('Client successfully deleted');
                 setTimeout(() => setSuccessMessage(''), 3000);
             } else {
@@ -55,7 +64,7 @@ const ClientTab = () => {
 
     return (
         <div className="p-6 bg-gray-100 h-full">
-            <h2 className="text-2xl font-bold mb-4">Customers</h2>
+            <h2 className="text-2xl font-bold mb-4">Clients</h2>
 
             {/* Success Message */}
             {successMessage && (
@@ -74,7 +83,7 @@ const ClientTab = () => {
 
             <div className="bg-white shadow-lg rounded-lg p-4 mt-4">
                 {isLoading ? (
-                    <p>Loading customers...</p>
+                    <p>Loading Clients...</p>
                 ) : filteredClients.length > 0 ? (
                     <table className="w-full table-auto">
                         <thead>
@@ -100,6 +109,7 @@ const ClientTab = () => {
                                             <FiTrash2 />
                                         </button>
                                         <button
+                                            onClick={() => handleViewDetails(client)}
                                             className="text-blue-500 hover:underline"
                                         >
                                             View Details

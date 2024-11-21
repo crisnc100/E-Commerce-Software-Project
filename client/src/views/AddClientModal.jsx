@@ -6,8 +6,6 @@ const AddClientModal = ({ onClose, onSuccess }) => {
     const [lastName, setLastName] = useState('');
     const [contactMethod, setContactMethod] = useState('phone');
     const [contactDetail, setContactDetail] = useState('');
-    const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
-    const [otherPaymentMethod, setOtherPaymentMethod] = useState('');
     const [additionalNotes, setAdditionalNotes] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
@@ -30,12 +28,6 @@ const AddClientModal = ({ onClose, onSuccess }) => {
             newErrors.contactDetail = 'Invalid email address';
         }
 
-        if (!preferredPaymentMethod) {
-            newErrors.preferredPaymentMethod = 'Please select a payment method';
-        } else if (preferredPaymentMethod === 'Other' && !otherPaymentMethod.trim()) {
-            newErrors.otherPaymentMethod = 'Please specify other payment method';
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -51,7 +43,6 @@ const AddClientModal = ({ onClose, onSuccess }) => {
             last_name: lastName,
             contact_method: contactMethod,
             contact_details: contactDetail,
-            preferred_payment_method: preferredPaymentMethod === 'Other' ? otherPaymentMethod : preferredPaymentMethod,
             additional_notes: additionalNotes,
         };
 
@@ -125,38 +116,6 @@ const AddClientModal = ({ onClose, onSuccess }) => {
                         />
                         {errors.contactDetail && <p className="text-red-500 text-sm">{errors.contactDetail}</p>}
                     </div>
-
-                    {/* Preferred Payment Method */}
-                    <div className="mb-4">
-                        <label className="block mb-2">Preferred Payment Method</label>
-                        <div className="flex flex-col space-y-2">
-                            {['Bank Transfer', 'PayPal', 'Venmo', 'Zelle', 'Other'].map(method => (
-                                <label key={method} className="flex items-center">
-                                    <input
-                                        type="radio"
-                                        name="paymentMethod"
-                                        value={method}
-                                        checked={preferredPaymentMethod === method}
-                                        onChange={(e) => setPreferredPaymentMethod(e.target.value)}
-                                        className="mr-2"
-                                    />
-                                    {method}
-                                </label>
-                            ))}
-                            {preferredPaymentMethod === 'Other' && (
-                                <input
-                                    type="text"
-                                    placeholder="Enter other payment method"
-                                    value={otherPaymentMethod}
-                                    onChange={(e) => setOtherPaymentMethod(e.target.value)}
-                                    className={`w-full p-2 border ${errors.otherPaymentMethod ? 'border-red-500' : 'border-gray-300'} rounded-lg`}
-                                />
-                            )}
-                            {errors.preferredPaymentMethod && <p className="text-red-500 text-sm">{errors.preferredPaymentMethod}</p>}
-                            {errors.otherPaymentMethod && <p className="text-red-500 text-sm">{errors.otherPaymentMethod}</p>}
-                        </div>
-                    </div>
-
                     {/* Additional Notes */}
                     <textarea
                         placeholder="Additional Notes (Optional)"

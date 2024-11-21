@@ -9,7 +9,7 @@ from decorators import login_required   # Import the decorator
 def create_client():
     data = request.get_json()
     # Ensure all required fields are present
-    required_fields = ['first_name', 'last_name', 'contact_method', 'contact_details', 'preferred_payment_method']
+    required_fields = ['first_name', 'last_name', 'contact_method', 'contact_details']
     missing_fields = [field for field in required_fields if field not in data or not data[field]]
 
     print(f"Missing fields: {missing_fields}")
@@ -49,7 +49,6 @@ def all_clients():
 
 
 @app.route('/api/get_one_client/<int:client_id>', methods=['GET'])
-@login_required
 def get_one_client(client_id):
     client = Client.get_by_id(client_id)
     if not client:

@@ -9,6 +9,7 @@ import MainPage from './views/MainPage';
 import ProductsTab from './views/ProductsTab';
 import ClientsTab from './views/ClientsTab';
 import PaymentsTab from './views/PaymentsTab';
+import ClientIDPage from './views/ClientIDPage';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
             <Route index element={<MainPage />} /> {/* Default dashboard content */}
             <Route path="products" element={<ProductsTab />} />
             <Route path="clients" element={<ClientsTab />} />
+            <Route path="clients/:clientId/:clientName" element={<ClientIDPage />} />
             <Route path="payments" element={<PaymentsTab />} />
           </Route>
           

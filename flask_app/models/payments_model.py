@@ -10,6 +10,8 @@ class Payment:
         self.payment_method = data.get('payment_method')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
+        self.product_id = data.get('product_id')  # New field
+        self.product_name = data.get('product_name')  # New field
     
     def serialize(self):
         return {
@@ -21,6 +23,8 @@ class Payment:
             'payment_method': self.payment_method,
             'created_at': str(self.created_at), 
             'updated_at': str(self.updated_at),
+            'product_id': self.product_id,
+            'product_name': self.product_name
         }
     
 
@@ -71,8 +75,14 @@ class Payment:
     def get_payments_by_client(cls, client_id):
         """Retrieve all payments for a specific client."""
         query = "SELECT * FROM payments WHERE client_id = %(client_id)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db({'client_id': client_id})
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        
+        # Check if results are valid
+        if not results or isinstance(results, bool):
+            return []  # Return an empty list if no results or query fails
+        
         return [cls(row) for row in results]
+
 
     @classmethod
     def get_payments_by_purchase(cls, purchase_id):
@@ -86,6 +96,21 @@ class Payment:
 
         # Map results to Payment instances
         return [cls(row) for row in results]
+    
+    @classmethod
+    def get_payments_with_order_details_by_client(cls, client_id):
+        query = """
+        SELECT payments.*, purchases.product_id, products.name AS product_name
+        FROM payments
+        JOIN purchases ON payments.purchase_id = purchases.id
+        JOIN products ON purchases.product_id = products.id
+        WHERE payments.client_id = %(client_id)s;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        if not results or isinstance(results, bool):
+            return []
+        return [cls(row) for row in results]
+
 
 
     @classmethod

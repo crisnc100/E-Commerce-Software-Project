@@ -13,7 +13,6 @@ class Client:
         self.last_name = data.get('last_name')
         self.contact_method = data.get('contact_method')
         self.contact_details = data.get('contact_details')
-        self.preferred_payment_method = data.get('preferred_payment_method')
         self.additional_notes = data.get('additional_notes')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
@@ -25,7 +24,6 @@ class Client:
             "last_name": self.last_name,
             "contact_method": self.contact_method,
             "contact_details": self.contact_details,
-            "preferred_payment_method": self.preferred_payment_method,
             "additional_notes": self.additional_notes,
             "created_at": str(self.created_at), 
             "updated_at": str(self.updated_at),
@@ -33,10 +31,8 @@ class Client:
     #SAVE
     @classmethod
     def save(cls, data):
-        query = """INSERT INTO clients (first_name, last_name, contact_method, contact_details, 
-        preferred_payment_method, additional_notes, created_at, updated_at) 
-        VALUES (%(first_name)s, %(last_name)s, %(contact_method)s, %(contact_details)s, 
-        %(preferred_payment_method)s, %(additional_notes)s, NOW(), NOW());"""
+        query = """INSERT INTO clients (first_name, last_name, contact_method, contact_details, additional_notes, created_at, updated_at) 
+        VALUES (%(first_name)s, %(last_name)s, %(contact_method)s, %(contact_details)s, %(additional_notes)s, NOW(), NOW());"""
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
     
     @staticmethod
@@ -100,8 +96,7 @@ class Client:
         query = """
         UPDATE clients 
         SET first_name = %(first_name)s, last_name = %(last_name)s, contact_method = %(contact_method)s, 
-        contact_details = %(contact_details)s, preferred_payment_method = %(preferred_payment_method)s,
-        additional_notes = %(additional_notes)s, 
+        contact_details = %(contact_details)s, additional_notes = %(additional_notes)s, 
         updated_at = NOW() 
         WHERE id = %(id)s;
         """

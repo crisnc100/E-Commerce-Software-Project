@@ -69,10 +69,14 @@ def delete_payment(payment_id):
 # GET Payments by Client ID
 @app.route('/api/get_payments_by_client/<int:client_id>', methods=['GET'])
 def get_payments_by_client(client_id):
-    payments = Payment.get_payments_by_client(client_id)
-    if not payments:
-        return jsonify({"message": "No payments found for this client"}), 404
-    return jsonify([payment.serialize() for payment in payments]), 200
+    try:
+        payments = Payment.get_payments_with_order_details_by_client(client_id)
+        serialized_payments = [payment.serialize() for payment in payments]
+        return jsonify(serialized_payments), 200
+    except Exception as e:
+        print(f"Something went wrong: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
 
 
 # GET Payments by Purchase ID

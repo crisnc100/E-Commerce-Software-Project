@@ -4,6 +4,7 @@ from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.purchases_model import Purchase
 from datetime import datetime
+import json
 
 # CREATE Purchase
 @app.route('/api/create_purchase', methods=['POST'])
@@ -108,10 +109,15 @@ def delete_purchase(purchase_id):
 # GET Purchases by Client ID
 @app.route('/api/get_purchases_by_client/<int:client_id>', methods=['GET'])
 def get_purchases_by_client(client_id):
-    purchases = Purchase.get_purchases_by_client(client_id)
-    if not purchases:
-        return jsonify({"message": "No purchases found for this client"}), 404
-    return jsonify([purchase.serialize() for purchase in purchases]), 200
+    try:
+        purchases = Purchase.get_purchases_with_payments_by_client(client_id)
+        serialized_purchases = [purchase.serialize() for purchase in purchases]
+        return jsonify(serialized_purchases), 200
+    except Exception as e:
+        print(f"Something went wrong: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
 
 
 # GET Purchases by Product ID
@@ -121,6 +127,12 @@ def get_purchases_by_product(product_id):
     if not purchases:
         return jsonify({"message": "No purchases found for this product"}), 404
     return jsonify([purchase.serialize() for purchase in purchases]), 200
+
+@app.route('/api/get_total_amount_by_client/<int:client_id>', methods=['GET'])
+def get_total_amount_by_client(client_id):
+    total_spent = Purchase.get_total_amount_by_client(client_id)
+    return jsonify({'total_spent': total_spent}), 200
+
 
 
 # UPDATE Payment Status
@@ -135,13 +147,21 @@ def update_payment_status(purchase_id):
     return jsonify({"message": "Payment status updated"}), 200
 
 
-# UPDATE Shipping Status
 @app.route('/api/update_shipping_status/<int:purchase_id>', methods=['PUT'])
 def update_shipping_status(purchase_id):
-    new_status = request.json.get('shipping_status')
-    if new_status not in ['Pending', 'Shipped', 'Delivered']:
-        return jsonify({"error": "Invalid shipping status"}), 400
 
-    # Update shipping status
-    Purchase.update_shipping_status(purchase_id, new_status)
-    return jsonify({"message": "Shipping status updated"}), 200
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data received"}), 400
+
+        new_status = data.get('shipping_status')
+        if new_status not in ['Pending', 'Shipped', 'Delivered']:
+            return jsonify({"error": "Invalid shipping status"}), 400
+
+        Purchase.update_shipping_status(purchase_id, new_status)
+        return jsonify({"message": "Shipping status updated"}), 200
+    except Exception as e:
+        print(f"Error parsing request: {e}")
+        return jsonify({"error": "Invalid request format"}), 400
+

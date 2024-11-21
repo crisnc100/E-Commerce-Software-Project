@@ -36,6 +36,10 @@ const apiService = {
   deleteClient: (clientId) => {
     return axios.delete(`http://localhost:5000/api/delete_client/${clientId}`);
   },
+  getClientById: (clientId) =>
+    axios.get(`http://localhost:5000/api/get_one_client/${clientId}`
+
+    ),
   createPurchase: (formData) =>
     axios.post('http://localhost:5000/api/create_purchase', formData
 
@@ -43,12 +47,35 @@ const apiService = {
   updatePurchaseStatus: (purchaseId, formData) => axios.put(`http://localhost:5000/api/update_purchase_status/${purchaseId}`, formData
 
   ),
+  getPurchasesByClientId: (clientId) =>
+    axios.get(`http://localhost:5000/api/get_purchases_by_client/${clientId}`
+
+    ),
+    updatePurchaseShipping: (purchaseId, formData) =>
+      axios.put(
+          `http://localhost:5000/api/update_shipping_status/${purchaseId}`,
+          { shipping_status: formData }, // Wrap the value in an object
+          {
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+          }
+      ),  
+  getTotalAmountByClientId: (clientId) =>
+    axios.get(`http://localhost:5000/api/get_total_amount_by_client/${clientId}`
+
+    ),
   createPayment: (formData) => axios.post('http://localhost:5000/api/create_payment', formData
 
   ),
   getPaymentsByPurchaseId: (purchaseId) => axios.get(`http://localhost:5000/api/get_payments_by_purchase/${purchaseId}`
 
   ),
+  getPaymentsByClientId: (clientId) => axios.get(`http://localhost:5000/api/get_payments_by_client/${clientId}`
+
+  ),
+
+
 
 
 
