@@ -44,6 +44,10 @@ const apiService = {
     axios.post('http://localhost:5000/api/create_purchase', formData
 
     ),
+  updatePurchase: (purchaseId, formData) =>
+    axios.put(`http://localhost:5000/api/update_purchase/${purchaseId}`, formData
+
+    ),
   updatePurchaseStatus: (purchaseId, formData) => axios.put(`http://localhost:5000/api/update_purchase_status/${purchaseId}`, formData
 
   ),
@@ -51,16 +55,16 @@ const apiService = {
     axios.get(`http://localhost:5000/api/get_purchases_by_client/${clientId}`
 
     ),
-    updatePurchaseShipping: (purchaseId, formData) =>
-      axios.put(
-          `http://localhost:5000/api/update_shipping_status/${purchaseId}`,
-          { shipping_status: formData }, // Wrap the value in an object
-          {
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-          }
-      ),  
+  updatePurchaseShipping: (purchaseId, formData) =>
+    axios.put(
+      `http://localhost:5000/api/update_shipping_status/${purchaseId}`,
+      { shipping_status: formData }, // Wrap the value in an object
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    ),
   getTotalAmountByClientId: (clientId) =>
     axios.get(`http://localhost:5000/api/get_total_amount_by_client/${clientId}`
 

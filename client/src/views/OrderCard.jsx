@@ -20,6 +20,8 @@ const OrderCard = ({ order, clientId, refreshData }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedOrder, setEditedOrder] = useState(order);
     const [successMessage, setSuccessMessage] = useState('');
+    const [selectedPurchaseId, setSelectedPurchaseId] = useState(order.id);
+
 
     useEffect(() => {
         if (successMessage) {
@@ -65,7 +67,7 @@ const OrderCard = ({ order, clientId, refreshData }) => {
         }
 
         apiService
-            .updateOrder(order.id, editedOrder)
+            .updatePurchase(order.id, editedOrder)
             .then(() => {
                 setSuccessMessage('Order updated successfully.');
                 setIsEditing(false);
@@ -157,9 +159,9 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                                             product_name: e.target.value,
                                         })
                                     }
-                                    className="text-lg font-bold border-b"
+                                    className="text-lg font-bold border-b bg-yellow-100"
                                 />
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm font-bold text-gray-600">
                                     {formatDateSafely(order.purchase_date)}
                                 </p>
                                 <input
@@ -171,7 +173,7 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                                             amount: e.target.value,
                                         })
                                     }
-                                    className="text-sm border-b"
+                                    className="text-sm border-b bg-yellow-100"
                                 />
                                 <select
                                     value={editedOrder.payment_status}
@@ -181,7 +183,7 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                                             payment_status: e.target.value,
                                         })
                                     }
-                                    className="text-sm border-b"
+                                    className="text-sm border-b bg-yellow-100"
                                 >
                                     <option value="Paid">Paid</option>
                                     <option value="Pending">Pending</option>
@@ -296,7 +298,7 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                                             size: e.target.value,
                                         })
                                     }
-                                    className="border-b"
+                                    className="border-b bg-yellow-100"
                                 />
                             </p>
                             <p className="flex items-center">
@@ -309,7 +311,7 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                                             shipping_status: e.target.value,
                                         })
                                     }
-                                    className="ml-2 border border-gray-300 rounded p-1"
+                                    className="ml-2 border border-gray-300 rounded p-1 bg-yellow-100"
                                 >
                                     <option value="Pending">Pending</option>
                                     <option value="Delivered">
@@ -341,7 +343,7 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                                 Payments:
                             </h4>
                             {Array.isArray(order.payments) &&
-                            order.payments.length > 0 ? (
+                                order.payments.length > 0 ? (
                                 order.payments.map((payment) => (
                                     <PaymentItem
                                         key={payment.id}
@@ -390,7 +392,8 @@ const OrderCard = ({ order, clientId, refreshData }) => {
             {/* Add Payment Modal */}
             {showAddPaymentModal && (
                 <AddPaymentModal
-                    order={order}
+                    purchaseId={selectedPurchaseId} // Reference
+                    totalAmountDue={order.amount}
                     clientId={clientId}
                     onClose={() => {
                         setShowAddPaymentModal(false);
