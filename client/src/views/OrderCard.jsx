@@ -21,6 +21,10 @@ const OrderCard = ({ order, clientId, refreshData }) => {
     const [editedOrder, setEditedOrder] = useState(order);
     const [successMessage, setSuccessMessage] = useState('');
     const [selectedPurchaseId, setSelectedPurchaseId] = useState(order.id);
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [deletePurchaseId, setDeletePurchaseId] = useState(null);
+
+
 
 
     useEffect(() => {
@@ -91,20 +95,31 @@ const OrderCard = ({ order, clientId, refreshData }) => {
         setEditedOrder(order);
     };
 
-    const handleDeleteOrderClick = () => {
-        // Replace window.confirm with a custom confirmation if desired
-        if (window.confirm('Are you sure you want to delete this order?')) {
-            apiService
-                .deleteOrder(order.id)
-                .then(() => {
-                    setSuccessMessage('Order deleted successfully.');
-                    refreshData();
-                })
-                .catch((error) => {
-                    console.error('Error deleting order:', error);
-                });
-        }
+    const handleSuccess = (message) => {
+        setSuccessMessage(message); // Set the success message
+        setShowAddPaymentModal(false); // Close the modal
+        refreshData(); // Refresh data to reflect the changes
     };
+
+
+    const confirmDelete = () => {
+        setDeletePurchaseId(order.id);
+        setIsConfirmModalOpen(true);
+      };
+    
+      const handleDeleteOrderClick = async () => {
+        try {
+          await apiService.deletePurchase(deletePurchaseId);
+          setOrders(prevPurchases => prevPurchases.filter((order) => order.id !== deletePurchaseId));
+          setSuccessMessage('Product deleted successfully!');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (error) {
+          console.error('Error deleting purchase:', error);
+        } finally {
+          setIsConfirmModalOpen(false);
+          setDeletePurchaseId(null);
+        }
+      };
 
     const handleToggleShippingStatusClick = () => {
         const newStatus =
@@ -254,7 +269,10 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                             </button>
                             {/* Delete Order Button */}
                             <button
-                                onClick={handleDeleteOrderClick}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    confirmDelete(order.id);
+                                  }}
                                 className="text-gray-600 hover:text-gray-800"
                                 title="Delete Order"
                             >
@@ -389,6 +407,33 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                 </div>
             )}
 
+             {/* Confirmation Modal */}
+      {isConfirmModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold mb-4">Confirm Deletion</h2>
+            <p>Are you sure you want to delete this purchase?</p>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => {
+                  setIsConfirmModalOpen(false);
+                  setDeletePurchaseId(null);
+                }}
+                className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteOrderClick}
+                className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
             {/* Add Payment Modal */}
             {showAddPaymentModal && (
                 <AddPaymentModal
@@ -399,6 +444,8 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                         setShowAddPaymentModal(false);
                         refreshData();
                     }}
+                    onSuccess={handleSuccess} // Handle success and close the modal
+
                 />
             )}
         </div>

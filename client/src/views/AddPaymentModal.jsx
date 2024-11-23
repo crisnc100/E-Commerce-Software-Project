@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import apiService from '../services/apiService';
 
-const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue }) => {
+const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clientId }) => {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Credit Card');
@@ -9,6 +9,7 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue }) => 
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [warningMessage, setWarningMessage] = useState('');
+
 
   const validateFields = () => {
     const newErrors = {};
@@ -49,22 +50,51 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue }) => 
     setIsLoading(true);
 
     const paymentData = {
-      purchase_id: purchaseId,
-      payment_date: paymentDate,
-      amount_paid: parseFloat(amountPaid),
-      payment_method: paymentMethod === 'Other' ? customPaymentMethod : paymentMethod,
+        client_id: clientId,
+        purchase_id: purchaseId,
+        payment_date: paymentDate,
+        amount_paid: parseFloat(amountPaid),
+        payment_method: paymentMethod === 'Other' ? customPaymentMethod : paymentMethod,
     };
 
     try {
-      await apiService.createPayment(paymentData);
-      onSuccess('Payment added successfully!');
-      onClose();
+        // Create the payment
+        await apiService.createPayment(paymentData);
+
+        // Retrieve all payments for the current purchase
+        const paymentsResponse = await apiService.getPaymentsByPurchaseId(purchaseId);
+        const payments = paymentsResponse.data || [];
+
+        // Calculate the total amount paid
+        const totalAmountPaid = payments.reduce(
+            (sum, payment) => sum + parseFloat(payment.amount_paid),
+            0
+        );
+
+        // Compare with the total amount due
+        let paymentStatus;
+        if (totalAmountPaid >= totalAmountDue) {
+            paymentStatus = 'Paid';
+        } else if (totalAmountPaid > 0) {
+            paymentStatus = 'Partial';
+        } else {
+            paymentStatus = 'Pending';
+        }
+
+        // Update the payment status
+        await apiService.updatePurchaseStatus(purchaseId, { payment_status: paymentStatus });
+
+        // Trigger success callback and close modal
+        onSuccess('Payment added and status updated successfully!');
+        onClose();
     } catch (error) {
-      console.error('Error creating payment:', error);
+        console.error('Error creating payment or updating status:', error);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
+};
+
+
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
