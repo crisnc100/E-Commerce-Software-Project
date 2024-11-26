@@ -1,4 +1,8 @@
 from flask_app.config.mysqlconnection import connectToMySQL
+from datetime import datetime, timedelta, timezone
+import logging
+
+
 
 class Purchase:
     def __init__(self, data):
@@ -192,3 +196,53 @@ class Purchase:
         query = "SELECT SUM(amount) AS total_spent FROM purchases WHERE client_id = %(client_id)s;"
         result = connectToMySQL('maria_ortegas_project_schema').query_db({'client_id': client_id})
         return result[0]['total_spent'] if result[0]['total_spent'] is not None else 0.0
+    
+    @classmethod
+    def update_overdue_purchases(cls):
+        query = """
+        UPDATE purchases p
+        SET p.payment_status = 'Overdue'
+        WHERE p.payment_status = 'Pending'
+        AND DATE(p.purchase_date) <= CURDATE() - INTERVAL 14 DAY
+        AND NOT EXISTS (
+            SELECT 1
+            FROM payments pay
+            WHERE pay.purchase_id = p.id
+                AND pay.amount_paid > 0
+        );
+        """
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        print(f"Update query result: {result}")
+
+
+
+    @classmethod
+    def get_overdue_purchases(cls):
+        overdue_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
+        print(f"Computed overdue_date: {overdue_date}")
+        
+        query = """
+        SELECT p.id, p.purchase_date, p.payment_status, pay.total_paid
+        FROM purchases p
+        LEFT JOIN (
+            SELECT purchase_id, SUM(amount_paid) as total_paid
+            FROM payments
+            GROUP BY purchase_id
+        ) pay ON p.id = pay.purchase_id
+        WHERE p.payment_status = 'Pending'
+        AND DATE(p.purchase_date) <= %(overdue_date)s
+        AND (pay.total_paid IS NULL OR pay.total_paid = 0);
+        """
+        data = {'overdue_date': overdue_date}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        print(f"Purchases matching overdue criteria: {results}")
+        return results
+
+
+
+    
+    
+
+
+
+

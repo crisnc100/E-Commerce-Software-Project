@@ -4,7 +4,7 @@ import Select from 'react-select';
 import { Modal } from 'react-responsive-modal';
 import 'react-responsive-modal/styles.css';
 
-const AddPurchaseModal = ({ onClose, onSuccess }) => {
+const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     const [clients, setClients] = useState([]);
     const [products, setProducts] = useState([]);
 
@@ -35,23 +35,36 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
     const [warningMessage, setWarningMessage] = useState('');
 
     useEffect(() => {
-        // Fetch clients and products on modal load
+        // Fetch clients and products
         const fetchData = async () => {
             try {
                 const [clientResponse, productResponse] = await Promise.all([
                     apiService.allClients(),
                     apiService.getAllProducts(),
                 ]);
-
                 setClients(clientResponse.data.all_clients || []);
                 setProducts(productResponse.data || []);
+    
+                // Automatically select the client if clientId is passed
+                if (clientId) {
+                    const matchedClient = clientResponse.data.all_clients.find(
+                        (client) => client.id.toString() === clientId.toString()
+                    );
+                    if (matchedClient) {
+                        setSelectedClient({
+                            value: matchedClient.id,
+                            label: `${matchedClient.first_name} ${matchedClient.last_name}`,
+                        });
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching data:', error);
             }
         };
-
+    
         fetchData();
-    }, []);
+    }, [clientId]);
+    
 
     useEffect(() => {
         // When selected product changes, set the amount to the product's price
@@ -97,7 +110,7 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
         const sizeToSave = selectedSize === 'Custom' ? customSize : selectedSize;
 
         const purchaseData = {
-            client_id: selectedClient.value,
+            client_id: clientId || selectedClient.value,
             product_id: selectedProduct.value,
             size: sizeToSave,
             purchase_date: purchaseDate,
@@ -115,7 +128,7 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
                 setIsPurchaseModalOpen(false); // Hide the purchase modal
                 setIsPaymentModalOpen(true); // Open the payment modal
             } else {
-                onSuccess('Order created successfully'); // Show success message
+                onSuccess('Order created successfully',); // Show success message
                 onClose(); // Close the component
             }
         } catch (error) {
@@ -276,21 +289,22 @@ const AddPurchaseModal = ({ onClose, onSuccess }) => {
                         <h2 className="text-xl font-bold mb-4">Create New Order</h2>
                         <form onSubmit={handleSubmit}>
                             {/* Client Selection */}
-                            <label className="block mb-2 font-semibold">Select Client</label>
-                            <Select
-                                options={clientOptions}
-                                value={selectedClient}
-                                onChange={setSelectedClient}
-                                placeholder="Search and select client..."
-                                className="mb-4"
-                                components={{ Option: ClientOption }}
-                                styles={{
-                                    control: (base) => (errors.selectedClient ? { ...base, borderColor: 'red' } : base),
-                                }}
-                            />
-                            {errors.selectedClient && (
-                                <p className="text-red-500 text-sm">{errors.selectedClient}</p>
-                            )}
+                    <label className="block mb-2 font-semibold">Select Client</label>
+                    <Select
+                        options={clientOptions}
+                        value={selectedClient}
+                        onChange={setSelectedClient}
+                        placeholder="Search and select client..."
+                        isDisabled={!!clientId} // Disable if clientId is passed
+                        className="mb-4"
+                        styles={{
+                            control: (base) =>
+                                errors.selectedClient ? { ...base, borderColor: 'red' } : base,
+                        }}
+                    />
+                    {errors.selectedClient && (
+                        <p className="text-red-500 text-sm">{errors.selectedClient}</p>
+                    )}
 
                             {/* Product Selection */}
                             <label className="block mb-2 font-semibold">Select Product</label>

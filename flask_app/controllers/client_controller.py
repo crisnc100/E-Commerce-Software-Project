@@ -58,18 +58,23 @@ def get_one_client(client_id):
 
 # UPDATE Client
 @app.route('/api/update_client/<int:client_id>', methods=['PUT'])
-@login_required
 def update_client(client_id):
     data = request.get_json()
     data['id'] = client_id
     
-    # Validate data
+    print("Starting validation")
     if not Client.is_valid(data):
-        return jsonify({"error": "Invalid data provided"}), 400
+        print("Validation failed")
+        return jsonify({"error": "Invalid contact details. Must be a valid email or phone number."}), 400
+    print("Validation passed")
 
-    # Update client
-    Client.update(data)
-    return jsonify({"message": "Client updated"}), 200
+    # Proceed with updating the client
+    try:
+        Client.update(data)
+        return jsonify({"message": "Updated Client Info", "client_id": client_id}), 201
+    except Exception as e:
+        print(f"Error updating client: {e}")
+        return jsonify({"error": "Failed to upate client info"}), 500
 
 
 #DELETE

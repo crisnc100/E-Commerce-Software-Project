@@ -33,6 +33,10 @@ const apiService = {
   allClients: () => {
     return axios.get('http://localhost:5000/api/all_clients');
   },
+  updateClient: (clientId, formData) =>
+    axios.put(`http://localhost:5000/api/update_client/${clientId}`, formData
+
+    ),
   deleteClient: (clientId) => {
     return axios.delete(`http://localhost:5000/api/delete_client/${clientId}`);
   },
@@ -65,6 +69,9 @@ const apiService = {
         },
       }
     ),
+  deletePurchase: (purchaseId) => {
+    return axios.delete(`http://localhost:5000/api/delete_purchase/${purchaseId}`);
+  },
   getTotalAmountByClientId: (clientId) =>
     axios.get(`http://localhost:5000/api/get_total_amount_by_client/${clientId}`
 

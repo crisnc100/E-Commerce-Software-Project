@@ -3,8 +3,10 @@ from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.purchases_model import Purchase
-from datetime import datetime
-import json
+from datetime import datetime, timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
+
 
 # CREATE Purchase
 @app.route('/api/create_purchase', methods=['POST'])
@@ -164,4 +166,11 @@ def update_shipping_status(purchase_id):
     except Exception as e:
         print(f"Error parsing request: {e}")
         return jsonify({"error": "Invalid request format"}), 400
+
+
+@app.route('/api/test_update_overdue')
+def test_update_overdue():
+    Purchase.update_overdue_purchases()
+    return "Overdue purchases updated manually."
+
 

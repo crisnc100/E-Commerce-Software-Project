@@ -13,7 +13,7 @@ import PaymentItem from './PaymentItem';
 import apiService from '../services/apiService';
 import AddPaymentModal from './AddPaymentModal';
 
-const OrderCard = ({ order, clientId, refreshData }) => {
+const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
     const [showImageModal, setShowImageModal] = useState(false);
@@ -105,21 +105,23 @@ const OrderCard = ({ order, clientId, refreshData }) => {
     const confirmDelete = () => {
         setDeletePurchaseId(order.id);
         setIsConfirmModalOpen(true);
-      };
-    
-      const handleDeleteOrderClick = async () => {
+    };
+
+    const handleDeleteOrderClick = async () => {
         try {
-          await apiService.deletePurchase(deletePurchaseId);
-          setOrders(prevPurchases => prevPurchases.filter((order) => order.id !== deletePurchaseId));
-          setSuccessMessage('Product deleted successfully!');
-          setTimeout(() => setSuccessMessage(''), 3000);
+            await apiService.deletePurchase(deletePurchaseId);
+
+            // Remove the deleted order from the list using the parent function
+            removeOrder(deletePurchaseId);
+
+            setSuccessMessage('Order deleted successfully!');
         } catch (error) {
-          console.error('Error deleting purchase:', error);
+            console.error('Error deleting order:', error);
         } finally {
-          setIsConfirmModalOpen(false);
-          setDeletePurchaseId(null);
+            setIsConfirmModalOpen(false);
+            setDeletePurchaseId(null);
         }
-      };
+    };
 
     const handleToggleShippingStatusClick = () => {
         const newStatus =
@@ -272,7 +274,7 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     confirmDelete(order.id);
-                                  }}
+                                }}
                                 className="text-gray-600 hover:text-gray-800"
                                 title="Delete Order"
                             >
@@ -406,33 +408,33 @@ const OrderCard = ({ order, clientId, refreshData }) => {
                     </div>
                 </div>
             )}
-
-             {/* Confirmation Modal */}
-      {isConfirmModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-lg font-bold mb-4">Confirm Deletion</h2>
-            <p>Are you sure you want to delete this purchase?</p>
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => {
-                  setIsConfirmModalOpen(false);
-                  setDeletePurchaseId(null);
-                }}
-                className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteOrderClick}
-                className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            
+            {/* Confirmation Modal */}
+            {isConfirmModalOpen && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 className="text-lg font-bold mb-4">Confirm Deletion</h2>
+                        <p>Are you sure you want to delete this order?</p>
+                        <div className="flex justify-end mt-4">
+                            <button
+                                onClick={() => {
+                                    setIsConfirmModalOpen(false);
+                                    setDeletePurchaseId(null);
+                                }}
+                                className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteOrderClick}
+                                className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Add Payment Modal */}
             {showAddPaymentModal && (
