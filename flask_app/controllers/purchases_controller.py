@@ -49,6 +49,22 @@ def get_all_purchases():
     return jsonify([purchase.serialize() for purchase in purchases]), 200
 
 
+@app.route('/api/get_overdue_purchases', methods=['GET'])
+def get_overdue_purchases():
+    try:
+        # Retrieve overdue purchases from the model
+        purchases = Purchase.get_overdue_purchases()
+        
+        # Serialize the purchases for JSON response
+        serialized_purchases = [purchase.serialize() for purchase in purchases]
+
+        # Return the serialized data with a success response
+        return jsonify(serialized_purchases), 200
+    except Exception as e:
+        # Handle errors gracefully
+        print(f"Error retrieving overdue purchases: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
 # READ Single Purchase by ID
 @app.route('/api/get_one_purchase/<int:purchase_id>', methods=['GET'])
 def get_one_purchase(purchase_id):
@@ -68,7 +84,15 @@ def update_purchase(purchase_id):
     if not purchase:
         return jsonify({"error": "Purchase not found"}), 404
 
-    # Update the purchase
+    # Validate and format the purchase_date if it exists
+    if 'purchase_date' in data:
+        try:
+            # Parse and reformat the date to YYYY-MM-DD
+            formatted_date = datetime.strptime(data['purchase_date'], '%a, %d %b %Y %H:%M:%S %Z').strftime('%Y-%m-%d')
+            data['purchase_date'] = formatted_date
+        except ValueError:
+            return jsonify({"error": "Invalid date format for purchase_date. Expected format: 'Tue, 19 Nov 2024 00:00:00 GMT'"}), 400
+
     data['id'] = purchase_id  # Ensure 'id' is in data if required by Purchase.update
     Purchase.update(data)
     return jsonify({"message": "Purchase updated"}), 200
@@ -168,9 +192,6 @@ def update_shipping_status(purchase_id):
         return jsonify({"error": "Invalid request format"}), 400
 
 
-@app.route('/api/test_update_overdue')
-def test_update_overdue():
-    Purchase.update_overdue_purchases()
-    return "Overdue purchases updated manually."
+
 
 

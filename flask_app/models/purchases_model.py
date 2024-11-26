@@ -1,6 +1,7 @@
 from flask_app.config.mysqlconnection import connectToMySQL
 from datetime import datetime, timedelta, timezone
 import logging
+import json
 
 
 
@@ -143,7 +144,6 @@ class Purchase:
         for row in results:
             purchase = cls(row)
             if row['payments']:
-                import json
                 payments_list = json.loads(f'[{row["payments"]}]')
 
                 # Check if the payments are all NULL and convert to an empty list
@@ -218,25 +218,18 @@ class Purchase:
 
     @classmethod
     def get_overdue_purchases(cls):
-        overdue_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
-        print(f"Computed overdue_date: {overdue_date}")
-        
         query = """
-        SELECT p.id, p.purchase_date, p.payment_status, pay.total_paid
-        FROM purchases p
-        LEFT JOIN (
-            SELECT purchase_id, SUM(amount_paid) as total_paid
-            FROM payments
-            GROUP BY purchase_id
-        ) pay ON p.id = pay.purchase_id
-        WHERE p.payment_status = 'Pending'
-        AND DATE(p.purchase_date) <= %(overdue_date)s
-        AND (pay.total_paid IS NULL OR pay.total_paid = 0);
+        SELECT id, client_id, product_id, purchase_date, amount, payment_status, shipping_status
+        FROM purchases
+        WHERE payment_status = 'Overdue'
         """
-        data = {'overdue_date': overdue_date}
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        print(f"Purchases matching overdue criteria: {results}")
-        return results
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        print(f"Overdue purchases: {results}")
+        return [cls(result) for result in results]
+    
+
+    
+
 
 
 

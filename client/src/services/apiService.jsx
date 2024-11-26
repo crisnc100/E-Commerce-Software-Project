@@ -85,6 +85,9 @@ const apiService = {
   getPaymentsByClientId: (clientId) => axios.get(`http://localhost:5000/api/get_payments_by_client/${clientId}`
 
   ),
+  deletePayment: (paymentId) => {
+    return axios.delete(`http://localhost:5000/api/delete_payment/${paymentId}`);
+  },
 
 
 

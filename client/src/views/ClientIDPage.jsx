@@ -42,19 +42,30 @@ const ClientIDPage = () => {
         try {
             const clientResponse = await apiService.getClientById(clientId);
             setClientInfo(clientResponse.data);
-
+    
             const ordersResponse = await apiService.getPurchasesByClientId(clientId);
             setOrders(ordersResponse.data);
-
-            // Calculate total sales
-            const total = ordersResponse.data
-                .filter((order) => order.payment_status === 'Paid')
-                .reduce((sum, order) => sum + parseFloat(order.amount || 0), 0);
+    
+            // Calculate total sales including partial payments
+            const total = ordersResponse.data.reduce((sum, order) => {
+                if (Array.isArray(order.payments) && order.payments.length > 0) {
+                    const paymentsSum = order.payments.reduce(
+                        (paymentSum, payment) => paymentSum + parseFloat(payment.amount_paid || 0),
+                        0
+                    );
+                    return sum + paymentsSum;
+                } else if (order.payment_status === 'Paid') {
+                    return sum + parseFloat(order.amount || 0);
+                }
+                return sum;
+            }, 0);
+    
             setTotalSales(total);
         } catch (error) {
             console.error('Error fetching client data:', error);
         }
     };
+    
 
     useEffect(() => {
         fetchClientData();
@@ -134,6 +145,8 @@ const ClientIDPage = () => {
         setOrders((prevOrders) => prevOrders.filter((order) => order.id !== orderId));
         setSuccessMessage('Order deleted successfully!'); // Update success message
     };
+
+    
 
     const handleCancelEdit = () => {
         setIsEditing(false);
