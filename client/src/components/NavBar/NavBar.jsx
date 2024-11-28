@@ -43,7 +43,7 @@ const Navbar = () => {
       <div className="flex-1 mx-4">
         <input
           type="text"
-          placeholder="Search products..."
+          placeholder="Search clients and products..."
           className="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>

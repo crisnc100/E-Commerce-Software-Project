@@ -31,6 +31,20 @@ const ClientTab = () => {
         };
         fetchClients();
     }, []);
+    useEffect(() => {
+        const lowercasedSearchTerm = searchTerm.toLowerCase();
+        const filtered = clients.filter((client) => {
+            const fullName = `${client.first_name} ${client.last_name}`.toLowerCase();
+            return (
+                client.first_name.toLowerCase().includes(lowercasedSearchTerm) ||
+                client.last_name.toLowerCase().includes(lowercasedSearchTerm) ||
+                client.contact_details.toLowerCase().includes(lowercasedSearchTerm) ||
+                fullName.includes(lowercasedSearchTerm) // Full name search
+            );
+        });
+        setFilteredClients(filtered);
+    }, [searchTerm, clients]);
+
 
     const confirmDelete = (clientId) => {
         setDeleteClientId(clientId);

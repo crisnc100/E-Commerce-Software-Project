@@ -18,6 +18,10 @@ const apiService = {
   getAllProducts: () => {
     return axios.get('http://localhost:5000/api/get_all_products');
   },
+  getClientsForProduct: (productId) => 
+    axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`
+      
+    ),
   updateProduct: (productId, formData) => {
     return axios.put(`http://localhost:5000/api/update_product/${productId}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }

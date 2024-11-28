@@ -117,3 +117,11 @@ class Product:
         WHERE id = %(id)s;
         """
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': product_id, 'description': new_description})
+    
+
+    @classmethod
+    def is_duplicate_screenshot(cls, screenshot_photo_url):
+        """Check if the screenshot photo URL already exists in the database."""
+        query = "SELECT COUNT(*) AS count FROM products WHERE screenshot_photo = %(screenshot_photo)s;"
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'screenshot_photo': screenshot_photo_url})
+        return result[0]['count'] > 0  # Returns True if duplicate exists

@@ -119,6 +119,24 @@ class Purchase:
         if not results or isinstance(results, bool):
             return []
         return [cls(row) for row in results]
+
+    @classmethod
+    def get_clients_for_product(cls, product_id):
+        """
+        Fetch clients who purchased a specific product.
+        :param product_id: The ID of the product.
+        :return: List of clients who purchased the product.
+        """
+        query = """
+        SELECT clients.id, clients.first_name, clients.last_name,
+            purchases.size, purchases.purchase_date, purchases.amount
+        FROM clients
+        JOIN purchases ON clients.id = purchases.client_id
+        WHERE purchases.product_id = %(product_id)s;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'product_id': product_id})
+        return results  # Return the raw results or serialize if needed
+
     
     @classmethod
     def get_purchases_with_payments_by_client(cls, client_id):

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 import { FiEdit, FiTrash } from 'react-icons/fi';
 import Modal from 'react-modal'; // Modal for enlarging product image
+import { NavLink, useNavigate, useParams } from 'react-router-dom';
+
 
 Modal.setAppElement('#root'); // Set the app root for accessibility
 
@@ -12,7 +14,8 @@ const Spinner = () => (
 const ProductsTab = () => {
   const [products, setProducts] = useState([]);
   const [expandedProductId, setExpandedProductId] = useState(null);
-  const [sortOption, setSortOption] = useState('date');
+  const [clients, setClients] = useState({});
+  const [loadingClients, setLoadingClients] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editProductData, setEditProductData] = useState(null);
   const [newImage, setNewImage] = useState(null);
@@ -20,14 +23,26 @@ const ProductsTab = () => {
   const [deleteProductId, setDeleteProductId] = useState(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState(''); // Error message state for validation
   const [showImageModal, setShowImageModal] = useState(false);
   const [currentImage, setCurrentImage] = useState(null);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState(''); // Search bar state
+  const [sortOption, setSortOption] = useState('dateLatest'); // Default sort
+  const navigate = useNavigate();
+
+
+  // New state variables for clients modal
+  const [isClientsModalOpen, setIsClientsModalOpen] = useState(false);
+  const [selectedProductClients, setSelectedProductClients] = useState([]);
+  const [currentProductId, setCurrentProductId] = useState(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const response = await apiService.getAllProducts();
         setProducts(response.data);
+        setFilteredProducts(response.data); // Initialize filtered products
       } catch (error) {
         console.error('Error fetching products:', error);
       }
@@ -35,18 +50,56 @@ const ProductsTab = () => {
     fetchProducts();
   }, []);
 
-  const handleSortChange = (e) => {
-    setSortOption(e.target.value);
-    const sortedProducts = [...products].sort((a, b) => {
-      if (e.target.value === 'date') {
-        return new Date(b.uploaded_at) - new Date(a.uploaded_at);
-      } else if (e.target.value === 'price') {
-        return b.price - a.price;
+  useEffect(() => {
+    let filtered = [...products];
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter((product) =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Sort products
+    if (sortOption === 'dateLatest') {
+      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    } else if (sortOption === 'dateEarliest') {
+      filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    } else if (sortOption === 'priceLowToHigh') {
+      filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+    } else if (sortOption === 'priceHighToLow') {
+      filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+    }
+
+    setFilteredProducts(filtered);
+  }, [products, searchTerm, sortOption]);
+
+  const handleSearchChange = (e) => setSearchTerm(e.target.value);
+  const handleSortChange = (e) => setSortOption(e.target.value);
+
+  // Fetch clients when a product card is expanded
+  useEffect(() => {
+    if (expandedProductId) {
+      // Check if we already have clients for this product
+      if (!clients[expandedProductId]) {
+        setLoadingClients(true);
+        apiService
+          .getClientsForProduct(expandedProductId)
+          .then((response) => {
+            setClients((prevClients) => ({
+              ...prevClients,
+              [expandedProductId]: response.data,
+            }));
+          })
+          .catch((error) => {
+            console.error('Error fetching clients:', error);
+          })
+          .finally(() => {
+            setLoadingClients(false);
+          });
       }
-      return 0;
-    });
-    setProducts(sortedProducts);
-  };
+    }
+  }, [expandedProductId]);
 
   const handleProductClick = (productId) => {
     setExpandedProductId((prevId) => (prevId === productId ? null : productId));
@@ -65,7 +118,9 @@ const ProductsTab = () => {
   const handleDelete = async () => {
     try {
       await apiService.deleteProduct(deleteProductId);
-      setProducts(prevProducts => prevProducts.filter((product) => product.id !== deleteProductId));
+      setProducts((prevProducts) =>
+        prevProducts.filter((product) => product.id !== deleteProductId)
+      );
       setSuccessMessage('Product deleted successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
@@ -79,6 +134,7 @@ const ProductsTab = () => {
   const handleEdit = (product) => {
     setEditProductData(product);
     setIsEditModalOpen(true);
+    setErrorMessage(''); // Clear previous error message
   };
 
   const handleEditChange = (e) => {
@@ -88,6 +144,7 @@ const ProductsTab = () => {
 
   const handleImageChange = (e) => {
     setNewImage(e.target.files[0]);
+    setErrorMessage(''); // Clear error if new image is selected
   };
 
   const handleEditSubmit = async () => {
@@ -112,10 +169,26 @@ const ProductsTab = () => {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error updating product:', error);
+
+      // Handle backend validation error for duplicate images
+      if (error.response?.data?.error) {
+        setErrorMessage(error.response.data.error);
+      } else {
+        setErrorMessage('Failed to update product. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleViewClients = (e, productId) => {
+    e.stopPropagation();
+    setSelectedProductClients(clients[productId]);
+    setIsClientsModalOpen(true);
+  };
+
+  
+  
 
   return (
     <div className="p-4">
@@ -130,23 +203,31 @@ const ProductsTab = () => {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-4">
-        <label htmlFor="sort" className="font-semibold mr-2">
-          Sort by:
-        </label>
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+        {/* Search Bar */}
+        <input
+          type="text"
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={handleSearchChange}
+          className="p-2 w-full sm:w-1/2 rounded-lg border border-gray-300 mb-4 sm:mb-0 sm:mr-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+
+        {/* Sort Options */}
         <select
-          id="sort"
           value={sortOption}
           onChange={handleSortChange}
           className="p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="date">Upload Date</option>
-          <option value="price">Price</option>
+          <option value="dateLatest">Date: Latest</option>
+          <option value="dateEarliest">Date: Earliest</option>
+          <option value="priceLowToHigh">Price: Low to High</option>
+          <option value="priceHighToLow">Price: High to Low</option>
         </select>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
+        {filteredProducts.map((product) => (
           <div
             key={product.id}
             className="bg-white p-4 rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-shadow duration-200"
@@ -167,9 +248,24 @@ const ProductsTab = () => {
             {expandedProductId === product.id && (
               <div className="mt-2">
                 <p className="text-gray-600">{product.description}</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Clients who have purchased: {product.clients ? product.clients.join(', ') : 'None'}
-                </p>
+
+                {/* Loading Spinner */}
+                {loadingClients && expandedProductId === product.id ? (
+                  <div className="flex justify-center items-center my-4">
+                    <Spinner />
+                  </div>
+                ) : clients[product.id] && clients[product.id].length > 0 ? (
+                  <button
+                    onClick={(e) => handleViewClients(e, product.id)}
+                    className="mt-2 text-blue-500 hover:underline"
+                  >
+                    View Clients
+                  </button>
+                ) : (
+                  <p className="text-sm text-gray-500 mt-2">
+                    No clients have purchased this product.
+                  </p>
+                )}
                 <div className="flex justify-end mt-4">
                   <button
                     onClick={(e) => {
@@ -251,6 +347,11 @@ const ProductsTab = () => {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
             <h2 className="text-xl font-bold mb-4">Edit Product</h2>
+            {errorMessage && (
+              <div className="bg-red-100 text-red-700 p-2 mb-4 rounded-md">
+                {errorMessage}
+              </div>
+            )}
             <label className="block mb-2">Name</label>
             <input
               type="text"
@@ -291,7 +392,9 @@ const ProductsTab = () => {
               </button>
               <button
                 onClick={handleEditSubmit}
-                className={`bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded-lg flex items-center ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded-lg flex items-center ${
+                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
                 disabled={isLoading}
               >
                 {isLoading && <Spinner className="mr-2" />}
@@ -300,6 +403,61 @@ const ProductsTab = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Clients Modal */}
+      {isClientsModalOpen && (
+        <Modal
+          isOpen={isClientsModalOpen}
+          onRequestClose={() => setIsClientsModalOpen(false)}
+          contentLabel="Clients List"
+          className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-75"
+          overlayClassName="bg-black bg-opacity-75"
+        >
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Clients Who Purchased</h2>
+            {selectedProductClients.length > 0 ? (
+              <ul className="divide-y divide-gray-200">
+                {selectedProductClients.map((client, index) => (
+                  <li
+                    key={`${client.id}-${index}`}
+                    className="py-2 flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {client.first_name} {client.last_name}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Purchased on:{' '}
+                        {new Date(client.purchase_date).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Size: {client.size}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Amount: ${client.amount}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/dashboard/clients/${client.id}/${client.first_name}-${client.last_name}`)}
+                      className="text-blue-500 hover:underline"
+                    >
+                      View Profile
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No clients have purchased this product yet.</p>
+            )}
+            <button
+              onClick={() => setIsClientsModalOpen(false)}
+              className="mt-4 bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

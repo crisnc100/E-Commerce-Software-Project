@@ -3,6 +3,7 @@ from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.products_model import Product
+from flask_app.models.purchases_model import Purchase
 import boto3
 import os
 from werkzeug.utils import secure_filename
@@ -55,9 +56,6 @@ def create_product():
     price = request.form.get('price')
     screenshot_photo = request.files.get('screenshot_photo')
 
-    print("screenshot_photo:", screenshot_photo)
-    print("type(screenshot_photo):", type(screenshot_photo))
-
     # Ensure a file is uploaded
     if not screenshot_photo:
         return jsonify({"error": "Screenshot photo is required"}), 400
@@ -65,22 +63,25 @@ def create_product():
     # Upload the image to S3 and get URL
     image_url = upload_to_s3(screenshot_photo, app.config['S3_BUCKET_NAME'])
 
-    if image_url:
-        product_data = {
-            'name': product_name,
-            'description': description,
-            'price': price,
-            'screenshot_photo': image_url  # Use 'screenshot_photo' to match your model
-        }
-        try:
-            product_id = Product.save(product_data)
-            return jsonify({"message": "Product created", "product_id": product_id}), 201
-        except Exception as e:
-            print(f"Error saving product: {e}")
-            traceback.print_exc()
-            return jsonify({"error": "Failed to save product"}), 500
-    else:
-        return jsonify({"error": "Failed to upload image"}), 500
+    # Check for duplicate screenshot photo
+    if Product.is_duplicate_screenshot(image_url):
+        return jsonify({"error": "Product photo already exists"}), 400
+
+    # Proceed to save the product
+    product_data = {
+        'name': product_name,
+        'description': description,
+        'price': price,
+        'screenshot_photo': image_url
+    }
+    try:
+        product_id = Product.save(product_data)
+        return jsonify({"message": "Product created!", "product_id": product_id}), 201
+    except Exception as e:
+        print(f"Error saving product: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Failed to save product"}), 500
+
 
 
 
@@ -123,6 +124,10 @@ def update_product(product_id):
         image_url = upload_to_s3(screenshot_photo, app.config['S3_BUCKET_NAME'])
         if not image_url:
             return jsonify({"error": "Failed to upload new image"}), 500
+
+        # Check for duplicate screenshot photo
+        if Product.is_duplicate_screenshot(image_url) and image_url != product.screenshot_photo:
+            return jsonify({"error": "Product photo already exists"}), 400
     else:
         # Keep the existing image URL if no new image is uploaded
         image_url = product.screenshot_photo
@@ -133,7 +138,7 @@ def update_product(product_id):
         'name': product_name,
         'description': description,
         'price': price,
-        'screenshot_photo': image_url  # Use the new or existing image URL
+        'screenshot_photo': image_url
     }
 
     # Update product in the database
@@ -144,6 +149,7 @@ def update_product(product_id):
         print(f"Error updating product: {e}")
         traceback.print_exc()
         return jsonify({"error": "Failed to update product"}), 500
+
 
 
 
@@ -198,3 +204,13 @@ def filter_products_by_price():
 
     products = Product.filter_by_price_range(float(min_price), float(max_price))
     return jsonify([product.serialize() for product in products]), 200
+
+
+@app.route('/api/get_clients_for_product/<int:product_id>', methods=['GET'])
+def get_clients_for_product(product_id):
+    try:
+        clients = Purchase.get_clients_for_product(product_id)
+        return jsonify(clients)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
