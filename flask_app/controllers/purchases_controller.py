@@ -65,6 +65,7 @@ def get_overdue_purchases():
         print(f"Error retrieving overdue purchases: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
+
 # READ Single Purchase by ID
 @app.route('/api/get_one_purchase/<int:purchase_id>', methods=['GET'])
 def get_one_purchase(purchase_id):
@@ -72,6 +73,8 @@ def get_one_purchase(purchase_id):
     if not purchase:
         return jsonify({"error": "Purchase not found"}), 404
     return jsonify(purchase.serialize()), 200
+
+
 
 
 # UPDATE Purchase

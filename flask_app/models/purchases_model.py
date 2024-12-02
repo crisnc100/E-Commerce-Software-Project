@@ -21,6 +21,9 @@ class Purchase:
         self.product_description = data.get('product_description')  # New field
         self.product_screenshot_photo = data.get('product_screenshot_photo')
         self.payments = data.get('payments', [])
+        self.client_first_name = data.get('client_first_name')
+        self.client_last_name = data.get('client_last_name'),
+    
 
     
     def serialize(self):
@@ -40,6 +43,8 @@ class Purchase:
             'product_description': self.product_description,
             'product_screenshot_photo': self.product_screenshot_photo,
             'payments': self.payments,
+            'client_first_name': self.client_first_name,
+            'client_last_name': self.client_last_name,
 
         }
     
@@ -237,13 +242,27 @@ class Purchase:
     @classmethod
     def get_overdue_purchases(cls):
         query = """
-        SELECT id, client_id, product_id, purchase_date, amount, payment_status, shipping_status
+        SELECT 
+            purchases.id, 
+            purchases.client_id, 
+            clients.first_name AS client_first_name, 
+            clients.last_name AS client_last_name,
+            purchases.product_id, 
+            products.name AS product_name,
+            products.screenshot_photo as product_screenshot_photo,
+            purchases.purchase_date, 
+            purchases.amount, 
+            purchases.payment_status, 
+            purchases.shipping_status
         FROM purchases
-        WHERE payment_status = 'Overdue'
+        JOIN clients ON purchases.client_id = clients.id
+        JOIN products ON purchases.product_id = products.id
+        WHERE purchases.payment_status = 'Overdue'
         """
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
         print(f"Overdue purchases: {results}")
         return [cls(result) for result in results]
+
     
 
     

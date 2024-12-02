@@ -76,6 +76,9 @@ const apiService = {
   deletePurchase: (purchaseId) => {
     return axios.delete(`http://localhost:5000/api/delete_purchase/${purchaseId}`);
   },
+  getOverduePurchases: () => {
+    return axios.get(`http://localhost:5000/api/get_overdue_purchases`)
+  },
   getTotalAmountByClientId: (clientId) =>
     axios.get(`http://localhost:5000/api/get_total_amount_by_client/${clientId}`
 
