@@ -6,7 +6,6 @@ import apiService from '../../services/apiService';
 import UploadProductModal from '../UploadProductModal';
 import { useCallback } from 'react';
 import { debounce } from 'lodash';
-import { format } from 'date-fns'; // For date formatting
 
 
 
@@ -26,6 +25,10 @@ const Navbar = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [selectedItemId, setSelectedItemId] = useState(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 6; // Max items per page
 
   const handleLogout = async () => {
     try {
@@ -77,7 +80,7 @@ const Navbar = () => {
   };
 
   const debouncedFetchSearchResults = useCallback(
-    debounce((term) => fetchSearchResults(term), 300),
+    debounce((term) => fetchSearchResults(term), 200),
     [searchType]
   );
 
@@ -94,36 +97,32 @@ const Navbar = () => {
     debouncedFetchSearchResults(term);
   };
 
-  const fetchDetailedResults = async (reset = false) => {
+  const fetchDetailedResults = async (itemId) => {
     try {
-      const limit = 10; // Adjust as needed
-      const offset = reset ? 0 : page * limit;
+      setIsLoading(true);
       let response;
       if (searchType === 'product') {
-        response = await apiService.getClientsForProduct(selectedItemId, limit, offset);
+        response = await apiService.getClientsForProduct(itemId);
       } else if (searchType === 'client') {
-        response = await apiService.allPurchasesByClientId(selectedItemId, limit, offset);
+        response = await apiService.allPurchasesByClientId(itemId);
       }
-      if (response.data.length < limit) {
-        setHasMore(false);
-      } else {
-        setHasMore(true);
-      }
-      setDetailedResults((prev) => (reset ? response.data : [...prev, ...response.data]));
-      setPage((prev) => (reset ? 1 : prev + 1));
+      setDetailedResults(response.data);
     } catch (error) {
       console.error('Failed to fetch detailed results:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
+  
 
   const handleSearchResultClick = async (result) => {
     setIsSearchDropdownOpen(false);
     setSelectedItemId(result.id);
-    setPage(0);
     setDetailedResults([]);
     setIsDetailedViewOpen(true);
-    await fetchDetailedResults(true);
+    await fetchDetailedResults(result.id);
   };
+  
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -166,13 +165,29 @@ const Navbar = () => {
 
     const date = new Date(dateString);
     const correctedDate = new Date(
-        date.getTime() + date.getTimezoneOffset() * 60000
+      date.getTime() + date.getTimezoneOffset() * 60000
     );
 
     return isNaN(correctedDate)
-        ? 'Unknown Date'
-        : correctedDate.toLocaleDateString();
-};
+      ? 'Unknown Date'
+      : correctedDate.toLocaleDateString();
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Pending':
+        return 'text-yellow-600';
+      case 'Overdue':
+        return 'text-red-600';
+      case 'Paid':
+        return 'text-green-600';
+      case 'Partial':
+        return 'text-blue-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
 
   return (
     <nav className="bg-gray-800 p-4 flex justify-between items-center">
@@ -195,6 +210,7 @@ const Navbar = () => {
           />
         </div>
 
+        {/* Search Dropdown */}
         {isSearchDropdownOpen && (
           <div className="absolute bg-white shadow-lg rounded-lg mt-2 w-full max-h-60 overflow-auto z-10">
             {isLoading && (
@@ -274,7 +290,7 @@ const Navbar = () => {
       {/* Upload Product Modal */}
       {isUploadModalOpen && <UploadProductModal onClose={() => setIsUploadModalOpen(false)} />}
 
-      {/* Improved Detailed View Modal */}
+      {/* Detailed View Modal */}
       {isDetailedViewOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20"
@@ -291,8 +307,12 @@ const Navbar = () => {
                 : 'Products Purchased by This Client'}
             </h2>
             <div className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
-              {detailedResults.length === 0 ? (
-                <div className="text-center text-gray-500">No data available.</div>
+              {isLoading ? (
+                <div className="text-center text-gray-500">Loading...</div>
+              ) : detailedResults.length === 0 ? (
+                <div className="text-center text-gray-500">
+                  No data available.
+                </div>
               ) : (
                 <ul className="space-y-4">
                   {detailedResults.map((item) => (
@@ -302,7 +322,10 @@ const Navbar = () => {
                     >
                       {searchType === 'product' ? (
                         <div>
-                          <h3 className="text-lg font-semibold">
+                          <h3
+                            className="text-lg font-semibold cursor-pointer text-blue-600"
+                            onClick={() => navigate(`/client/${item.client_id}`)}
+                          >
                             {`${item.first_name} ${item.last_name}`}
                           </h3>
                           <p className="text-sm text-gray-600">
@@ -312,16 +335,25 @@ const Navbar = () => {
                           <p className="text-sm text-gray-600">
                             Amount: ${parseFloat(item.amount).toFixed(2)}
                           </p>
+                          <p className="text-sm text-gray-600">
+                            Payment Status:{' '}
+                            <span className={`${getStatusColor(item.payment_status)} font-semibold`}>
+                              {item.payment_status}
+                            </span>
+                          </p>
                         </div>
                       ) : (
-                        <div className="flex items-center">
+                        <div
+                          className="flex items-center cursor-pointer"
+                          onClick={() => navigate(`/product/${item.product_id}`)}
+                        >
                           <img
                             src={item.product_screenshot_photo}
                             alt={item.product_name}
                             className="w-16 h-16 mr-4 object-cover rounded"
                           />
                           <div>
-                            <h3 className="text-lg font-semibold">
+                            <h3 className="text-lg font-semibold text-blue-600">
                               {item.product_name}
                             </h3>
                             <p className="text-sm text-gray-600">
@@ -337,16 +369,6 @@ const Navbar = () => {
                     </li>
                   ))}
                 </ul>
-              )}
-              {hasMore && (
-                <div className="flex justify-center mt-4">
-                  <button
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    onClick={() => fetchDetailedResults()}
-                  >
-                    Load More
-                  </button>
-                </div>
               )}
             </div>
           </div>

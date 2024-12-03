@@ -153,8 +153,8 @@ class Purchase:
         :return: List of clients who purchased the product.
         """
         query = """
-        SELECT clients.id, clients.first_name, clients.last_name,
-            purchases.size, purchases.purchase_date, purchases.amount
+        SELECT clients.id AS client_id, clients.first_name, clients.last_name,
+            purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id
         WHERE purchases.product_id = %(product_id)s;
