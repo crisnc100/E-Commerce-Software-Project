@@ -123,10 +123,18 @@ class Client:
 
     @classmethod
     def search_by_name(cls, name):
-        """Search clients by name."""
-        query = "SELECT * FROM clients WHERE first_name LIKE %(name)s OR last_name LIKE %(name)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db({'name': f"%{name}%"})
-        return [cls(row) for row in results]
+        """
+        Search for clients by name (partial matches allowed).
+        :param name: The partial name to search.
+        :return: List of matching clients.
+        """
+        query = """
+        SELECT id, first_name, last_name
+        FROM clients
+        WHERE first_name LIKE %s OR last_name LIKE %s;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, [f"%{name}%", f"%{name}%"])
+        return results
 
     @staticmethod
     def is_valid(data):

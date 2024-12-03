@@ -98,12 +98,12 @@ def delete_client(client_id):
 # SEARCH Client by Name
 @app.route('/api/search_clients', methods=['GET'])
 def search_clients():
-    name = request.args.get('name', '')
-    if not name:
-        return jsonify({"error": "Search term required"}), 400
-
-    clients = Client.search_by_name(name)
-    return jsonify([client.serialize() for client in clients]), 200
+    try:
+        name = request.args.get('name', '')
+        clients = Client.search_by_name(name)
+        return jsonify(clients)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # GET Client with Purchases

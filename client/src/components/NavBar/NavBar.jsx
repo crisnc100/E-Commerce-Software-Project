@@ -1,21 +1,38 @@
 // src/components/Navbar.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUpload, FiLock, FiUser } from 'react-icons/fi';
 import apiService from '../../services/apiService';
 import UploadProductModal from '../UploadProductModal';
+import { useCallback } from 'react';
+import { debounce } from 'lodash';
+import { format } from 'date-fns'; // For date formatting
+
+
 
 const Navbar = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [searchType, setSearchType] = useState('product'); // 'product' or 'client'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
+  const [detailedResults, setDetailedResults] = useState([]);
+  const [isDetailedViewOpen, setIsDetailedViewOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const searchDropdownRef = useRef(null);
+
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [selectedItemId, setSelectedItemId] = useState(null);
 
   const handleLogout = async () => {
     try {
       await apiService.logout();
-      sessionStorage.clear();  
-      localStorage.clear();    
-      navigate('/');          
+      sessionStorage.clear();
+      localStorage.clear();
+      navigate('/');
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -38,14 +55,179 @@ const Navbar = () => {
     };
   }, [isProfileMenuOpen]);
 
+  // Debounce the search input to avoid excessive API calls
+  // Debounce the search input to avoid excessive API calls
+  const fetchSearchResults = async (term) => {
+    setIsLoading(true);
+    try {
+      let response;
+      if (searchType === 'product') {
+        response = await apiService.searchProductsByName(term);
+      } else if (searchType === 'client') {
+        response = await apiService.searchClientsByName(term);
+      }
+      setSearchResults(response.data);
+      setIsSearchDropdownOpen(true);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const debouncedFetchSearchResults = useCallback(
+    debounce((term) => fetchSearchResults(term), 300),
+    [searchType]
+  );
+
+  const handleSearchChange = (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+
+    if (!term) {
+      setSearchResults([]);
+      setIsSearchDropdownOpen(false);
+      return;
+    }
+
+    debouncedFetchSearchResults(term);
+  };
+
+  const fetchDetailedResults = async (reset = false) => {
+    try {
+      const limit = 10; // Adjust as needed
+      const offset = reset ? 0 : page * limit;
+      let response;
+      if (searchType === 'product') {
+        response = await apiService.getClientsForProduct(selectedItemId, limit, offset);
+      } else if (searchType === 'client') {
+        response = await apiService.allPurchasesByClientId(selectedItemId, limit, offset);
+      }
+      if (response.data.length < limit) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
+      setDetailedResults((prev) => (reset ? response.data : [...prev, ...response.data]));
+      setPage((prev) => (reset ? 1 : prev + 1));
+    } catch (error) {
+      console.error('Failed to fetch detailed results:', error);
+    }
+  };
+
+  const handleSearchResultClick = async (result) => {
+    setIsSearchDropdownOpen(false);
+    setSelectedItemId(result.id);
+    setPage(0);
+    setDetailedResults([]);
+    setIsDetailedViewOpen(true);
+    await fetchDetailedResults(true);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        searchDropdownRef.current &&
+        !searchDropdownRef.current.contains(event.target)
+      ) {
+        setIsSearchDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close detailed view when clicking outside
+  useEffect(() => {
+    const handleClickOutsideDetailedView = (event) => {
+      if (
+        detailedViewRef.current &&
+        !detailedViewRef.current.contains(event.target)
+      ) {
+        setIsDetailedViewOpen(false);
+      }
+    };
+    if (isDetailedViewOpen) {
+      document.addEventListener('mousedown', handleClickOutsideDetailedView);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutsideDetailedView);
+    };
+  }, [isDetailedViewOpen]);
+
+  const detailedViewRef = useRef(null);
+
+  const formatDateSafely = (dateString) => {
+    if (!dateString) return 'Unknown Date';
+
+    const date = new Date(dateString);
+    const correctedDate = new Date(
+        date.getTime() + date.getTimezoneOffset() * 60000
+    );
+
+    return isNaN(correctedDate)
+        ? 'Unknown Date'
+        : correctedDate.toLocaleDateString();
+};
+
   return (
     <nav className="bg-gray-800 p-4 flex justify-between items-center">
-      <div className="flex-1 mx-4">
-        <input
-          type="text"
-          placeholder="Search clients and products..."
-          className="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      <div className="flex-1 mx-4 relative" ref={searchDropdownRef}>
+        <div className="flex space-x-2">
+          <select
+            value={searchType}
+            onChange={(e) => setSearchType(e.target.value)}
+            className="p-2 rounded-lg bg-gray-700 text-white focus:outline-none"
+          >
+            <option value="product">Product</option>
+            <option value="client">Client</option>
+          </select>
+          <input
+            type="text"
+            placeholder={`Search ${searchType}s...`}
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {isSearchDropdownOpen && (
+          <div className="absolute bg-white shadow-lg rounded-lg mt-2 w-full max-h-60 overflow-auto z-10">
+            {isLoading && (
+              <div className="p-2 text-center text-gray-500">Loading...</div>
+            )}
+            {!isLoading && searchResults.length === 0 && (
+              <div className="p-2 text-center text-gray-500">
+                No results found.
+              </div>
+            )}
+            {!isLoading &&
+              searchResults.map((result) => (
+                <div
+                  key={result.id}
+                  className="p-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                  onClick={() => handleSearchResultClick(result)}
+                >
+                  {searchType === 'product' ? (
+                    <>
+                      <img
+                        src={result.screenshot_photo}
+                        alt={result.name}
+                        className="w-10 h-10 mr-2"
+                      />
+                      <span>{result.name}</span>
+                    </>
+                  ) : (
+                    <span>{`${result.first_name} ${result.last_name}`}</span>
+                  )}
+                </div>
+              ))}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center space-x-4">
@@ -91,6 +273,85 @@ const Navbar = () => {
 
       {/* Upload Product Modal */}
       {isUploadModalOpen && <UploadProductModal onClose={() => setIsUploadModalOpen(false)} />}
+
+      {/* Improved Detailed View Modal */}
+      {isDetailedViewOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20"
+          onClick={() => setIsDetailedViewOpen(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-lg max-w-lg w-full max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            ref={detailedViewRef}
+          >
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              {searchType === 'product'
+                ? 'Clients Who Purchased This Product'
+                : 'Products Purchased by This Client'}
+            </h2>
+            <div className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
+              {detailedResults.length === 0 ? (
+                <div className="text-center text-gray-500">No data available.</div>
+              ) : (
+                <ul className="space-y-4">
+                  {detailedResults.map((item) => (
+                    <li
+                      key={`${item.id}-${item.purchase_date}`}
+                      className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      {searchType === 'product' ? (
+                        <div>
+                          <h3 className="text-lg font-semibold">
+                            {`${item.first_name} ${item.last_name}`}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            Purchase Date:{' '}
+                            {formatDateSafely(item.purchase_date)}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Amount: ${parseFloat(item.amount).toFixed(2)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <img
+                            src={item.product_screenshot_photo}
+                            alt={item.product_name}
+                            className="w-16 h-16 mr-4 object-cover rounded"
+                          />
+                          <div>
+                            <h3 className="text-lg font-semibold">
+                              {item.product_name}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              Purchase Date:{' '}
+                              {formatDateSafely(item.purchase_date)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Amount: ${parseFloat(item.amount).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {hasMore && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    onClick={() => fetchDetailedResults()}
+                  >
+                    Load More
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };

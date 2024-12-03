@@ -187,6 +187,19 @@ const ProductsTab = () => {
     setIsClientsModalOpen(true);
   };
 
+  const formatDateSafely = (dateString) => {
+    if (!dateString) return 'Unknown Date';
+
+    const date = new Date(dateString);
+    const correctedDate = new Date(
+        date.getTime() + date.getTimezoneOffset() * 60000
+    );
+
+    return isNaN(correctedDate)
+        ? 'Unknown Date'
+        : correctedDate.toLocaleDateString();
+};
+
   
   
 
@@ -429,8 +442,8 @@ const ProductsTab = () => {
                       </p>
                       <p className="text-sm text-gray-500">
                         Purchased on:{' '}
-                        {new Date(client.purchase_date).toLocaleDateString()}
-                      </p>
+                        {formatDateSafely(client.purchase_date)}
+                        </p>
                       <p className="text-sm text-gray-500">
                         Size: {client.size}
                       </p>

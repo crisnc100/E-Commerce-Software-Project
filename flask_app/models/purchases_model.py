@@ -103,6 +103,26 @@ class Purchase:
             return []  # Return an empty list if no results or query fails
         
         return [cls(row) for row in results]
+    
+    @classmethod
+    def all_purchases_for_client(cls, client_id):
+        """
+        Fetch purchases made by a specific client, including product details.
+        :param client_id: The ID of the client.
+        :return: List of purchases with product details.
+        """
+        query = """
+        SELECT purchases.id, purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status,
+            products.name AS product_name, products.description AS product_description, 
+            products.screenshot_photo AS product_screenshot_photo
+        FROM purchases
+        JOIN products ON purchases.product_id = products.id
+        WHERE purchases.client_id = %(client_id)s;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        return [cls(row) for row in results]  # Serialize if needed
+
+
 
 
     @classmethod

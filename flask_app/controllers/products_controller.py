@@ -174,12 +174,12 @@ def delete_product(product_id):
 # SEARCH Products by Name
 @app.route('/api/search_products', methods=['GET'])
 def search_products():
-    name = request.args.get('name', '')
-    if not name:
-        return jsonify({"error": "Search term required"}), 400
-
-    products = Product.search_by_name(name)
-    return jsonify([product.serialize() for product in products]), 200
+    try:
+        name = request.args.get('name', '')
+        products = Product.search_by_name(name)
+        return jsonify(products)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # GET Products with Sizes
@@ -213,4 +213,6 @@ def get_clients_for_product(product_id):
         return jsonify(clients)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
 

@@ -65,10 +65,18 @@ class Product:
 
     @classmethod
     def search_by_name(cls, name):
-        """Search for products by name."""
-        query = "SELECT * FROM products WHERE name LIKE %(name)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db({'name': f"%{name}%"})
-        return [cls(row) for row in results]
+        """
+        Search for products by name (partial matches allowed).
+        :param name: The partial name to search.
+        :return: List of matching products.
+        """
+        query = """
+        SELECT id, name, description, screenshot_photo
+        FROM products
+        WHERE name LIKE %s;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, [f"%{name}%"])
+        return results
 
     @classmethod
     def filter_by_price_range(cls, min_price, max_price):

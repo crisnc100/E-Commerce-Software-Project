@@ -18,9 +18,9 @@ const apiService = {
   getAllProducts: () => {
     return axios.get('http://localhost:5000/api/get_all_products');
   },
-  getClientsForProduct: (productId) => 
+  getClientsForProduct: (productId) =>
     axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`
-      
+
     ),
   updateProduct: (productId, formData) => {
     return axios.put(`http://localhost:5000/api/update_product/${productId}`, formData, {
@@ -96,11 +96,17 @@ const apiService = {
     return axios.delete(`http://localhost:5000/api/delete_payment/${paymentId}`);
   },
 
+  allPurchasesByClientId: (clientId) =>
+    axios.get(`http://localhost:5000/api/all_purchases_for_client/${clientId}`
 
+    ),
 
-
-
-
+  searchProductsByName: (name) => {
+    return axios.get(`http://localhost:5000/api/search_products?name=${name}`);
+  },
+  searchClientsByName: (name) => {
+    return axios.get(`http://localhost:5000/api/search_clients?name=${name}`);
+  },
 
 };
 
