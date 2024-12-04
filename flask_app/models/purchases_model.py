@@ -105,22 +105,60 @@ class Purchase:
         return [cls(row) for row in results]
     
     @classmethod
-    def all_purchases_for_client(cls, client_id):
-        """
-        Fetch purchases made by a specific client, including product details.
-        :param client_id: The ID of the client.
-        :return: List of purchases with product details.
-        """
+    def all_purchases_for_client(cls, client_id, page=1):
+        limit = 6
+        offset = (page - 1) * limit
+
+        # Fetch the paginated results
         query = """
         SELECT purchases.id, purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status,
-            products.name AS product_name, products.description AS product_description, 
+            products.id AS product_id, products.name AS product_name, products.description AS product_description, 
             products.screenshot_photo AS product_screenshot_photo
         FROM purchases
         JOIN products ON purchases.product_id = products.id
-        WHERE purchases.client_id = %(client_id)s;
+        WHERE purchases.client_id = %(client_id)s
+        LIMIT %(limit)s OFFSET %(offset)s;
         """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
-        return [cls(row) for row in results]  # Serialize if needed
+        params = {'client_id': client_id, 'limit': limit, 'offset': offset}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
+
+        # Fetch the total count
+        count_query = """
+        SELECT COUNT(*) AS total
+        FROM purchases
+        WHERE client_id = %(client_id)s;
+        """
+        count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, {'client_id': client_id})
+        total = count_result[0]['total'] if count_result else 0
+
+        return {'items': results, 'total': total}
+
+
+    @classmethod
+    def all_purchases_for_product(cls, product_id, page=1):
+        limit = 6
+        offset = (page - 1) * limit
+        query = """
+        SELECT clients.id AS client_id, clients.first_name, clients.last_name,
+            purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status
+        FROM clients
+        JOIN purchases ON clients.id = purchases.client_id
+        WHERE purchases.product_id = %(product_id)s
+        LIMIT %(limit)s OFFSET %(offset)s;
+        """
+        params = {'product_id': product_id, 'limit': limit, 'offset': offset}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
+
+        count_query = """
+        SELECT COUNT(*) AS total
+        FROM purchases
+        WHERE product_id = %(product_id)s;
+        """
+        count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, {'product_id': product_id})
+        total = count_result[0]['total'] if count_result else 0
+        return {'items': results, 'total': total}
+
+
 
 
 

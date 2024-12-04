@@ -96,8 +96,12 @@ const apiService = {
     return axios.delete(`http://localhost:5000/api/delete_payment/${paymentId}`);
   },
 
-  allPurchasesByClientId: (clientId) =>
-    axios.get(`http://localhost:5000/api/all_purchases_for_client/${clientId}`
+  allPurchasesByClientId: (clientId, page=1) =>
+    axios.get(`http://localhost:5000/api/all_purchases_for_client/${clientId}/page/${page}`
+
+    ),
+  allPurchasesByProductId: (productId, page=1) =>
+    axios.get(`http://localhost:5000/api/all_purchases_for_product/${productId}/page/${page}`
 
     ),
 

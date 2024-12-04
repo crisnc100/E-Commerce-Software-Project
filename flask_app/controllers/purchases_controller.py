@@ -195,13 +195,25 @@ def update_shipping_status(purchase_id):
         return jsonify({"error": "Invalid request format"}), 400
     
 #Search Feature for Navbar:
-@app.route('/api/all_purchases_for_client/<int:client_id>', methods=['GET'])
-def all_purchases_for_client(client_id):
+@app.route('/api/all_purchases_for_client/<int:client_id>/page/<int:page>', methods=['GET'])
+def all_purchases_for_client(client_id, page):
     try:
-        purchases = Purchase.all_purchases_for_client(client_id)
-        return jsonify([purchase.serialize() for purchase in purchases])
+        purchases = Purchase.all_purchases_for_client(client_id, page)
+        return jsonify(purchases)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+    
+#Search Feature for Navbar:
+@app.route('/api/all_purchases_for_product/<int:product_id>/page/<int:page>', methods=['GET'])
+def all_purchases_for_product(product_id, page):
+    try:
+        data = Purchase.all_purchases_for_product(product_id, page)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
     
 
 
