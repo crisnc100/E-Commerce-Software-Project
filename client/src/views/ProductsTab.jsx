@@ -22,6 +22,7 @@ const ProductsTab = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [deleteProductId, setDeleteProductId] = useState(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isSecondConfirmModalOpen, setIsSecondConfirmModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState(''); // Error message state for validation
   const [showImageModal, setShowImageModal] = useState(false);
@@ -29,6 +30,8 @@ const ProductsTab = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState(''); // Search bar state
   const [sortOption, setSortOption] = useState('dateLatest'); // Default sort
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const navigate = useNavigate();
 
 
@@ -37,18 +40,26 @@ const ProductsTab = () => {
   const [selectedProductClients, setSelectedProductClients] = useState([]);
   const [currentProductId, setCurrentProductId] = useState(null);
 
+
+
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchProducts = async (page = 1) => {
+      setIsLoading(true);
       try {
-        const response = await apiService.getAllProducts();
-        setProducts(response.data);
-        setFilteredProducts(response.data); // Initialize filtered products
+        const response = await apiService.getAllProducts(page);
+        setProducts(response.data.products); // Assuming the backend sends paginated products
+        setTotalPages(Math.ceil(response.data.total_count / 12)); // Calculate total pages
       } catch (error) {
         console.error('Error fetching products:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchProducts();
-  }, []);
+
+    fetchProducts(currentPage);
+  }, [currentPage]);
+
+
 
   useEffect(() => {
     let filtered = [...products];
@@ -76,6 +87,12 @@ const ProductsTab = () => {
 
   const handleSearchChange = (e) => setSearchTerm(e.target.value);
   const handleSortChange = (e) => setSortOption(e.target.value);
+
+  const handlePageChange = (page) => {
+    if (page > 0 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   // Fetch clients when a product card is expanded
   useEffect(() => {
@@ -115,18 +132,22 @@ const ProductsTab = () => {
     setIsConfirmModalOpen(true);
   };
 
+  const handleSecondConfirm = () => {
+    setIsConfirmModalOpen(false);
+    setIsSecondConfirmModalOpen(true);
+  };
   const handleDelete = async () => {
     try {
       await apiService.deleteProduct(deleteProductId);
       setProducts((prevProducts) =>
         prevProducts.filter((product) => product.id !== deleteProductId)
       );
-      setSuccessMessage('Product deleted successfully!');
+      setSuccessMessage('Product and associated orders deleted successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error deleting product:', error);
     } finally {
-      setIsConfirmModalOpen(false);
+      setIsSecondConfirmModalOpen(false);
       setDeleteProductId(null);
     }
   };
@@ -192,16 +213,16 @@ const ProductsTab = () => {
 
     const date = new Date(dateString);
     const correctedDate = new Date(
-        date.getTime() + date.getTimezoneOffset() * 60000
+      date.getTime() + date.getTimezoneOffset() * 60000
     );
 
     return isNaN(correctedDate)
-        ? 'Unknown Date'
-        : correctedDate.toLocaleDateString();
-};
+      ? 'Unknown Date'
+      : correctedDate.toLocaleDateString();
+  };
 
-  
-  
+
+
 
   return (
     <div className="p-4">
@@ -305,6 +326,33 @@ const ProductsTab = () => {
         ))}
       </div>
 
+      {/* Pagination Controls */}
+      <div className="flex justify-center mt-6">
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`px-4 py-2 mr-2 rounded-lg border ${currentPage === 1
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+        >
+          Previous
+        </button>
+        <span className="px-4 py-2">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || filteredProducts.length < 12}
+          className={`px-4 py-2 ml-2 rounded-lg border ${currentPage === totalPages || filteredProducts.length < 12
+              ? 'bg-gray-300 cursor-not-allowed'
+              : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+        >
+          Next
+        </button>
+      </div>
+
       {/* Image Modal */}
       {showImageModal && (
         <Modal
@@ -328,7 +376,7 @@ const ProductsTab = () => {
         </Modal>
       )}
 
-      {/* Confirmation Modal */}
+      {/* First Confirmation Modal */}
       {isConfirmModalOpen && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -338,6 +386,36 @@ const ProductsTab = () => {
               <button
                 onClick={() => {
                   setIsConfirmModalOpen(false);
+                  setDeleteProductId(null);
+                }}
+                className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSecondConfirm}
+                className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Second Confirmation Modal */}
+      {isSecondConfirmModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold mb-4">Warning!</h2>
+            <p>
+              Deleting this product will also delete all associated orders from
+              clients. Are you sure you want to proceed?
+            </p>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => {
+                  setIsSecondConfirmModalOpen(false);
                   setDeleteProductId(null);
                 }}
                 className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
@@ -405,9 +483,8 @@ const ProductsTab = () => {
               </button>
               <button
                 onClick={handleEditSubmit}
-                className={`bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded-lg flex items-center ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                className={`bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded-lg flex items-center ${isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 disabled={isLoading}
               >
                 {isLoading && <Spinner className="mr-2" />}
@@ -443,7 +520,7 @@ const ProductsTab = () => {
                       <p className="text-sm text-gray-500">
                         Purchased on:{' '}
                         {formatDateSafely(client.purchase_date)}
-                        </p>
+                      </p>
                       <p className="text-sm text-gray-500">
                         Size: {client.size}
                       </p>

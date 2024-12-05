@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import apiService from '../services/apiService';
 import Select from 'react-select';
 import { Modal } from 'react-responsive-modal';
@@ -7,6 +7,10 @@ import 'react-responsive-modal/styles.css';
 const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     const [clients, setClients] = useState([]);
     const [products, setProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+    const [currentProductPage, setCurrentProductPage] = useState(1);
+    const [hasMoreProducts, setHasMoreProducts] = useState(true);
 
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -35,19 +39,15 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     const [warningMessage, setWarningMessage] = useState('');
 
     useEffect(() => {
-        // Fetch clients and products
-        const fetchData = async () => {
+        // Fetch clients
+        const fetchClients = async () => {
             try {
-                const [clientResponse, productResponse] = await Promise.all([
-                    apiService.allClients(),
-                    apiService.getAllProducts(),
-                ]);
-                setClients(clientResponse.data.all_clients || []);
-                setProducts(productResponse.data || []);
-    
-                // Automatically select the client if clientId is passed
+                const response = await apiService.allClients();
+                setClients(response.data.all_clients || []);
+
+                // Automatically select client if clientId is passed
                 if (clientId) {
-                    const matchedClient = clientResponse.data.all_clients.find(
+                    const matchedClient = response.data.all_clients.find(
                         (client) => client.id.toString() === clientId.toString()
                     );
                     if (matchedClient) {
@@ -58,13 +58,69 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                     }
                 }
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error fetching clients:', error);
             }
         };
-    
-        fetchData();
+
+        fetchClients();
     }, [clientId]);
-    
+
+    const fetchProducts = useCallback(
+        async (page = 1, term = '') => {
+            if (isLoadingProducts || !hasMoreProducts) return; // Prevent duplicate calls
+
+            setIsLoadingProducts(true);
+            try {
+                const response = await apiService.getAllProducts(page, term);
+                const newProducts = response.data.products || [];
+
+                // Update product list
+                setProducts((prevProducts) =>
+                    page === 1 ? newProducts : [...prevProducts, ...newProducts]
+                );
+                setHasMoreProducts(newProducts.length === 12); // Check if there are more products
+            } catch (error) {
+                console.error('Error fetching products:', error);
+            } finally {
+                setIsLoadingProducts(false);
+            }
+        },
+        []);
+
+        useEffect(() => {
+            const initialFetch = async () => {
+              setProducts([]); // Clear current products
+              setCurrentProductPage(1); // Reset to the first page
+              setHasMoreProducts(true); // Assume there are more products
+              await fetchProducts(1, searchTerm); // Fetch first page
+            };
+          
+            initialFetch(); // Call the function when the component mounts or `searchTerm` changes
+          }, [searchTerm]); // Removed `fetchProducts` from dependencies
+          
+        
+      
+
+    const handleScroll = (event) => {
+        const { target } = event;
+
+        // Check if the user scrolled near the bottom
+        if (
+            target.scrollTop + target.clientHeight >= target.scrollHeight - 100 &&
+            hasMoreProducts &&
+            !isLoadingProducts
+        ) {
+            const nextPage = currentProductPage + 1;
+            setCurrentProductPage(nextPage);
+            fetchProducts(nextPage, searchTerm); // Fetch next page
+        }
+    };
+
+
+    const handleSearchChange = (term) => {
+        setSearchTerm(term);
+    };
+
 
     useEffect(() => {
         // When selected product changes, set the amount to the product's price
@@ -289,30 +345,40 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                         <h2 className="text-xl font-bold mb-4">Create New Order</h2>
                         <form onSubmit={handleSubmit}>
                             {/* Client Selection */}
-                    <label className="block mb-2 font-semibold">Select Client</label>
-                    <Select
-                        options={clientOptions}
-                        value={selectedClient}
-                        onChange={setSelectedClient}
-                        placeholder="Search and select client..."
-                        isDisabled={!!clientId} // Disable if clientId is passed
-                        className="mb-4"
-                        styles={{
-                            control: (base) =>
-                                errors.selectedClient ? { ...base, borderColor: 'red' } : base,
-                        }}
-                    />
-                    {errors.selectedClient && (
-                        <p className="text-red-500 text-sm">{errors.selectedClient}</p>
-                    )}
+                            <label className="block mb-2 font-semibold">Select Client</label>
+                            <Select
+                                options={clientOptions}
+                                value={selectedClient}
+                                onChange={setSelectedClient}
+                                placeholder="Search and select client..."
+                                isDisabled={!!clientId} // Disable if clientId is passed
+                                className="mb-4"
+                                styles={{
+                                    control: (base) =>
+                                        errors.selectedClient ? { ...base, borderColor: 'red' } : base,
+                                }}
+                            />
+                            {errors.selectedClient && (
+                                <p className="text-red-500 text-sm">{errors.selectedClient}</p>
+                            )}
 
                             {/* Product Selection */}
                             <label className="block mb-2 font-semibold">Select Product</label>
+                            <div
+                                className="relative mb-4"
+                                style={{ maxHeight: '300px', overflowY: 'auto' }}
+                                onScroll={handleScroll}
+                            ></div>
                             <Select
                                 options={productOptions}
                                 value={selectedProduct}
-                                onChange={setSelectedProduct}
+                                onChange={(selected) => {
+                                    setSelectedProduct(selected);
+                                    setAmount(selected.price || '');
+                                }}
                                 placeholder="Search and select product..."
+                                onInputChange={handleSearchChange}
+                                isLoading={isLoadingProducts}
                                 className="mb-4"
                                 components={{ Option: ProductOption, SingleValue: ProductSingleValue }}
                                 styles={{

@@ -38,11 +38,19 @@ class Product:
         return cls(result[0]) if result else None
 
     @classmethod
-    def get_all(cls):
+    def get_all(cls, page=1):
+        limit=12
+        offset = (page-1) * limit
         """Retrieve all products."""
-        query = "SELECT * FROM products;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
-        return [cls(row) for row in results]
+        query = """SELECT * FROM products 
+        LIMIT %(limit)s OFFSET %(offset)s;"""
+        params = {'limit': limit, 'offset': offset}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
+    
+    # Get the total count of products
+        count_query = "SELECT FOUND_ROWS() AS total;"
+        total_count = connectToMySQL('maria_ortegas_project_schema').query_db(count_query)[0]['total']
+        return [cls(row) for row in results], total_count
 
     @classmethod
     def update(cls, data):

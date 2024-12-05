@@ -15,8 +15,8 @@ const apiService = {
     axios.post('http://localhost:5000/api/create_product', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-  getAllProducts: () => {
-    return axios.get('http://localhost:5000/api/get_all_products');
+  getAllProducts: (page=1) => {
+    return axios.get(`http://localhost:5000/api/get_all_products/page/${page}`);
   },
   getClientsForProduct: (productId) =>
     axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`

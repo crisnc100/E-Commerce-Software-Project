@@ -89,10 +89,15 @@ def create_product():
 
 
 # READ All Products
-@app.route('/api/get_all_products', methods=['GET'])
-def get_all_products():
-    products = Product.get_all()
-    return jsonify([product.serialize() for product in products]), 200
+@app.route('/api/get_all_products/page/<int:page>', methods=['GET'])
+def get_all_products(page):
+    products, total_count = Product.get_all(page)
+    response = {
+        'products': [product.serialize() for product in products],
+        'total_count': total_count
+    }
+    return jsonify(response), 200
+
 
 
 # READ Single Product by ID

@@ -22,13 +22,10 @@ const Navbar = () => {
   const navigate = useNavigate();
   const searchDropdownRef = useRef(null);
 
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const [selectedItemId, setSelectedItemId] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const itemsPerPage = 6; // Max items per page
 
   const handleLogout = async () => {
     try {
