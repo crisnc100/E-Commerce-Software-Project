@@ -15,9 +15,13 @@ const apiService = {
     axios.post('http://localhost:5000/api/create_product', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-  getAllProducts: (page=1) => {
-    return axios.get(`http://localhost:5000/api/get_all_products/page/${page}`);
-  },
+    getAllProducts: (page = 1, search = '') => {
+      let url = `http://localhost:5000/api/get_all_products/page/${page}`;
+      if (search) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+      return axios.get(url);
+    },
   getClientsForProduct: (productId) =>
     axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`
 
@@ -34,9 +38,13 @@ const apiService = {
     axios.post('http://localhost:5000/api/add_client', formData
 
     ),
-  allClients: () => {
-    return axios.get('http://localhost:5000/api/all_clients');
-  },
+    allClients: (page = 1, search = '') => {
+      let url = `http://localhost:5000/api/all_clients/page/${page}`;
+      if (search) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+      return axios.get(url);
+    },
   updateClient: (clientId, formData) =>
     axios.put(`http://localhost:5000/api/update_client/${clientId}`, formData
 

@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiService from '../services/apiService';
-import Select from 'react-select';
+import Select, { components } from 'react-select';
 import { Modal } from 'react-responsive-modal';
 import 'react-responsive-modal/styles.css';
+import { AsyncPaginate } from 'react-select-async-paginate';
+
+
 
 const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     const [clients, setClients] = useState([]);
     const [products, setProducts] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
-    const [currentProductPage, setCurrentProductPage] = useState(1);
-    const [hasMoreProducts, setHasMoreProducts] = useState(true);
+
 
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -38,82 +38,85 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     const [paymentErrors, setPaymentErrors] = useState({});
     const [warningMessage, setWarningMessage] = useState('');
 
-    useEffect(() => {
-        // Fetch clients
-        const fetchClients = async () => {
-            try {
-                const response = await apiService.allClients();
-                setClients(response.data.all_clients || []);
-
-                // Automatically select client if clientId is passed
-                if (clientId) {
-                    const matchedClient = response.data.all_clients.find(
-                        (client) => client.id.toString() === clientId.toString()
-                    );
-                    if (matchedClient) {
-                        setSelectedClient({
-                            value: matchedClient.id,
-                            label: `${matchedClient.first_name} ${matchedClient.last_name}`,
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching clients:', error);
-            }
+    const loadClients = async (search, loadedOptions, { page }) => {
+        const response = await apiService.allClients(page, search);
+        const newClients = response.data.clients || [];
+        const options = newClients.map((client) => ({
+            value: client.id,
+            label: `${client.first_name} ${client.last_name}`,
+        }));
+    
+        return {
+            options,
+            hasMore: newClients.length === 20, // Determines if there are more results
+            additional: {
+                page: page + 1,
+            },
         };
+    };
 
-        fetchClients();
-    }, [clientId]);
-
-    const fetchProducts = useCallback(
-        async (page = 1, term = '') => {
-            if (isLoadingProducts || !hasMoreProducts) return; // Prevent duplicate calls
-
-            setIsLoadingProducts(true);
-            try {
-                const response = await apiService.getAllProducts(page, term);
-                const newProducts = response.data.products || [];
-
-                // Update product list
-                setProducts((prevProducts) =>
-                    page === 1 ? newProducts : [...prevProducts, ...newProducts]
-                );
-                setHasMoreProducts(newProducts.length === 12); // Check if there are more products
-            } catch (error) {
-                console.error('Error fetching products:', error);
-            } finally {
-                setIsLoadingProducts(false);
-            }
-        },
-        []);
-
-        useEffect(() => {
-            const initialFetch = async () => {
-              setProducts([]); // Clear current products
-              setCurrentProductPage(1); // Reset to the first page
-              setHasMoreProducts(true); // Assume there are more products
-              await fetchProducts(1, searchTerm); // Fetch first page
-            };
-          
-            initialFetch(); // Call the function when the component mounts or `searchTerm` changes
-          }, [searchTerm]); // Removed `fetchProducts` from dependencies
-          
-        
-      
-
-    const handleScroll = (event) => {
-        const { target } = event;
-
-        // Check if the user scrolled near the bottom
-        if (
-            target.scrollTop + target.clientHeight >= target.scrollHeight - 100 &&
-            hasMoreProducts &&
-            !isLoadingProducts
-        ) {
-            const nextPage = currentProductPage + 1;
-            setCurrentProductPage(nextPage);
-            fetchProducts(nextPage, searchTerm); // Fetch next page
+    useEffect(() => {
+        if (clientId) {
+            (async () => {
+                let matchedClient = null;
+                let page = 1;
+    
+                try {
+                    while (!matchedClient) {
+                        const response = await apiService.allClients(page, ''); // Load the current page
+                        const newClients = response.data.clients || [];
+    
+                        // Attempt to find the client on the current page
+                        matchedClient = newClients.find(
+                            (client) => client.id.toString() === clientId.toString()
+                        );
+    
+                        if (matchedClient) {
+                            setSelectedClient({
+                                value: matchedClient.id,
+                                label: `${matchedClient.first_name} ${matchedClient.last_name}`,
+                            });
+                            console.log('Matched client found:', matchedClient);
+                            break;
+                        }
+    
+                        // If no more clients are returned, stop
+                        if (newClients.length < 20) {
+                            console.warn('Client ID not found in any page.');
+                            break;
+                        }
+    
+                        // Increment page to fetch the next set of clients
+                        page += 1;
+                    }
+                } catch (error) {
+                    console.error('Error fetching client data:', error);
+                }
+            })();
         }
+    }, [clientId]);
+    
+    
+    
+    
+
+    const loadProducts = async (search, loadedOptions, { page }) => {
+        const response = await apiService.getAllProducts(page, search);
+        const newProducts = response.data.products || [];
+        const options = newProducts.map((product) => ({
+            value: product.id,
+            label: product.name,
+            image: product.screenshot_photo,
+            price: product.price,
+        }));
+
+        return {
+            options,
+            hasMore: newProducts.length === 12,
+            additional: {
+                page: page + 1,
+            },
+        };
     };
 
 
@@ -276,30 +279,6 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     };
 
 
-    // Prepare options for react-select
-    const clientOptions = clients.map((client) => ({
-        value: client.id,
-        label: `${client.first_name} ${client.last_name}`,
-    }));
-
-    const productOptions = products.map((product) => ({
-        value: product.id,
-        label: product.name,
-        image: product.screenshot_photo,
-        price: product.price,
-    }));
-
-    // Custom Option Component for Clients
-    const ClientOption = ({ innerRef, innerProps, data }) => (
-        <div
-            ref={innerRef}
-            {...innerProps}
-            className="flex items-center space-x-2 p-2 hover:bg-gray-100 cursor-pointer"
-        >
-            <span>{data.label}</span>
-        </div>
-    );
-
     // Custom Option Component for Products
     const ProductOption = ({ innerRef, innerProps, data }) => (
         <div
@@ -346,17 +325,21 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                         <form onSubmit={handleSubmit}>
                             {/* Client Selection */}
                             <label className="block mb-2 font-semibold">Select Client</label>
-                            <Select
-                                options={clientOptions}
+                            <AsyncPaginate
                                 value={selectedClient}
+                                loadOptions={loadClients}
                                 onChange={setSelectedClient}
                                 placeholder="Search and select client..."
-                                isDisabled={!!clientId} // Disable if clientId is passed
-                                className="mb-4"
+                                debounceTimeout={300}
+                                isDisabled={!!clientId}
+                                additional={{ page: 1 }}
                                 styles={{
                                     control: (base) =>
                                         errors.selectedClient ? { ...base, borderColor: 'red' } : base,
                                 }}
+                                className="mb-4"
+                                isClearable={!clientId} // Prevent clearing if clientId is provided
+                                
                             />
                             {errors.selectedClient && (
                                 <p className="text-red-500 text-sm">{errors.selectedClient}</p>
@@ -364,27 +347,26 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
 
                             {/* Product Selection */}
                             <label className="block mb-2 font-semibold">Select Product</label>
-                            <div
-                                className="relative mb-4"
-                                style={{ maxHeight: '300px', overflowY: 'auto' }}
-                                onScroll={handleScroll}
-                            ></div>
-                            <Select
-                                options={productOptions}
+                            <AsyncPaginate
                                 value={selectedProduct}
+                                loadOptions={loadProducts}
                                 onChange={(selected) => {
                                     setSelectedProduct(selected);
                                     setAmount(selected.price || '');
                                 }}
                                 placeholder="Search and select product..."
-                                onInputChange={handleSearchChange}
-                                isLoading={isLoadingProducts}
-                                className="mb-4"
-                                components={{ Option: ProductOption, SingleValue: ProductSingleValue }}
+                                debounceTimeout={300}
+                                additional={{ page: 1 }}
+                                components={{
+                                    Option: ProductOption,
+                                    SingleValue: ProductSingleValue,
+                                }}
                                 styles={{
                                     control: (base) =>
                                         errors.selectedProduct ? { ...base, borderColor: 'red' } : base,
                                 }}
+                                className="mb-4"
+                                isClearable
                             />
                             {errors.selectedProduct && (
                                 <p className="text-red-500 text-sm">{errors.selectedProduct}</p>
@@ -490,7 +472,7 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                             onClose={() => setIsImageModalOpen(false)}
                             center
                         >
-                            <img src={imageToShow} alt="Product" className="w-full h-auto" />
+                            <img src={imageToShow} alt="Product" className="max-w-full max-h-screen rounded-lg h-auto" />
                         </Modal>
                     </div>
                 </div>

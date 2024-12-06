@@ -42,50 +42,49 @@ const ProductsTab = () => {
 
 
 
-  useEffect(() => {
-    const fetchProducts = async (page = 1) => {
-      setIsLoading(true);
-      try {
-        const response = await apiService.getAllProducts(page);
-        setProducts(response.data.products); // Assuming the backend sends paginated products
-        setTotalPages(Math.ceil(response.data.total_count / 12)); // Calculate total pages
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Fetch products from the backend
+  const fetchProducts = async (page = 1, search = '') => {
+    setIsLoading(true);
+    try {
+      const response = await apiService.getAllProducts(page, search);
+      const newProducts = response.data.products;
+      const totalCount = response.data.total_count;
 
-    fetchProducts(currentPage);
-  }, [currentPage]);
-
-
-
-  useEffect(() => {
-    let filtered = [...products];
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter((product) =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      // Instead of appending, always replace:
+      setProducts(newProducts);
+      setTotalPages(Math.ceil(totalCount / 12));
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // Sort products
+
+
+
+  useEffect(() => {
+    let sortedProducts = [...products];
+
+    // Sorting logic
     if (sortOption === 'dateLatest') {
-      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      sortedProducts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     } else if (sortOption === 'dateEarliest') {
-      filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      sortedProducts.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     } else if (sortOption === 'priceLowToHigh') {
-      filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+      sortedProducts.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
     } else if (sortOption === 'priceHighToLow') {
-      filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+      sortedProducts.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
     }
 
-    setFilteredProducts(filtered);
-  }, [products, searchTerm, sortOption]);
+    setFilteredProducts(sortedProducts);
+  }, [products, sortOption]);
 
-  const handleSearchChange = (e) => setSearchTerm(e.target.value);
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page on search
+  };
+
   const handleSortChange = (e) => setSortOption(e.target.value);
 
   const handlePageChange = (page) => {
@@ -93,6 +92,12 @@ const ProductsTab = () => {
       setCurrentPage(page);
     }
   };
+
+  // Fetch products whenever the page or search term changes
+  useEffect(() => {
+    fetchProducts(currentPage, searchTerm);
+  }, [currentPage, searchTerm]);
+
 
   // Fetch clients when a product card is expanded
   useEffect(() => {
@@ -332,8 +337,8 @@ const ProductsTab = () => {
           onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className={`px-4 py-2 mr-2 rounded-lg border ${currentPage === 1
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-blue-500 text-white hover:bg-blue-600'
+            ? 'bg-gray-300 cursor-not-allowed'
+            : 'bg-blue-500 text-white hover:bg-blue-600'
             }`}
         >
           Previous
@@ -343,15 +348,16 @@ const ProductsTab = () => {
         </span>
         <button
           onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages || filteredProducts.length < 12}
-          className={`px-4 py-2 ml-2 rounded-lg border ${currentPage === totalPages || filteredProducts.length < 12
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-blue-500 text-white hover:bg-blue-600'
+          disabled={currentPage === totalPages}
+          className={`px-4 py-2 ml-2 rounded-lg border ${currentPage === totalPages
+            ? 'bg-gray-300 cursor-not-allowed'
+            : 'bg-blue-500 text-white hover:bg-blue-600'
             }`}
         >
           Next
         </button>
       </div>
+
 
       {/* Image Modal */}
       {showImageModal && (
@@ -529,7 +535,7 @@ const ProductsTab = () => {
                       </p>
                     </div>
                     <button
-                      onClick={() => navigate(`/dashboard/clients/${client.id}/${client.first_name}-${client.last_name}`)}
+                      onClick={() => navigate(`/dashboard/clients/${client.client_id}/${client.first_name}-${client.last_name}`)}
                       className="text-blue-500 hover:underline"
                     >
                       View Profile

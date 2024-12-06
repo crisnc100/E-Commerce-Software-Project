@@ -84,11 +84,29 @@ class Client:
         return cls(result[0]) if result else None
 
     @classmethod
-    def get_all(cls):
+    def get_all(cls, page=1):
         """Retrieve all clients."""
-        query = "SELECT * FROM clients;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
-        return [cls(row) for row in results]
+        limit = 20
+        offset = (page - 1) * limit
+        query = """
+                SELECT SQL_CALC_FOUND_ROWS * FROM clients
+                ORDER BY last_name, first_name
+                LIMIT %(limit)s OFFSET %(offset)s;"""  # Changed per_page to limit
+
+        params = {'limit': limit, 'offset': offset}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
+
+        # Check if query_db returns valid results
+        if not results:
+            return [], 0
+
+        # Get the total count of clients
+        count_query = "SELECT FOUND_ROWS() AS total;"
+        total_count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query)
+        total_count = total_count_result[0]['total'] if total_count_result else 0
+
+        return [cls(row) for row in results], total_count
+
 
     @classmethod
     def update(cls, data):
@@ -122,19 +140,39 @@ class Client:
     ### Search and Validation Methods ###
 
     @classmethod
-    def search_by_name(cls, name):
-        name_parts = name.strip().split()
-        query = """
-        SELECT id, first_name, last_name
-        FROM clients
-        WHERE (first_name LIKE %s OR last_name LIKE %s)
-        """
-        params = [f"%{name_parts[0]}%", f"%{name_parts[0]}%"]
-        for part in name_parts[1:]:
-            query += " AND (first_name LIKE %s OR last_name LIKE %s)"
-            params.extend([f"%{part}%", f"%{part}%"])
+    def get_all(cls, page=1, search=None):
+        limit = 20
+        offset = (page - 1) * limit
+
+        base_query = "SELECT SQL_CALC_FOUND_ROWS * FROM clients"
+        params = {'limit': limit, 'offset': offset}
+
+        if search and search.strip():
+            # Implement server-side search logic
+            name_parts = search.strip().split()
+            search_conditions = []
+            for i, part in enumerate(name_parts):
+                search_conditions.append(
+                    f"(first_name LIKE %(part_{i})s OR last_name LIKE %(part_{i})s)"
+                )
+                params[f"part_{i}"] = f"%{part}%"
+            where_clause = " WHERE " + " AND ".join(search_conditions)
+            query = f"{base_query} {where_clause} ORDER BY last_name, first_name LIMIT %(limit)s OFFSET %(offset)s;"
+        else:
+            # No search, original logic
+            query = f"{base_query} ORDER BY last_name, first_name LIMIT %(limit)s OFFSET %(offset)s;"
+
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
-        return results
+
+        if not results:
+            return [], 0
+
+        count_query = "SELECT FOUND_ROWS() AS total;"
+        total_count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query)
+        total_count = total_count_result[0]['total'] if total_count_result else 0
+
+        return [cls(row) for row in results], total_count
+
 
 
     @staticmethod
@@ -180,3 +218,4 @@ class Client:
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, {
             'id': client_id, 'contact_details': new_contact_details
         })
+    

@@ -592,7 +592,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
                         <img
                             src={order.product_screenshot_photo}
                             alt={order.product_name}
-                            className="w-full h-auto"
+                            className="max-w-full max-h-screen rounded-lg h-auto"
                         />
                     </div>
                 </div>

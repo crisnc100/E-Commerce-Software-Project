@@ -36,16 +36,20 @@ def create_client():
 
 
 
-@app.route('/api/all_clients')
-def all_clients():
-    # Retrieve all clients associated with the specific trainer
-    all_clients = Client.get_all()
-    if all_clients:
-        return jsonify({
-            'all_clients': [client.serialize() for client in all_clients if isinstance(client, Client)]
-        })
-    else:
-        return jsonify({'error': 'Data not found'}), 404
+@app.route('/api/all_clients/page/<int:page>')
+def all_clients(page):
+    # Get the search term from query parameters
+    search = request.args.get('search', None)
+    
+    # Retrieve clients, with optional search
+    clients, total_count = Client.get_all(page, search)
+
+    response = {
+        'clients': [client.serialize() for client in clients],
+        'total_count': total_count
+    }
+    return jsonify(response), 200
+
 
 
 @app.route('/api/get_one_client/<int:client_id>', methods=['GET'])

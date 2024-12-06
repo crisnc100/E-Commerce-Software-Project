@@ -25,6 +25,7 @@ const MainPage = () => {
   const [selectedPurchaseId, setSelectedPurchaseId] = useState(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedProductImage, setSelectedProductImage] = useState('');
+  const [totalAmountDue, setTotalAmountDue] = useState(null);
 
   // Pagination states
   const [notificationsPage, setNotificationsPage] = useState(1);
@@ -46,13 +47,14 @@ const MainPage = () => {
 
     return () => clearInterval(interval);
   }, []);
+  
 
   // Fetch Overdue Purchases and set as Notifications
   const fetchNotifications = async () => {
     try {
       const response = await apiService.getOverduePurchases();
       const overduePurchases = response.data;
-
+      
       const notificationsData = overduePurchases.map((purchase) => {
         const purchaseDate = purchase.purchase_date
           ? new Date(purchase.purchase_date)
@@ -155,10 +157,12 @@ const MainPage = () => {
   );
   const purchasesTotalPages = Math.ceil(purchases.length / itemsPerPage);
 
-  const handleNotificationClick = (purchaseId) => {
-    setSelectedPurchaseId(purchaseId);
-    setIsPaymentModalOpen(true);
+  const handleNotificationClick = (purchaseId, amount) => {
+    setSelectedPurchaseId(purchaseId); // Set the selected purchase ID
+    setTotalAmountDue(amount); // Set the total amount due
+    setIsPaymentModalOpen(true); // Open the payment modal
   };
+  
 
   const handleViewImageClick = (imageUrl) => {
     setSelectedProductImage(imageUrl);
@@ -239,7 +243,7 @@ const MainPage = () => {
                         <div className="flex space-x-2 mt-2">
                           <button
                             onClick={() =>
-                              handleNotificationClick(notification.purchaseId)
+                              handleNotificationClick(notification.purchaseId, notification.amount)
                             }
                             className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                           >
@@ -458,6 +462,7 @@ const MainPage = () => {
       {isPaymentModalOpen && (
         <AddPaymentModal
           purchaseId={selectedPurchaseId}
+          totalAmountDue={totalAmountDue}
           onClose={() => setIsPaymentModalOpen(false)}
           onSuccess={(message) => {
             setSuccessMessage(message);

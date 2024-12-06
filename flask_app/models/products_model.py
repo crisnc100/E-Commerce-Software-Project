@@ -38,19 +38,33 @@ class Product:
         return cls(result[0]) if result else None
 
     @classmethod
-    def get_all(cls, page=1):
-        limit=12
-        offset = (page-1) * limit
-        """Retrieve all products."""
-        query = """SELECT * FROM products 
-        LIMIT %(limit)s OFFSET %(offset)s;"""
+    def get_all(cls, page=1, search=None):
+        limit = 12
+        offset = (page - 1) * limit
+        base_query = "SELECT * FROM products"
         params = {'limit': limit, 'offset': offset}
+
+        if search and search.strip():
+            base_query += " WHERE name LIKE %(search)s"
+            params['search'] = f"%{search.strip()}%"
+
+        # Main query with LIMIT/OFFSET
+        query = f"{base_query} LIMIT %(limit)s OFFSET %(offset)s;"
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
-    
-    # Get the total count of products
-        count_query = "SELECT FOUND_ROWS() AS total;"
-        total_count = connectToMySQL('maria_ortegas_project_schema').query_db(count_query)[0]['total']
+
+        # Count query
+        if search and search.strip():
+            count_query = "SELECT COUNT(*) AS total FROM products WHERE name LIKE %(search)s"
+        else:
+            count_query = "SELECT COUNT(*) AS total FROM products"
+        total_count = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, params)[0]['total']
+
+        if not results:
+            return [], 0
+
         return [cls(row) for row in results], total_count
+
+
 
     @classmethod
     def update(cls, data):

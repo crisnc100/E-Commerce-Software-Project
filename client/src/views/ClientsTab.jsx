@@ -1,50 +1,74 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import apiService from '../services/apiService';
 import { FiTrash2 } from 'react-icons/fi';
-import { NavLink, useNavigate, useParams } from 'react-router-dom';
-
+import { useNavigate } from 'react-router-dom';
 
 const ClientTab = () => {
     const [clients, setClients] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filteredClients, setFilteredClients] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [successMessage, setSuccessMessage] = useState('');
     const [deleteClientId, setDeleteClientId] = useState(null);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
+    // Pagination and infinite scroll states
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+
     const navigate = useNavigate();
+    const loaderRef = useRef(null);
 
-
-    useEffect(() => {
-        const fetchClients = async () => {
+    const fetchClients = useCallback(
+        async (currentPage, searchQuery = '') => {
+            setIsLoading(true);
             try {
-                const response = await apiService.allClients();
-                if (Array.isArray(response.data.all_clients)) {
-                    setClients(response.data.all_clients);
-                    setFilteredClients(response.data.all_clients);
+                const response = await apiService.allClients(currentPage, searchQuery);
+                const { clients } = response.data; // Access clients from the data property
+    
+                if (Array.isArray(clients)) {
+                    // Check if more data is available
+                    if (clients.length < 20) {
+                        setHasMore(false);
+                    }
+    
+                    // Append new clients to the state
+                    setClients((prev) => {
+                        const combined = [...prev, ...clients];
+                        const unique = [];
+                        const seen = new Set();
+                        for (let client of combined) {
+                            if (!seen.has(client.id)) {
+                                seen.add(client.id);
+                                unique.push(client);
+                            }
+                        }
+                        return unique;
+                    });
+                } else {
+                    console.warn('Unexpected clients format:', clients);
+                    setHasMore(false);
                 }
             } catch (error) {
-                console.error("Error fetching clients:", error);
+                console.error('Error fetching clients:', error);
+                setHasMore(false);
             } finally {
                 setIsLoading(false);
             }
-        };
-        fetchClients();
-    }, []);
-    useEffect(() => {
-        const lowercasedSearchTerm = searchTerm.toLowerCase();
-        const filtered = clients.filter((client) => {
-            const fullName = `${client.first_name} ${client.last_name}`.toLowerCase();
-            return (
-                client.first_name.toLowerCase().includes(lowercasedSearchTerm) ||
-                client.last_name.toLowerCase().includes(lowercasedSearchTerm) ||
-                client.contact_details.toLowerCase().includes(lowercasedSearchTerm) ||
-                fullName.includes(lowercasedSearchTerm) // Full name search
-            );
-        });
-        setFilteredClients(filtered);
-    }, [searchTerm, clients]);
+        },
+        []
+    );
 
+    // Fetch clients on initial render and when `page` or `searchTerm` changes
+    useEffect(() => {
+        fetchClients(page, searchTerm);
+    }, [page, searchTerm, fetchClients]);
+
+    // Reset state when the search term changes
+    useEffect(() => {
+        setPage(1);
+        setClients([]);
+        setHasMore(true);
+    }, [searchTerm]);
 
     const confirmDelete = (clientId) => {
         setDeleteClientId(clientId);
@@ -61,8 +85,6 @@ const ClientTab = () => {
             const response = await apiService.deleteClient(deleteClientId);
             if (response.data.success) {
                 setClients(prevClients => prevClients.filter(client => client.id !== deleteClientId));
-                setFilteredClients(prevFilteredClients => prevFilteredClients.filter(client => client.id !== deleteClientId));
-
                 setSuccessMessage('Client successfully deleted');
                 setTimeout(() => setSuccessMessage(''), 3000);
             } else {
@@ -76,8 +98,25 @@ const ClientTab = () => {
         }
     };
 
+    // Intersection Observer to trigger loading more clients when bottom is reached
+    useEffect(() => {
+        if (!loaderRef.current) return;
+        if (!hasMore) return;  // No more clients to load
+
+        const observer = new IntersectionObserver((entries) => {
+            // If visible and not loading, fetch next page
+            if (entries[0].isIntersecting && !isLoading && hasMore && !searchTerm) {
+                setPage((prevPage) => prevPage + 1);
+            }
+        }, { threshold: 0.1 });
+
+        observer.observe(loaderRef.current);
+
+        return () => observer.disconnect();
+    }, [isLoading, hasMore, searchTerm]);
+
     return (
-        <div className="p-6 bg-gray-100 h-full">
+        <div className="p-6 bg-gray-100 h-full overflow-auto">
             <h2 className="text-2xl font-bold mb-4">Clients</h2>
 
             {/* Success Message */}
@@ -96,9 +135,10 @@ const ClientTab = () => {
             />
 
             <div className="bg-white shadow-lg rounded-lg p-4 mt-4">
-                {isLoading ? (
-                    <p>Loading Clients...</p>
-                ) : filteredClients.length > 0 ? (
+                {!isLoading && clients.length === 0 && (
+                    <p className="text-gray-500">No clients found.</p>
+                )}
+                {clients.length > 0 && (
                     <table className="w-full table-auto">
                         <thead>
                             <tr>
@@ -109,7 +149,7 @@ const ClientTab = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredClients.map(client => (
+                            {clients.map((client) => (
                                 <tr key={client.id} className="border-t border-gray-300">
                                     <td className="px-4 py-2">{client.first_name}</td>
                                     <td className="px-4 py-2">{client.last_name}</td>
@@ -133,10 +173,15 @@ const ClientTab = () => {
                             ))}
                         </tbody>
                     </table>
-                ) : (
-                    <p className="text-gray-500">No clients found.</p>
                 )}
             </div>
+
+            {/* Loader element to trigger infinite scroll */}
+            {hasMore && (
+                <div ref={loaderRef} className="flex justify-center items-center p-4">
+                    {isLoading ? <p>Loading more clients...</p> : <p>Scroll for more...</p>}
+                </div>
+            )}
 
             {/* Confirmation Modal */}
             {isConfirmModalOpen && (

@@ -6,6 +6,7 @@ import apiService from '../../services/apiService';
 import UploadProductModal from '../UploadProductModal';
 import { useCallback } from 'react';
 import { debounce } from 'lodash';
+import { Modal } from 'react-responsive-modal';
 
 
 
@@ -21,11 +22,14 @@ const Navbar = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const searchDropdownRef = useRef(null);
-
   const [selectedItemId, setSelectedItemId] = useState(null);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedProductName, setSelectedProductName] = useState('');
+  const [selectedClientName, setSelectedClientName] = useState('');
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [imageToShow, setImageToShow] = useState('');
+
 
   const handleLogout = async () => {
     try {
@@ -112,18 +116,29 @@ const Navbar = () => {
       setIsLoading(false);
     }
   };
-  
-  
+
+
 
   const handleSearchResultClick = async (result) => {
     setIsSearchDropdownOpen(false);
     setSelectedItemId(result.id);
     setDetailedResults([]);
+
+    if (searchType === 'product') {
+      setSelectedProductName(result.name);
+      setSelectedClientName(''); // Clear the client name just in case
+    } else if (searchType === 'client') {
+      const fullName = `${result.first_name} ${result.last_name}`;
+      setSelectedClientName(fullName);
+      setSelectedProductName(''); // Clear the product name just in case
+    }
+
     setIsDetailedViewOpen(true);
     await fetchDetailedResults(result.id, 1); // Start from the first page
   };
-  
-  
+
+
+
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -231,13 +246,22 @@ const Navbar = () => {
                 >
                   {searchType === 'product' ? (
                     <>
-                      <img
-                        src={result.screenshot_photo}
-                        alt={result.name}
-                        className="w-10 h-10 mr-2"
-                      />
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent the parent container's onClick
+                          setImageToShow(result.screenshot_photo || 'https://via.placeholder.com/150');
+                          setIsImageModalOpen(true);
+                        }}
+                      >
+                        <img
+                          src={result.screenshot_photo}
+                          alt={result.name}
+                          className="w-10 h-10 mr-2 object-cover rounded"
+                        />
+                      </span>
                       <span>{result.name}</span>
                     </>
+
                   ) : (
                     <span>{`${result.first_name} ${result.last_name}`}</span>
                   )}
@@ -291,122 +315,132 @@ const Navbar = () => {
       {/* Upload Product Modal */}
       {isUploadModalOpen && <UploadProductModal onClose={() => setIsUploadModalOpen(false)} />}
 
+      {/* Image Modal  */}
+      <Modal
+        open={isImageModalOpen}
+        onClose={() => setIsImageModalOpen(false)}
+        center
+      >
+        <img src={imageToShow} alt="Product" className="max-w-full max-h-screen rounded-lg h-auto" />
+      </Modal>
+
       {/* Detailed View Modal */}
       {isDetailedViewOpen && (
-  <div
-    className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20"
-    onClick={() => setIsDetailedViewOpen(false)}
-  >
-    <div
-      className="bg-white p-6 rounded-lg max-w-lg w-full max-h-[80vh] overflow-hidden"
-      onClick={(e) => e.stopPropagation()}
-      ref={detailedViewRef}
-    >
-      <h2 className="text-2xl font-bold mb-4 text-center">
-        {searchType === 'product'
-          ? 'Clients Who Purchased This Product'
-          : 'Products Purchased by This Client'}
-      </h2>
-      <div className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
-        {isLoading ? (
-          <div className="text-center text-gray-500">Loading...</div>
-        ) : detailedResults.length === 0 ? (
-          <div className="text-center text-gray-500">No data available.</div>
-        ) : (
-          <>
-            <ul className="space-y-4">
-              {detailedResults.map((item) => (
-                <li
-                  key={`${item.id}-${item.purchase_date}`}
-                  className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow"
-                >
-                  {searchType === 'product' ? (
-                    <div>
-                      <h3
-                        className="text-lg font-semibold cursor-pointer text-blue-600"
-                        onClick={() => navigate(`/client/${item.client_id}`)}
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-20"
+          onClick={() => setIsDetailedViewOpen(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-lg max-w-lg w-full max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            ref={detailedViewRef}
+          >
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              {searchType === 'product'
+                ? (selectedProductName ? `Clients Who Purchased: ${selectedProductName}` : 'Clients Who Purchased This Product')
+                : (selectedClientName ? `Products Purchased by ${selectedClientName}` : 'Products Purchased by This Client')}
+            </h2>
+
+
+            <div className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
+              {isLoading ? (
+                <div className="text-center text-gray-500">Loading...</div>
+              ) : detailedResults.length === 0 ? (
+                <div className="text-center text-gray-500">No data available.</div>
+              ) : (
+                <>
+                  <ul className="space-y-4">
+                    {detailedResults.map((item) => (
+                      <li
+                        key={`${item.id}-${item.purchase_date}`}
+                        className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow"
                       >
-                        {`${item.first_name} ${item.last_name}`}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        Purchase Date: {formatDateSafely(item.purchase_date)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Amount: ${parseFloat(item.amount).toFixed(2)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Payment Status:{' '}
-                        <span
-                          className={`${getStatusColor(item.payment_status)} font-semibold`}
-                        >
-                          {item.payment_status}
-                        </span>
-                      </p>
-                    </div>
-                  ) : (
-                    <div
-                      className="flex items-center cursor-pointer"
-                      onClick={() => navigate(`/product/${item.product_id}`)}
-                    >
-                      <img
-                        src={item.product_screenshot_photo}
-                        alt={item.product_name}
-                        className="w-16 h-16 mr-4 object-cover rounded"
-                      />
-                      <div>
-                        <h3 className="text-lg font-semibold text-blue-600">
-                          {item.product_name}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Purchase Date: {formatDateSafely(item.purchase_date)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Amount: ${parseFloat(item.amount).toFixed(2)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Payment Status:{' '}
-                          <span
-                            className={`${getStatusColor(item.payment_status)} font-semibold`}
+                        {searchType === 'product' ? (
+                          <div>
+                            <h3
+                              className="text-lg font-semibold cursor-pointer text-blue-600"
+                              onClick={() => navigate(`/client/${item.client_id}`)}
+                            >
+                              {`${item.first_name} ${item.last_name}`}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              Purchase Date: {formatDateSafely(item.purchase_date)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Amount: ${parseFloat(item.amount).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Payment Status:{' '}
+                              <span
+                                className={`${getStatusColor(item.payment_status)} font-semibold`}
+                              >
+                                {item.payment_status}
+                              </span>
+                            </p>
+                          </div>
+                        ) : (
+                          <div
+                            className="flex items-center cursor-pointer"
+                            onClick={() => navigate(`/product/${item.product_id}`)}
                           >
-                            {item.payment_status}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {/* Pagination Controls */}
-            <div className="flex justify-between items-center mt-4">
-              <button
-                className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${
-                  currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                onClick={() => fetchDetailedResults(selectedItemId, currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </button>
-              <span>
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${
-                  currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-                onClick={() => fetchDetailedResults(selectedItemId, currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </button>
+                            <img
+                              src={item.product_screenshot_photo}
+                              alt={item.product_name}
+                              className="w-16 h-16 mr-4 object-cover rounded"
+                            />
+                            <div>
+                              <h3 className="text-lg font-semibold text-blue-600">
+                                {item.product_name}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                Purchase Date: {formatDateSafely(item.purchase_date)}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Amount: ${parseFloat(item.amount).toFixed(2)}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Payment Status:{' '}
+                                <span
+                                  className={`${getStatusColor(item.payment_status)} font-semibold`}
+                                >
+                                  {item.payment_status}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {/* Pagination Controls */}
+                  <div className="flex justify-between items-center mt-4">
+                    <button
+                      className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      onClick={() => fetchDetailedResults(selectedItemId, currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      onClick={() => fetchDetailedResults(selectedItemId, currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </>
+              )}
+
             </div>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+          </div>
+        </div>
+      )}
 
     </nav>
   );
