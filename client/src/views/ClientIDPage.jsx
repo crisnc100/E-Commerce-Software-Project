@@ -26,6 +26,8 @@ const ClientIDPage = () => {
     const [errorMessage, setErrorMessage] = useState('');
     const [errors, setErrors] = useState({});
     const [isAddPurchaseModalOpen, setIsAddPurchaseModalOpen] = useState(false); // New state for modal
+    const [currentPage, setCurrentPage] = useState(1); // Track current page
+    const itemsPerPage = 4; // Max items per page
 
 
 
@@ -42,10 +44,10 @@ const ClientIDPage = () => {
         try {
             const clientResponse = await apiService.getClientById(clientId);
             setClientInfo(clientResponse.data);
-    
+
             const ordersResponse = await apiService.getPurchasesByClientId(clientId);
             setOrders(ordersResponse.data);
-    
+
             // Calculate total sales including partial payments
             const total = ordersResponse.data.reduce((sum, order) => {
                 if (Array.isArray(order.payments) && order.payments.length > 0) {
@@ -59,13 +61,13 @@ const ClientIDPage = () => {
                 }
                 return sum;
             }, 0);
-    
+
             setTotalSales(total);
         } catch (error) {
             console.error('Error fetching client data:', error);
         }
     };
-    
+
 
     useEffect(() => {
         fetchClientData();
@@ -146,7 +148,7 @@ const ClientIDPage = () => {
         setSuccessMessage('Order deleted successfully!'); // Update success message
     };
 
-    
+
 
     const handleCancelEdit = () => {
         setIsEditing(false);
@@ -184,7 +186,30 @@ const ClientIDPage = () => {
         }
     };
 
+    const calculateRemainingBalance = (order) => {
+        if (!order) return 0;
+        const totalPaid = (order.payments || []).reduce(
+            (sum, payment) => sum + parseFloat(payment.amount_paid || 0),
+            0
+        );
+        return parseFloat(order.amount || 0) - totalPaid;
+    };
+    
+
+    const paginateOrders = (sortedOrders) => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return sortedOrders.slice(startIndex, endIndex);
+    };
+
+    // Handle page changes
+    const handlePageChange = (newPage) => {
+        setCurrentPage(newPage);
+    };
+
     const sortedOrders = sortOrders(orders, sortOption);
+    const paginatedOrders = paginateOrders(sortedOrders);
+
 
     return (
         <div className="p-6">
@@ -435,12 +460,13 @@ const ClientIDPage = () => {
             {/* Orders Section */}
             <div className="max-h-screen overflow-y-auto">
                 <h2 className="text-2xl font-semibold mb-4">Orders:</h2>
-                {sortedOrders.length > 0 ? (
-                    sortedOrders.map((order) => (
+                {paginatedOrders.length > 0 ? (
+                    paginatedOrders.map((order) => (
                         <OrderCard
                             key={order.id}
                             order={order}
                             clientId={clientId}
+                            remainingBalance={order.payment_status === 'Partial' ? calculateRemainingBalance(order) : null}
                             refreshData={fetchClientData}
                             removeOrder={removeOrder} // Pass removeOrder function
 
@@ -449,6 +475,25 @@ const ClientIDPage = () => {
                 ) : (
                     <p>No orders found.</p>
                 )}
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex justify-center mt-4">
+                <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-4 py-2 mr-2 rounded-lg border ${currentPage === 1 ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                >
+                    Previous
+                </button>
+                <span className="px-4 py-2">Page {currentPage} of {Math.ceil(sortedOrders.length / itemsPerPage)}</span>
+                <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === Math.ceil(sortedOrders.length / itemsPerPage)}
+                    className={`px-4 py-2 ml-2 rounded-lg border ${currentPage === Math.ceil(sortedOrders.length / itemsPerPage) ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                >
+                    Next
+                </button>
             </div>
 
         </div>

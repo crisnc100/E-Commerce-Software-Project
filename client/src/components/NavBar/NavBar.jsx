@@ -359,7 +359,10 @@ const Navbar = () => {
                           <div>
                             <h3
                               className="text-lg font-semibold cursor-pointer text-blue-600"
-                              onClick={() => navigate(`/client/${item.client_id}`)}
+                              onClick={() => {
+                                navigate(`/dashboard/clients/${item.client_id}/${item.first_name}-${item.last_name}`);
+                                setIsDetailedViewOpen(false);
+                              }}
                             >
                               {`${item.first_name} ${item.last_name}`}
                             </h3>

@@ -13,7 +13,7 @@ import PaymentItem from './PaymentItem';
 import apiService from '../services/apiService';
 import AddPaymentModal from './AddPaymentModal';
 
-const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
+const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
     const [showImageModal, setShowImageModal] = useState(false);
@@ -136,13 +136,13 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
         const totalPayments = order.payments
             ? order.payments.reduce((sum, payment) => sum + payment.amount_paid, 0)
             : 0;
-    
+
         const originalAmount = parseFloat(order.amount);
         const newAmount = parseFloat(updatedOrder.amount);
-    
+
         // Check if the amount has decreased
         const amountDecreased = newAmount < originalAmount;
-    
+
         // Update payment status based on whether amount decreased
         if (amountDecreased && totalPayments > newAmount) {
             updatedOrder.payment_status = 'Paid';
@@ -152,8 +152,8 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
             updatedOrder.payment_status = 'Partial';
         } else {
             updatedOrder.payment_status = 'Pending';
-        }        
-    
+        }
+
         // Prepare data to send
         const dataToSend = {
             amount: updatedOrder.amount,
@@ -164,7 +164,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
             client_id: order.client_id,
             product_id: order.product_id,
         };
-    
+
         apiService
             .updatePurchase(order.id, dataToSend)
             .then(() => {
@@ -176,7 +176,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
                 console.error('Error updating order:', error);
             });
     };
-    
+
 
     const handleCancelEdit = () => {
         setIsEditing(false);
@@ -696,6 +696,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder }) => {
                 <AddPaymentModal
                     purchaseId={selectedPurchaseId} // Reference
                     totalAmountDue={order.amount}
+                    remainingBalance={remainingBalance} // Pass calculated remaining balance
                     clientId={clientId}
                     onClose={() => {
                         setShowAddPaymentModal(false);

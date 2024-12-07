@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 
-const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clientId }) => {
+const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clientId, remainingBalance }) => {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Credit Card');
@@ -10,14 +10,22 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
   const [errors, setErrors] = useState({});
   const [warningMessage, setWarningMessage] = useState('');
 
+  // Automatically pre-fill the amount for partial payments
+  useEffect(() => {
+    if (remainingBalance > 0) {
+      setAmountPaid(remainingBalance.toFixed(2)); // Pre-fill the remaining balance
+    }
+  }, [remainingBalance]);
 
   const validateFields = () => {
     const newErrors = {};
+    const paidAmount = parseFloat(amountPaid);
+
     if (!paymentDate) newErrors.paymentDate = 'Payment date is required.';
-    if (!amountPaid || isNaN(amountPaid) || amountPaid <= 0) {
+    if (!amountPaid || isNaN(paidAmount) || paidAmount <= 0) {
       newErrors.amountPaid = 'A valid payment amount is required.';
-    } else if (parseFloat(amountPaid) < parseFloat(totalAmountDue || 0)) {
-      setWarningMessage('The payment amount is less than the total due.');
+    } else if (remainingBalance > 0 && paidAmount < remainingBalance) {
+      setWarningMessage(`Warning: The amount paid is less than the remaining balance of $${remainingBalance.toFixed(2)}.`);
     } else {
       setWarningMessage('');
     }
@@ -30,85 +38,83 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleAmountPaidChange = (e) => {
-    const value = e.target.value;
-    setAmountPaid(value);
-
-    const amountDue = parseFloat(totalAmountDue || 0); // Safeguard totalAmountDue
-    const paidAmount = parseFloat(value);
-
-    if (!isNaN(amountDue) && paidAmount < amountDue) {
-      setWarningMessage('Warning: The amount paid is less than the total amount due.');
-    } else {
-      setWarningMessage('');
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateFields()) return;
     setIsLoading(true);
 
     const paymentData = {
-        client_id: clientId,
-        purchase_id: purchaseId,
-        payment_date: paymentDate,
-        amount_paid: parseFloat(amountPaid),
-        payment_method: paymentMethod === 'Other' ? customPaymentMethod : paymentMethod,
+      client_id: clientId,
+      purchase_id: purchaseId,
+      payment_date: paymentDate,
+      amount_paid: parseFloat(amountPaid),
+      payment_method: paymentMethod === 'Other' ? customPaymentMethod : paymentMethod,
     };
 
     try {
-        // Create the payment
-        await apiService.createPayment(paymentData);
+      // Create the payment
+      await apiService.createPayment(paymentData);
 
-        // Retrieve all payments for the current purchase
-        const paymentsResponse = await apiService.getPaymentsByPurchaseId(purchaseId);
-        const payments = paymentsResponse.data || [];
+      // Retrieve all payments for the current purchase
+      const paymentsResponse = await apiService.getPaymentsByPurchaseId(purchaseId);
+      const payments = paymentsResponse.data || [];
 
-        // Calculate the total amount paid
-        const totalAmountPaid = payments.reduce(
-            (sum, payment) => sum + parseFloat(payment.amount_paid),
-            0
-        );
+      // Calculate the total amount paid
+      const totalAmountPaid = payments.reduce(
+        (sum, payment) => sum + parseFloat(payment.amount_paid),
+        0
+      );
 
-        // Compare with the total amount due
-        let paymentStatus;
-        if (totalAmountPaid >= totalAmountDue) {
-            paymentStatus = 'Paid';
-        } else if (totalAmountPaid > 0) {
-            paymentStatus = 'Partial';
-        } else {
-            paymentStatus = 'Pending';
-        }
+      // Compare with the total amount due
+      let paymentStatus;
+      if (totalAmountPaid >= totalAmountDue) {
+        paymentStatus = 'Paid';
+      } else if (totalAmountPaid > 0) {
+        paymentStatus = 'Partial';
+      } else {
+        paymentStatus = 'Pending';
+      }
 
-        // Update the payment status
-        await apiService.updatePurchaseStatus(purchaseId, { payment_status: paymentStatus });
+      // Update the payment status
+      await apiService.updatePurchaseStatus(purchaseId, { payment_status: paymentStatus });
 
-        // Trigger success callback and close modal
-        onSuccess('Payment added and status updated successfully!');
-        onClose();
+      // Trigger success callback and close modal
+      onSuccess('Payment added successfully!');
+      onClose();
     } catch (error) {
-        console.error('Error creating payment or updating status:', error);
+      console.error('Error creating payment:', error);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-};
-
-
+  };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
         <h3 className="text-lg font-bold mb-4">Add Payment</h3>
 
-        {/* Display Total Amount Due */}
-        <div className="mb-4">
-          <p className="font-semibold">
-            Total Amount Due: ${totalAmountDue && !isNaN(totalAmountDue) ? Number(totalAmountDue).toFixed(2) : '0.00'}
-          </p>
+        {/* Display for Unpaid Orders */}
+        {remainingBalance === null && (
+          <div className="mb-4">
+            <p className="font-semibold">
+              Total Amount Due: ${totalAmountDue && !isNaN(totalAmountDue) ? Number(totalAmountDue).toFixed(2) : '0.00'}
+            </p>
+          </div>
+        )}
 
-        </div>
+        {/* Display for Partial Payments */}
+        {remainingBalance > 0 && (
+          <div className="mb-4 bg-yellow-100 p-3 rounded">
+            <p className="text-yellow-800 font-medium">
+              Total Paid: ${Number(totalAmountDue - remainingBalance).toFixed(2)}
+            </p>
+            <p className="text-yellow-800 font-medium">
+              Remaining Balance: ${remainingBalance.toFixed(2)}
+            </p>
+          </div>
+        )}
 
+        {/* Form */}
         <form onSubmit={handleSubmit}>
           {/* Payment Date */}
           <label className="block mb-2 font-semibold">Payment Date</label>
@@ -126,9 +132,9 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
             <span className="px-3 bg-gray-200 text-gray-700">$</span>
             <input
               type="number"
-              placeholder="Amount Paid"
               value={amountPaid}
-              onChange={handleAmountPaidChange}
+              onChange={(e) => setAmountPaid(e.target.value)}
+              placeholder="Enter amount"
               className="w-full p-2 border-l border-gray-300 rounded-r-lg focus:outline-none"
             />
           </div>
@@ -167,14 +173,13 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
                 placeholder="Enter payment method"
                 value={customPaymentMethod}
                 onChange={(e) => setCustomPaymentMethod(e.target.value)}
-                className={`w-full p-2 border ${errors.paymentMethod ? 'border-red-500' : 'border-gray-300'
-                  } rounded-lg`}
+                className={`w-full p-2 border ${errors.paymentMethod ? 'border-red-500' : 'border-gray-300'} rounded-lg`}
               />
             </div>
           )}
           {errors.paymentMethod && <p className="text-red-500 text-sm">{errors.paymentMethod}</p>}
 
-          {/* Buttons */}
+          {/* Submit and Cancel Buttons */}
           <div className="flex justify-end mt-6">
             <button
               type="button"
@@ -185,8 +190,7 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
             </button>
             <button
               type="submit"
-              className={`bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg ${isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+              className={`bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading}
             >
               {isLoading ? 'Saving...' : 'Add Payment'}
