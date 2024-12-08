@@ -197,15 +197,4 @@ class Client:
                 clients[row['id']] = cls(row)  # Create client entry if not exists
             # Add purchase info (implement as needed)
         return clients
-
-    @classmethod
-    def update_contact_details(cls, client_id, new_contact_details):
-        """Update only the contact details for a client."""
-        query = """
-        UPDATE clients SET contact_details = %(contact_details)s, updated_at = NOW() 
-        WHERE id = %(id)s;
-        """
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {
-            'id': client_id, 'contact_details': new_contact_details
-        })
     

@@ -107,8 +107,10 @@ const Navbar = () => {
       } else if (searchType === 'client') {
         response = await apiService.allPurchasesByClientId(itemId, page);
       }
+      // Ensure items per page matches your calculation
+      const itemsPerPage = 4;
       setDetailedResults(response.data.items);
-      setTotalPages(Math.ceil(response.data.total / 6)); // Assuming 6 items per page
+      setTotalPages(Math.ceil(response.data.total / itemsPerPage));
       setCurrentPage(page);
     } catch (error) {
       console.error('Failed to fetch detailed results:', error);
@@ -116,6 +118,7 @@ const Navbar = () => {
       setIsLoading(false);
     }
   };
+
 
 
 
@@ -384,7 +387,6 @@ const Navbar = () => {
                         ) : (
                           <div
                             className="flex items-center cursor-pointer"
-                            onClick={() => navigate(`/product/${item.product_id}`)}
                           >
                             <img
                               src={item.product_screenshot_photo}
@@ -420,7 +422,7 @@ const Navbar = () => {
                     <button
                       className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
-                      onClick={() => fetchDetailedResults(selectedItemId, currentPage - 1)}
+                      onClick={() => currentPage > 1 && fetchDetailedResults(selectedItemId, currentPage - 1)}
                       disabled={currentPage === 1}
                     >
                       Previous
@@ -431,12 +433,13 @@ const Navbar = () => {
                     <button
                       className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
-                      onClick={() => fetchDetailedResults(selectedItemId, currentPage + 1)}
+                      onClick={() => currentPage < totalPages && fetchDetailedResults(selectedItemId, currentPage + 1)}
                       disabled={currentPage === totalPages}
                     >
                       Next
                     </button>
                   </div>
+
                 </>
               )}
 

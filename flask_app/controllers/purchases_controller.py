@@ -149,13 +149,7 @@ def get_purchases_by_client(client_id):
 
 
 
-# GET Purchases by Product ID
-@app.route('/api/get_purchases_by_product/<int:product_id>', methods=['GET'])
-def get_purchases_by_product(product_id):
-    purchases = Purchase.get_purchases_by_product(product_id)
-    if not purchases:
-        return jsonify({"message": "No purchases found for this product"}), 404
-    return jsonify([purchase.serialize() for purchase in purchases]), 200
+
 
 @app.route('/api/get_total_amount_by_client/<int:client_id>', methods=['GET'])
 def get_total_amount_by_client(client_id):
@@ -213,6 +207,15 @@ def all_purchases_for_product(product_id, page):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/get_late_pending_deliveries', methods=['GET'])
+def get_late_pending_deliveries():
+    try:
+        pending_deliveries = Purchase.check_for_pending_deliveries()
+        serialized_purchases = [purchase.serialize() for purchase in pending_deliveries]
+        return jsonify({'pending_deliveries': serialized_purchases}), 200
+    except Exception as e:
+        print(f"Error fetching pending deliveries: {e}")
+        return jsonify({'message': 'Internal Server Error'}), 500
 
     
 

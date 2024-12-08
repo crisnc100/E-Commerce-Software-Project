@@ -106,7 +106,7 @@ class Purchase:
     
     @classmethod
     def all_purchases_for_client(cls, client_id, page=1):
-        limit = 6
+        limit = 4
         offset = (page - 1) * limit
 
         # Fetch the paginated results
@@ -136,7 +136,7 @@ class Purchase:
 
     @classmethod
     def all_purchases_for_product(cls, product_id, page=1):
-        limit = 6
+        limit = 4
         offset = (page - 1) * limit
         query = """
         SELECT clients.id AS client_id, clients.first_name, clients.last_name,
@@ -158,30 +158,6 @@ class Purchase:
         total = count_result[0]['total'] if count_result else 0
         return {'items': results, 'total': total}
 
-
-
-
-
-
-    @classmethod
-    def get_purchases_by_product(cls, product_id):
-        """Retrieve all purchases of a specific product."""
-        query = "SELECT * FROM purchases WHERE product_id = %(product_id)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db({'product_id': product_id})
-        return [cls(row) for row in results]
-    
-    @classmethod
-    def get_purchases_with_product_by_client(cls, client_id):
-        query = """
-        SELECT purchases.*, products.name AS product_name, products.description AS product_description
-        FROM purchases
-        JOIN products ON purchases.product_id = products.id
-        WHERE purchases.client_id = %(client_id)s;
-        """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
-        if not results or isinstance(results, bool):
-            return []
-        return [cls(row) for row in results]
 
     @classmethod
     def get_clients_for_product(cls, product_id):
@@ -320,6 +296,32 @@ class Purchase:
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
         print(f"Overdue purchases: {results}")
         return [cls(result) for result in results]
+
+
+    @classmethod
+    def check_for_pending_deliveries(cls):
+        """
+        Identifies purchases that are 'Paid' but have not been marked as delivered after 28 days.
+        Returns a list of such purchases.
+        """
+        query = """
+        SELECT p.id, p.client_id, p.product_id, p.size, p.purchase_date, 
+            p.amount, p.payment_status, p.shipping_status, p.created_at, 
+            p.updated_at, c.first_name AS client_first_name, 
+            c.last_name AS client_last_name, pr.name AS product_name,
+            pr.description AS product_description, 
+            pr.screenshot_photo AS product_screenshot_photo
+        FROM purchases p
+        JOIN clients c ON p.client_id = c.id
+        JOIN products pr ON p.product_id = pr.id
+        WHERE p.payment_status = 'Paid'
+        AND p.shipping_status != 'Delivered'
+        AND DATE(p.purchase_date) <= CURDATE() - INTERVAL 28 DAY;
+        """
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        return [cls(data) for data in results]
+
+
 
     
 

@@ -83,11 +83,6 @@ def create_product():
         return jsonify({"error": "Failed to save product"}), 500
 
 
-
-
-
-
-
 # READ All Products
 @app.route('/api/get_all_products/page/<int:page>', methods=['GET'])
 def get_all_products(page):
@@ -187,29 +182,6 @@ def search_products():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-# GET Products with Sizes
-@app.route('/api/get_products_with_sizes', methods=['GET'])
-def get_products_with_sizes():
-    try:
-        products_with_sizes = Product.get_products_with_sizes()
-        return jsonify(products_with_sizes), 200
-    except Exception as e:
-        return jsonify({"error": "Failed to retrieve products with sizes"}), 500
-
-
-
-# FILTER Products by Price Range
-@app.route('/api/filter_products_by_price', methods=['GET'])
-def filter_products_by_price():
-    min_price = request.args.get('min_price')
-    max_price = request.args.get('max_price')
-    
-    if not min_price or not max_price:
-        return jsonify({"error": "Both min_price and max_price are required"}), 400
-
-    products = Product.filter_by_price_range(float(min_price), float(max_price))
-    return jsonify([product.serialize() for product in products]), 200
 
 
 @app.route('/api/get_clients_for_product/<int:product_id>', methods=['GET'])

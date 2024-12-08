@@ -23,8 +23,8 @@ const SideBar = () => {
         <Link to="payments" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
           Payments
         </Link>
-        <Link to="orders" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
-          Orders & Shipments
+        <Link to="analytics" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
+          Analytics
         </Link>
         <Link to="settings" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
           Settings

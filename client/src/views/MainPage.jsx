@@ -5,6 +5,7 @@ import {
   FaBell,
   FaExclamationCircle,
   FaImage,
+  FaTruck
 } from 'react-icons/fa';
 import ReactTypingEffect from 'react-typing-effect';
 import AddClientModal from './AddClientModal';
@@ -47,33 +48,48 @@ const MainPage = () => {
 
     return () => clearInterval(interval);
   }, []);
-  
+
+
 
   // Fetch Overdue Purchases and set as Notifications
+  // Fetch both overdue purchases and pending deliveries
   const fetchNotifications = async () => {
     try {
-      const response = await apiService.getOverduePurchases();
-      const overduePurchases = response.data;
-      
-      const notificationsData = overduePurchases.map((purchase) => {
-        const purchaseDate = purchase.purchase_date
-          ? new Date(purchase.purchase_date)
-          : null;
+      const [overdueResponse, pendingDeliveriesResponse] = await Promise.all([
+        apiService.getOverduePurchases(),
+        apiService.getLatePendingDeliveries(),
+      ]);
 
-        return {
-          id: purchase.id,
-          clientName: `${purchase.client_first_name} ${purchase.client_last_name}`,
-          amount: purchase.amount,
-          productName: purchase.product_name,
-          dueDate: purchase.due_date,
-          productImage: purchase.product_screenshot_photo,
-          timeAgo: purchaseDate
-            ? formatDistanceToNow(purchaseDate, { addSuffix: true })
+      const overduePurchases = overdueResponse.data.map((purchase) => ({
+        id: purchase.id,
+        type: 'overdue', // Notification type for overdue purchases
+        clientName: `${purchase.client_first_name} ${purchase.client_last_name}`,
+        amount: purchase.amount,
+        productName: purchase.product_name,
+        productImage: purchase.product_screenshot_photo,
+        timeAgo: purchase.purchase_date
+          ? formatDistanceToNow(new Date(purchase.purchase_date), {
+            addSuffix: true,
+          })
+          : 'Unknown date',
+      }));
+
+      const pendingDeliveries = pendingDeliveriesResponse.data.pending_deliveries.map(
+        (delivery) => ({
+          id: delivery.id,
+          type: 'pending', // Notification type for pending deliveries
+          clientName: `${delivery.client_first_name} ${delivery.client_last_name}`,
+          productName: delivery.product_name,
+          productImage: delivery.product_screenshot_photo,
+          timeAgo: delivery.purchase_date
+            ? formatDistanceToNow(new Date(delivery.purchase_date), {
+              addSuffix: true,
+            })
             : 'Unknown date',
-          purchaseId: purchase.id,
-        };
-      });
-      setNotifications(notificationsData);
+        })
+      );
+
+      setNotifications([...overduePurchases, ...pendingDeliveries]);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -82,6 +98,20 @@ const MainPage = () => {
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+
+  const handleMarkAsDelivered = async (purchaseId) => {
+    try {
+      await apiService.updatePurchaseShipping(purchaseId, 'Delivered');
+      setNotifications((prev) =>
+        prev.filter((notification) => notification.id !== purchaseId)
+      );
+      alert('Purchase marked as delivered!');
+    } catch (error) {
+      console.error('Error marking as delivered:', error);
+      alert('Failed to mark as delivered. Please try again.');
+    }
+  };
 
   // Fetch Recent Activities and Purchases (placeholder)
   useEffect(() => {
@@ -162,7 +192,7 @@ const MainPage = () => {
     setTotalAmountDue(amount); // Set the total amount due
     setIsPaymentModalOpen(true); // Open the payment modal
   };
-  
+
 
   const handleViewImageClick = (imageUrl) => {
     setSelectedProductImage(imageUrl);
@@ -202,7 +232,7 @@ const MainPage = () => {
 
 
         {/* Notifications Section */}
-        <div className="md:w-2/3 bg-white p-6 rounded-lg shadow-md max-h-[400px] overflow-y-auto mt-4 md:mt-0 transform translate-x-5">
+        <div className="md:w-2/3 bg-white p-6 rounded-lg shadow-md max-h-[400px] overflow-y-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <FaBell className="text-yellow-500 text-2xl" />
@@ -221,40 +251,73 @@ const MainPage = () => {
                     className="bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start">
-                      <FaExclamationCircle className="text-red-500 text-2xl mt-1" />
+                      {notification.type === 'overdue' ? (
+                        <FaExclamationCircle className="text-red-500 text-2xl mt-1" />
+                      ) : (
+                        <FaTruck className="text-green-500 text-2xl mt-1" />
+                      )}
                       <div className="ml-4 flex-1">
                         <p className="text-gray-800 font-medium">
-                          <span className="font-bold">
-                            {notification.clientName}
-                          </span>{' '}
-                          owes{' '}
-                          <span className="text-red-600 font-bold">
-                            ${notification.amount}
-                          </span>{' '}
-                          for{' '}
-                          <span className="font-semibold">
-                            {notification.productName}
-                          </span>
-                          .
+                          {notification.type === 'overdue' ? (
+                            <>
+                              <span className="font-bold">
+                                {notification.clientName}
+                              </span>{' '}
+                              owes{' '}
+                              <span className="text-red-600 font-bold">
+                                ${notification.amount}
+                              </span>{' '}
+                              for{' '}
+                              <span className="font-semibold">
+                                {notification.productName}
+                              </span>
+                              .
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold">
+                                {notification.clientName}
+                              </span>{' '}
+                              has an undelivered order for{' '}
+                              <span className="font-semibold">
+                                {notification.productName}
+                              </span>. Has this order been delivered?
+                            </>
+                          )}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {notification.timeAgo}
+                          {notification.type === 'overdue'
+                            ? `Order was placed ${notification.timeAgo}`
+                            : `Payment made ${notification.timeAgo}`}
                         </p>
+
                         <div className="flex space-x-2 mt-2">
-                          <button
-                            onClick={() =>
-                              handleNotificationClick(notification.purchaseId, notification.amount)
-                            }
-                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                          >
-                            Add Payment
-                          </button>
+                          {notification.type === 'overdue' && (
+                            <button
+                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                              onClick={() =>
+                                handleNotificationClick(notification.purchaseId, notification.amount)
+                              }
+
+                            >
+                              Add Payment
+                            </button>
+                          )}
+
+                          {notification.type === 'pending' && (
+                            <button
+                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                              onClick={() => handleMarkAsDelivered(notification.id)}
+                            >
+                              Mark as Delivered
+                            </button>
+                          )}
                           {notification.productImage && (
                             <button
+                              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center space-x-1"
                               onClick={() =>
                                 handleViewImageClick(notification.productImage)
                               }
-                              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center space-x-1"
                             >
                               <FaImage />
                               <span>View Image</span>
@@ -316,28 +379,7 @@ const MainPage = () => {
 
       {/* Main Content Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Search Feature */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">Search Products</h2>
-          <input
-            type="text"
-            placeholder="Search products..."
-            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {/* Placeholder for product images */}
-            <div className="bg-gray-100 p-4 rounded-lg shadow">
-              <img
-                src="https://via.placeholder.com/150"
-                alt="Product Screenshot"
-                className="w-full h-32 object-cover rounded-lg"
-              />
-              <p className="mt-2 text-sm text-center">Product Name</p>
-            </div>
-            {/* Add more product items as needed */}
-          </div>
-        </div>
-
+        
         {/* Recent Activities Section */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold mb-4">Recent Activities</h2>
@@ -378,10 +420,7 @@ const MainPage = () => {
             <p className="text-gray-500">No recent activities.</p>
           )}
         </div>
-      </div>
 
-      {/* Additional Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
         {/* Purchases This Month */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold mb-4">Purchases This Month</h2>
@@ -423,7 +462,10 @@ const MainPage = () => {
             <p className="text-gray-500">No purchases this month.</p>
           )}
         </div>
+      </div>
 
+      {/* Additional Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
         {/* Weekly Summary Section */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold mb-4">Weekly Summary</h2>

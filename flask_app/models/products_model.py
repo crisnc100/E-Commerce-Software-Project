@@ -98,56 +98,7 @@ class Product:
         WHERE name LIKE %s;
         """
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, [f"%{name}%"])
-        return results
-
-    @classmethod
-    def filter_by_price_range(cls, min_price, max_price):
-        """Filter products within a specified price range."""
-        query = "SELECT * FROM products WHERE price BETWEEN %(min_price)s AND %(max_price)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db({'min_price': min_price, 'max_price': max_price})
-        return [cls(row) for row in results]
-
-    ### Additional Methods for Business Logic ###
-
-    @classmethod
-    def get_products_with_sizes(cls):
-        """Retrieve all products along with their available sizes."""
-        query = """
-        SELECT products.*, sizes.size
-        FROM products
-        JOIN sizes ON products.id = sizes.product_id;
-        """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
-        
-        # Organize products with sizes
-        products = {}
-        for row in results:
-            if row['id'] not in products:
-                products[row['id']] = {
-                    'product': cls(row),
-                    'sizes': []
-                }
-            products[row['id']]['sizes'].append(row['size'])
-        return products
-
-    @classmethod
-    def update_price(cls, product_id, new_price):
-        """Update only the price of a specific product."""
-        query = """
-        UPDATE products SET price = %(price)s, updated_at = NOW() 
-        WHERE id = %(id)s;
-        """
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': product_id, 'price': new_price})
-
-    @classmethod
-    def update_description(cls, product_id, new_description):
-        """Update only the description of a specific product."""
-        query = """
-        UPDATE products SET description = %(description)s, updated_at = NOW() 
-        WHERE id = %(id)s;
-        """
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': product_id, 'description': new_description})
-    
+        return results 
 
     @classmethod
     def is_duplicate_screenshot(cls, screenshot_photo_url):

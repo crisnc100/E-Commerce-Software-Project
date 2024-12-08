@@ -15,13 +15,13 @@ const apiService = {
     axios.post('http://localhost:5000/api/create_product', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-    getAllProducts: (page = 1, search = '') => {
-      let url = `http://localhost:5000/api/get_all_products/page/${page}`;
-      if (search) {
-        url += `?search=${encodeURIComponent(search)}`;
-      }
-      return axios.get(url);
-    },
+  getAllProducts: (page = 1, search = '') => {
+    let url = `http://localhost:5000/api/get_all_products/page/${page}`;
+    if (search) {
+      url += `?search=${encodeURIComponent(search)}`;
+    }
+    return axios.get(url);
+  },
   getClientsForProduct: (productId) =>
     axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`
 
@@ -38,13 +38,13 @@ const apiService = {
     axios.post('http://localhost:5000/api/add_client', formData
 
     ),
-    allClients: (page = 1, search = '') => {
-      let url = `http://localhost:5000/api/all_clients/page/${page}`;
-      if (search) {
-        url += `?search=${encodeURIComponent(search)}`;
-      }
-      return axios.get(url);
-    },
+  allClients: (page = 1, search = '') => {
+    let url = `http://localhost:5000/api/all_clients/page/${page}`;
+    if (search) {
+      url += `?search=${encodeURIComponent(search)}`;
+    }
+    return axios.get(url);
+  },
   updateClient: (clientId, formData) =>
     axios.put(`http://localhost:5000/api/update_client/${clientId}`, formData
 
@@ -81,6 +81,9 @@ const apiService = {
         },
       }
     ),
+  getLatePendingDeliveries: () => {
+    return axios.get(`http://localhost:5000/api/get_late_pending_deliveries`)
+  },
   deletePurchase: (purchaseId) => {
     return axios.delete(`http://localhost:5000/api/delete_purchase/${purchaseId}`);
   },
@@ -104,11 +107,11 @@ const apiService = {
     return axios.delete(`http://localhost:5000/api/delete_payment/${paymentId}`);
   },
 
-  allPurchasesByClientId: (clientId, page=1) =>
+  allPurchasesByClientId: (clientId, page = 1) =>
     axios.get(`http://localhost:5000/api/all_purchases_for_client/${clientId}/page/${page}`
 
     ),
-  allPurchasesByProductId: (productId, page=1) =>
+  allPurchasesByProductId: (productId, page = 1) =>
     axios.get(`http://localhost:5000/api/all_purchases_for_product/${productId}/page/${page}`
 
     ),
