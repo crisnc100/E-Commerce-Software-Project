@@ -198,3 +198,14 @@ class Client:
             # Add purchase info (implement as needed)
         return clients
     
+    @classmethod
+    def get_recent_clients(cls, since_date):
+        query = """
+        SELECT 'Add Client' AS action, CONCAT(first_name, ' ', last_name) AS details, created_at
+        FROM clients
+        WHERE created_at >= %s
+        ORDER BY created_at DESC;
+        """
+        data = (since_date,)
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    

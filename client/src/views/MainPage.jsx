@@ -32,6 +32,7 @@ const MainPage = () => {
   const [notificationsPage, setNotificationsPage] = useState(1);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const [purchasesPage, setPurchasesPage] = useState(1);
+  const [timeSpan, setTimeSpan] = useState(3); // Default: 72 hours
 
   const itemsPerPage = 5;
 
@@ -113,41 +114,40 @@ const MainPage = () => {
     }
   };
 
-  // Fetch Recent Activities and Purchases (placeholder)
+  const fetchRecentActivities = async () => {
+    try {
+      console.log('Fetching activities with timeSpan:', timeSpan); // Debugging
+      const response = await apiService.getRecentActivities(timeSpan);
+      console.log('Fetched activities:', response.data.recent_activities); // Debugging
+      setRecentActivities(response.data.recent_activities);
+      setActivitiesPage(1); // Reset to the first page on time span change
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+      setRecentActivities([]);
+    }
+  };
+
   useEffect(() => {
-    // Fetch recent activities (placeholder)
-    const fetchRecentActivities = () => {
-      // Replace with actual data fetching
-      setRecentActivities([
-        { id: 1, activity: 'Order #1024 was placed.' },
-        { id: 2, activity: 'Product XYZ was added to inventory.' },
-        { id: 3, activity: 'Client Y updated their contact information.' },
-        { id: 4, activity: 'Invoice #457 was generated.' },
-        { id: 5, activity: 'Refund processed for Order #1020.' },
-        { id: 6, activity: 'Email campaign sent to subscribers.' },
-        { id: 7, activity: 'Scheduled meeting with Supplier Z.' },
-        // Add more activities as needed
-      ]);
-    };
-
-    // Fetch purchases (placeholder)
-    const fetchPurchases = () => {
-      // Replace with actual data fetching
-      setPurchases([
-        { id: 1, client: 'Client A', amount: '$200' },
-        { id: 2, client: 'Client B', amount: '$150' },
-        { id: 3, client: 'Client C', amount: '$350' },
-        { id: 4, client: 'Client D', amount: '$400' },
-        { id: 5, client: 'Client E', amount: '$250' },
-        { id: 6, client: 'Client F', amount: '$500' },
-        { id: 7, client: 'Client G', amount: '$100' },
-        // Add more purchases as needed
-      ]);
-    };
-
     fetchRecentActivities();
-    fetchPurchases();
-  }, []);
+  }, [timeSpan]);
+
+  // Fetch purchases (placeholder)
+  /*const fetchPurchases = () => {
+    // Replace with actual data fetching
+    setPurchases([
+      { id: 1, client: 'Client A', amount: '$200' },
+      { id: 2, client: 'Client B', amount: '$150' },
+      { id: 3, client: 'Client C', amount: '$350' },
+      { id: 4, client: 'Client D', amount: '$400' },
+      { id: 5, client: 'Client E', amount: '$250' },
+      { id: 6, client: 'Client F', amount: '$500' },
+      { id: 7, client: 'Client G', amount: '$100' },
+      // Add more purchases as needed
+    ]);
+  };
+
+  fetchPurchases();
+}, []);*/
 
   // Pagination handlers
   const handleNotificationsPageChange = (direction) => {
@@ -162,6 +162,8 @@ const MainPage = () => {
     setPurchasesPage((prevPage) => prevPage + direction);
   };
 
+
+
   // Calculate paginated data
   const paginatedNotifications = notifications.slice(
     (notificationsPage - 1) * itemsPerPage,
@@ -173,6 +175,8 @@ const MainPage = () => {
     activitiesPage * itemsPerPage
   );
 
+
+
   const paginatedPurchases = purchases.slice(
     (purchasesPage - 1) * itemsPerPage,
     purchasesPage * itemsPerPage
@@ -182,9 +186,10 @@ const MainPage = () => {
   const notificationsTotalPages = Math.ceil(
     notifications.length / itemsPerPage
   );
-  const activitiesTotalPages = Math.ceil(
-    recentActivities.length / itemsPerPage
-  );
+  const activitiesTotalPages = Math.ceil(recentActivities.length / itemsPerPage);
+
+  const isTableView = timeSpan === 14; // Use table view for 14 days
+
   const purchasesTotalPages = Math.ceil(purchases.length / itemsPerPage);
 
   const handleNotificationClick = (purchaseId, amount) => {
@@ -198,6 +203,18 @@ const MainPage = () => {
     setSelectedProductImage(imageUrl);
     setIsImageModalOpen(true);
   };
+
+  const formatDateSafely = (dateString) => {
+    if (!dateString) return 'Unknown Date';
+
+    const date = new Date(dateString);
+    const correctedDate = new Date(
+      date.getTime() + date.getTimezoneOffset() * 60000
+    );
+
+    return correctedDate.toLocaleString(); // Includes both date and time
+  };
+
 
   return (
     <div className="p-4">
@@ -377,48 +394,137 @@ const MainPage = () => {
         </button>
       </div>
 
-      {/* Main Content Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* Recent Activities Section */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">Recent Activities</h2>
-          {paginatedActivities.length > 0 ? (
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 max-h-[500px] overflow-y-auto">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-full">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">Recent Activities</h2>
+            <select
+              value={timeSpan}
+              onChange={(e) => {
+                console.log('Selected time span:', e.target.value); // Debugging
+                setTimeSpan(Number(e.target.value));
+              }}
+              className="border rounded px-2 py-1 text-sm"
+            >
+              <option value="3">Last 72 Hours</option>
+              <option value="7">Last 7 Days</option>
+              <option value="14">Last 14 Days</option>
+            </select>
+          </div>
+
+          {recentActivities.length > 0 ? (
             <>
-              <ul className="space-y-2">
-                {paginatedActivities.map((activity) => (
-                  <li key={activity.id} className="text-gray-700">
-                    {activity.activity}
-                  </li>
-                ))}
-              </ul>
-              {/* Pagination Controls */}
-              <div className="flex justify-end space-x-2 mt-2">
-                <button
-                  onClick={() => handleActivitiesPageChange(-1)}
-                  disabled={activitiesPage === 1}
-                  className={`px-2 py-1 rounded ${activitiesPage === 1
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => handleActivitiesPageChange(1)}
-                  disabled={activitiesPage === activitiesTotalPages}
-                  className={`px-2 py-1 rounded ${activitiesPage === activitiesTotalPages
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                >
-                  Next
-                </button>
+              {!isTableView ? (
+                <ul className="divide-y divide-gray-200">
+                  {paginatedActivities.map((activity, index) => (
+                    <li
+                      key={index}
+                      className="flex items-start p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-shadow"
+                    >
+                      <div className="flex-shrink-0">
+                        {activity.action === 'Add Client' && (
+                          <span className="text-blue-500 text-2xl">👤</span>
+                        )}
+                        {activity.action === 'Add Product' && (
+                          <span className="text-purple-500 text-2xl">📦</span>
+                        )}
+                        {activity.action === 'Create Purchase Order' && (
+                          <span className="text-orange-500 text-2xl">🛒</span>
+                        )}
+                        {activity.action === 'Payment Made' && (
+                          <span className="text-green-500 text-2xl">💳</span>
+                        )}
+                        {activity.action.includes('Shipping') && (
+                          <span className="text-yellow-500 text-2xl">🚚</span>
+                        )}
+                      </div>
+
+                      <div className="ml-4 flex-1">
+                        <p className="text-gray-800 font-semibold text-lg">
+                          {activity.action}
+                        </p>
+                        <p className="text-gray-700 text-sm">{activity.details}</p>
+                        <p className="text-gray-500 text-xs mt-2">
+                          {formatDateSafely(activity.created_at)}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <table className="min-w-full bg-white rounded-lg shadow-md">
+                  <thead>
+                    <tr>
+                      <th className="py-2 px-4 border-b">Action</th>
+                      <th className="py-2 px-4 border-b">Details</th>
+                      <th className="py-2 px-4 border-b">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedActivities.map((activity, index) => (
+                      <tr key={index} className="hover:bg-gray-100">
+                        <td className="py-2 px-4">{activity.action}</td>
+                        <td className="py-2 px-4">{activity.details}</td>
+                        <td className="py-2 px-4 text-sm text-gray-500">
+                          {formatDateSafely(activity.created_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              <div className="flex justify-between items-center mt-6">
+                <p className="text-sm text-gray-600">
+                  Page {activitiesPage} of {activitiesTotalPages}
+                </p>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleActivitiesPageChange(-1)}
+                    disabled={activitiesPage === 1}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === 1
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handleActivitiesPageChange(1)}
+                    disabled={activitiesPage === activitiesTotalPages}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === activitiesTotalPages
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </>
           ) : (
-            <p className="text-gray-500">No recent activities.</p>
+            <p className="text-gray-500 text-center">No recent activities.</p>
           )}
+        </div>
+      </div>
+
+
+
+      {/* Additional Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        {/* Weekly Summary Section */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-bold mb-4">Weekly Summary</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold">New Clients</h3>
+              <p className="text-2xl font-bold text-green-600">5</p>
+            </div>
+            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow">
+              <h3 className="text-lg font-semibold">Total Sales</h3>
+              <p className="text-2xl font-bold text-blue-600">$1,500</p>
+            </div>
+          </div>
         </div>
 
         {/* Purchases This Month */}
@@ -461,24 +567,6 @@ const MainPage = () => {
           ) : (
             <p className="text-gray-500">No purchases this month.</p>
           )}
-        </div>
-      </div>
-
-      {/* Additional Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        {/* Weekly Summary Section */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">Weekly Summary</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow">
-              <h3 className="text-lg font-semibold">New Clients</h3>
-              <p className="text-2xl font-bold text-green-600">5</p>
-            </div>
-            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow">
-              <h3 className="text-lg font-semibold">Total Sales</h3>
-              <p className="text-2xl font-bold text-blue-600">$1,500</p>
-            </div>
-          </div>
         </div>
       </div>
 

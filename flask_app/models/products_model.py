@@ -106,3 +106,14 @@ class Product:
         query = "SELECT COUNT(*) AS count FROM products WHERE screenshot_photo = %(screenshot_photo)s;"
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'screenshot_photo': screenshot_photo_url})
         return result[0]['count'] > 0  # Returns True if duplicate exists
+    
+    @classmethod
+    def get_recent_products(cls, since_date):
+        query = """
+        SELECT 'Add Product' AS action, name AS details, created_at
+        FROM products
+        WHERE created_at >= %s
+        ORDER BY created_at DESC;
+        """
+        data = (since_date,)
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)

@@ -133,3 +133,21 @@ class Payment:
             is_valid = False
             errors.append("The payment amount must be greater than zero.")
         return is_valid, errors
+    
+    @classmethod
+    def get_recent_payments(cls, since_date):
+        query = """
+        SELECT 
+            'Payment Made' AS action,
+            CONCAT('Payment of $', payments.amount_paid, ' for order ID ', purchases.id, 
+                ' (', products.name, ') by ', clients.first_name, ' ', clients.last_name) AS details,
+            payments.created_at
+        FROM payments
+        JOIN purchases ON payments.purchase_id = purchases.id
+        JOIN products ON purchases.product_id = products.id
+        JOIN clients ON purchases.client_id = clients.id
+        WHERE payments.created_at >= %s
+        ORDER BY payments.created_at DESC;
+        """
+        data = (since_date,)
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)

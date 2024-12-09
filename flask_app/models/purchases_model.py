@@ -320,6 +320,43 @@ class Purchase:
         """
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
         return [cls(data) for data in results]
+    
+    @classmethod
+    def get_recent_purchases(cls, since_date):
+        query = """
+        SELECT 
+            'Create Purchase Order' AS action,
+            CONCAT('Order for ', p.name, ' by ', c.first_name, ' ', c.last_name, ' (', purchases.size, ')') AS details,
+            purchases.created_at
+        FROM purchases
+        JOIN products p ON purchases.product_id = p.id
+        JOIN clients c ON purchases.client_id = c.id
+        WHERE purchases.created_at >= %s
+        ORDER BY purchases.created_at DESC;
+        """
+        data = (since_date,)
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+    
+    @classmethod
+    def get_recent_shipping_updates(cls, since_date):
+        query = """
+        SELECT 
+            'Update Shipping' AS action,
+            CONCAT('Shipping status changed to ', purchases.shipping_status, ' for ', p.name, ' by ', c.first_name, ' ', c.last_name) AS details,
+            purchases.updated_at AS created_at
+        FROM purchases
+        JOIN products p ON purchases.product_id = p.id
+        JOIN clients c ON purchases.client_id = c.id
+        WHERE purchases.updated_at >= %s 
+        AND purchases.shipping_status IS NOT NULL
+        ORDER BY purchases.updated_at DESC;
+        """
+        data = (since_date,)
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+    
+    
 
 
 
