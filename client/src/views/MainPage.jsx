@@ -5,7 +5,11 @@ import {
   FaBell,
   FaExclamationCircle,
   FaImage,
-  FaTruck
+  FaTruck,
+  FaEyeSlash,
+  FaEye,
+  FaChevronUp,
+  FaChevronDown
 } from 'react-icons/fa';
 import ReactTypingEffect from 'react-typing-effect';
 import AddClientModal from './AddClientModal';
@@ -28,6 +32,8 @@ const MainPage = () => {
   const [selectedProductImage, setSelectedProductImage] = useState('');
   const [totalAmountDue, setTotalAmountDue] = useState(null);
 
+  const [isActivitiesHidden, setIsActivitiesHidden] = useState(false);
+  const [isActivitiesCollapsed, setIsActivitiesCollapsed] = useState(false);
   // Pagination states
   const [notificationsPage, setNotificationsPage] = useState(1);
   const [activitiesPage, setActivitiesPage] = useState(1);
@@ -116,9 +122,7 @@ const MainPage = () => {
 
   const fetchRecentActivities = async () => {
     try {
-      console.log('Fetching activities with timeSpan:', timeSpan); // Debugging
       const response = await apiService.getRecentActivities(timeSpan);
-      console.log('Fetched activities:', response.data.recent_activities); // Debugging
       setRecentActivities(response.data.recent_activities);
       setActivitiesPage(1); // Reset to the first page on time span change
     } catch (error) {
@@ -130,6 +134,15 @@ const MainPage = () => {
   useEffect(() => {
     fetchRecentActivities();
   }, [timeSpan]);
+
+  // Load preferences from local storage on mount
+  useEffect(() => {
+    const storedHidden = localStorage.getItem('activitiesHidden');
+    const storedCollapsed = localStorage.getItem('activitiesCollapsed');
+    if (storedHidden === 'true') setIsActivitiesHidden(true);
+    if (storedCollapsed === 'true') setIsActivitiesCollapsed(true);
+  }, []);
+
 
   // Fetch purchases (placeholder)
   /*const fetchPurchases = () => {
@@ -213,6 +226,28 @@ const MainPage = () => {
     );
 
     return correctedDate.toLocaleString(); // Includes both date and time
+  };
+
+  // Toggle hide activities
+  const handleHideActivities = () => {
+    setIsActivitiesHidden(true);
+    localStorage.setItem('activitiesHidden', 'true');
+  };
+
+  const handleRestoreActivities = () => {
+    setIsActivitiesHidden(false);
+    localStorage.removeItem('activitiesHidden');
+  };
+
+  // Toggle collapse
+  const handleToggleCollapse = () => {
+    const newState = !isActivitiesCollapsed;
+    setIsActivitiesCollapsed(newState);
+    if (newState) {
+      localStorage.setItem('activitiesCollapsed', 'true');
+    } else {
+      localStorage.removeItem('activitiesCollapsed');
+    }
   };
 
 
@@ -393,122 +428,123 @@ const MainPage = () => {
           <span>Create New Order</span>
         </button>
       </div>
-
+      {/* Recent Activities Section */}
       <div className="grid grid-cols-1 md:grid-cols-1 gap-4 max-h-[500px] overflow-y-auto">
-        <div className="bg-white p-6 rounded-lg shadow-lg w-full">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Recent Activities</h2>
-            <select
-              value={timeSpan}
-              onChange={(e) => {
-                console.log('Selected time span:', e.target.value); // Debugging
-                setTimeSpan(Number(e.target.value));
-              }}
-              className="border rounded px-2 py-1 text-sm"
-            >
-              <option value="3">Last 72 Hours</option>
-              <option value="7">Last 7 Days</option>
-              <option value="14">Last 14 Days</option>
-            </select>
-          </div>
-
-          {recentActivities.length > 0 ? (
-            <>
-              {!isTableView ? (
-                <ul className="divide-y divide-gray-200">
-                  {paginatedActivities.map((activity, index) => (
-                    <li
-                      key={index}
-                      className="flex items-start p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-shadow"
-                    >
-                      <div className="flex-shrink-0">
-                        {activity.action === 'Add Client' && (
-                          <span className="text-blue-500 text-2xl">👤</span>
-                        )}
-                        {activity.action === 'Add Product' && (
-                          <span className="text-purple-500 text-2xl">📦</span>
-                        )}
-                        {activity.action === 'Create Purchase Order' && (
-                          <span className="text-orange-500 text-2xl">🛒</span>
-                        )}
-                        {activity.action === 'Payment Made' && (
-                          <span className="text-green-500 text-2xl">💳</span>
-                        )}
-                        {activity.action.includes('Shipping') && (
-                          <span className="text-yellow-500 text-2xl">🚚</span>
-                        )}
-                      </div>
-
-                      <div className="ml-4 flex-1">
-                        <p className="text-gray-800 font-semibold text-lg">
-                          {activity.action}
-                        </p>
-                        <p className="text-gray-700 text-sm">{activity.details}</p>
-                        <p className="text-gray-500 text-xs mt-2">
-                          {formatDateSafely(activity.created_at)}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <table className="min-w-full bg-white rounded-lg shadow-md">
-                  <thead>
-                    <tr>
-                      <th className="py-2 px-4 border-b">Action</th>
-                      <th className="py-2 px-4 border-b">Details</th>
-                      <th className="py-2 px-4 border-b">Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedActivities.map((activity, index) => (
-                      <tr key={index} className="hover:bg-gray-100">
-                        <td className="py-2 px-4">{activity.action}</td>
-                        <td className="py-2 px-4">{activity.details}</td>
-                        <td className="py-2 px-4 text-sm text-gray-500">
-                          {formatDateSafely(activity.created_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              <div className="flex justify-between items-center mt-6">
-                <p className="text-sm text-gray-600">
-                  Page {activitiesPage} of {activitiesTotalPages}
-                </p>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleActivitiesPageChange(-1)}
-                    disabled={activitiesPage === 1}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === 1
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => handleActivitiesPageChange(1)}
-                    disabled={activitiesPage === activitiesTotalPages}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === activitiesTotalPages
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                  >
-                    Next
-                  </button>
-                </div>
+        {!isActivitiesHidden ? (
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center space-x-3">
+                <h2 className="text-2xl font-bold text-gray-800">Recent Activities</h2>
+                <button
+                  onClick={handleToggleCollapse}
+                  className="text-gray-600 hover:text-gray-800 p-1 rounded focus:outline-none"
+                  title={isActivitiesCollapsed ? 'Expand' : 'Collapse'}
+                >
+                  {isActivitiesCollapsed ? <FaChevronDown /> : <FaChevronUp />}
+                </button>
               </div>
-            </>
-          ) : (
-            <p className="text-gray-500 text-center">No recent activities.</p>
-          )}
-        </div>
+
+              <div className="flex items-center space-x-3">
+                <select
+                  value={timeSpan}
+                  onChange={(e) => setTimeSpan(Number(e.target.value))}
+                  className="border rounded px-2 py-1 text-sm"
+                >
+                  <option value="3">Last 72 Hours</option>
+                  <option value="7">Last 7 Days</option>
+                  <option value="14">Last 14 Days</option>
+                </select>
+
+                <button
+                  onClick={handleHideActivities}
+                  className="text-gray-600 hover:text-gray-800 p-1 rounded focus:outline-none"
+                  title="Hide Recent Activities"
+                >
+                  <FaEyeSlash />
+                </button>
+              </div>
+            </div>
+
+            {/* Only show content if not collapsed */}
+            {!isActivitiesCollapsed && (
+              <>
+                {recentActivities.length > 0 ? (
+                  <div className="max-h-[300px] overflow-y-auto">
+                    <ul className="divide-y divide-gray-200">
+                      {paginatedActivities.map((activity, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-shadow"
+                        >
+                          <div className="flex-shrink-0 mr-4 text-2xl">
+                            {activity.action === 'Add Client' && '👤'}
+                            {activity.action === 'Add Product' && '📦'}
+                            {activity.action === 'Create Purchase Order' && '🛒'}
+                            {activity.action === 'Payment Made' && '💳'}
+                            {activity.action.includes('Shipping') && '🚚'}
+                          </div>
+
+                          <div className="flex-1">
+                            <p className="text-gray-800 font-semibold text-lg">
+                              {activity.action}
+                            </p>
+                            <p className="text-gray-700 text-sm">{activity.details}</p>
+                            <p className="text-gray-500 text-xs mt-2">
+                              {formatDateSafely(activity.created_at)}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No recent activities.</p>
+                )}
+
+                {recentActivities.length > 0 && (
+                  <div className="flex justify-between items-center mt-4">
+                    <p className="text-sm text-gray-600">
+                      Page {activitiesPage} of {activitiesTotalPages}
+                    </p>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleActivitiesPageChange(-1)}
+                        disabled={activitiesPage === 1}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === 1
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handleActivitiesPageChange(1)}
+                        disabled={activitiesPage === activitiesTotalPages}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === activitiesTotalPages
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full flex justify-center">
+            <button
+              onClick={handleRestoreActivities}
+              className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              <FaEye />
+              <span>Restore Recent Activities</span>
+            </button>
+          </div>
+        )}
       </div>
-
-
 
       {/* Additional Sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">

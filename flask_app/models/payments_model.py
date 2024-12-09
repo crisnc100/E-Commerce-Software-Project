@@ -139,8 +139,8 @@ class Payment:
         query = """
         SELECT 
             'Payment Made' AS action,
-            CONCAT('Payment of $', payments.amount_paid, ' for order ID ', purchases.id, 
-                ' (', products.name, ') by ', clients.first_name, ' ', clients.last_name) AS details,
+            CONCAT('Payment of $', payments.amount_paid, ' for ', 
+           '', products.name, ' by ', clients.first_name, ' ', clients.last_name) AS details,
             payments.created_at
         FROM payments
         JOIN purchases ON payments.purchase_id = purchases.id

@@ -122,9 +122,10 @@ const apiService = {
   searchClientsByName: (name) => {
     return axios.get(`http://localhost:5000/api/search_clients?name=${name}`);
   },
-  getRecentActivities: () => {
-    return axios.get(`http://localhost:5000/api/get_recent_activities`)
-  },
+  getRecentActivities: (timeSpan) => {
+    return axios.get(`http://localhost:5000/api/get_recent_activities?time_span=${timeSpan}`);
+  }
+  
 
 };
 
