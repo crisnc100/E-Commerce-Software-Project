@@ -12,6 +12,7 @@ class Payment:
         self.updated_at = data.get('updated_at')
         self.product_id = data.get('product_id')  # New field
         self.product_name = data.get('product_name')  # New field
+        self.purchase_payment_status = data.get('purchase_payment_status')
     
     def serialize(self):
         return {
@@ -24,7 +25,8 @@ class Payment:
             'created_at': str(self.created_at), 
             'updated_at': str(self.updated_at),
             'product_id': self.product_id,
-            'product_name': self.product_name
+            'product_name': self.product_name,
+            'purchase_payment_status': self.purchase_payment_status
         }
     
 
@@ -151,3 +153,5 @@ class Payment:
         """
         data = (since_date,)
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    
+ 

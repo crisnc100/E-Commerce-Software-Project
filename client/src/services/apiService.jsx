@@ -124,8 +124,13 @@ const apiService = {
   },
   getRecentActivities: (timeSpan) => {
     return axios.get(`http://localhost:5000/api/get_recent_activities?time_span=${timeSpan}`);
-  }
-  
+  },
+  getWeeklyMetrics: () => {
+    return axios.get(`http://localhost:5000/api/get_weekly_metrics`)
+  },
+  getMonthlyMetrics: () => {
+    return axios.get(`http://localhost:5000/api/get_monthly_metrics`)
+  },
 
 };
 

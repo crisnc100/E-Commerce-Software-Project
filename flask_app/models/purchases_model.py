@@ -20,6 +20,7 @@ class Purchase:
         self.product_name = data.get('product_name')  # New field
         self.product_description = data.get('product_description')  # New field
         self.product_screenshot_photo = data.get('product_screenshot_photo')
+        self.product_price = data.get('product_price')
         self.payments = data.get('payments', [])
         self.client_first_name = data.get('client_first_name')
         self.client_last_name = data.get('client_last_name'),
@@ -42,6 +43,7 @@ class Purchase:
             'product_name': self.product_name,
             'product_description': self.product_description,
             'product_screenshot_photo': self.product_screenshot_photo,
+            'product_price': self.product_price,
             'payments': self.payments,
             'client_first_name': self.client_first_name,
             'client_last_name': self.client_last_name,
@@ -354,6 +356,58 @@ class Purchase:
         """
         data = (since_date,)
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    
+    @classmethod
+    def calculate_weekly_metrics(cls):
+        query = """
+        SELECT 
+            SUM(purchases.amount) AS gross_sales,
+            SUM(purchases.amount - products.price) AS revenue_earned,
+            SUM(payments.amount_paid) AS net_sales
+        FROM purchases
+        LEFT JOIN products ON purchases.product_id = products.id
+        LEFT JOIN payments ON purchases.id = payments.purchase_id
+        WHERE purchases.created_at >= CURDATE() - INTERVAL 7 DAY;
+        """
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        return {
+            'gross_sales': result[0]['gross_sales'] if result and result[0]['gross_sales'] else 0.0,
+            'revenue_earned': result[0]['revenue_earned'] if result and result[0]['revenue_earned'] else 0.0,
+            'net_sales': result[0]['net_sales'] if result and result[0]['net_sales'] else 0.0,
+        }
+    
+    @classmethod
+    def calculate_monthly_metrics(cls, year):
+        query = """
+        SELECT 
+            MONTH(purchases.created_at) AS month,
+            SUM(purchases.amount) AS gross_sales,
+            SUM(purchases.amount - products.price) AS revenue_earned,
+            SUM(payments.amount_paid) AS net_sales
+        FROM purchases
+        LEFT JOIN products ON purchases.product_id = products.id
+        LEFT JOIN payments ON purchases.id = payments.purchase_id
+        WHERE YEAR(purchases.created_at) = %s
+        GROUP BY MONTH(purchases.created_at)
+        ORDER BY MONTH(purchases.created_at);
+        """
+        data = (year,)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return [
+            {
+                'month': row['month'],
+                'gross_sales': row['gross_sales'] if row['gross_sales'] else 0.0,
+                'revenue_earned': row['revenue_earned'] if row['revenue_earned'] else 0.0,
+                'net_sales': row['net_sales'] if row['net_sales'] else 0.0,
+            }
+            for row in result
+        ] if result else []
+
+
+
+    
+    
+
 
     
     

@@ -209,3 +209,36 @@ class Client:
         data = (since_date,)
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
     
+
+    @classmethod
+    def count_new_clients_last_week(cls):
+        query = """
+        SELECT COUNT(*) AS new_clients
+        FROM clients
+        WHERE created_at >= CURDATE() - INTERVAL 7 DAY;
+        """
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        return result[0]['new_clients'] if result else 0
+    
+
+    @classmethod
+    def count_new_clients_monthly(cls, year):
+        query = """
+        SELECT MONTH(created_at) AS month, COUNT(*) AS new_clients
+        FROM clients
+        WHERE YEAR(created_at) = %s
+        GROUP BY MONTH(created_at)
+        ORDER BY MONTH(created_at);
+        """
+        data = (year,)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return [
+            {'month': row['month'], 'new_clients': row['new_clients']}
+            for row in result
+        ] if result else []
+
+
+
+
+
+    

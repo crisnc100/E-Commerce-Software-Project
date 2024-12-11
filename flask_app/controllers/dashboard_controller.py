@@ -41,3 +41,38 @@ def get_recent_activities():
     except Exception as e:
         print(f"Error fetching recent activities: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
+    
+
+@app.route('/api/get_weekly_metrics', methods=['GET'])
+def get_weekly_metrics():
+    try:
+        weekly_sales_metrics = Purchase.calculate_weekly_metrics()
+        new_clients = Client.count_new_clients_last_week()
+
+        response = {
+            'weekly_metrics': weekly_sales_metrics,
+            'new_clients': new_clients,
+        }
+        return jsonify(response), 200
+    except Exception as e:
+        print(f"Error fetching weekly metrics: {e}")
+        return jsonify({'message': 'Internal Server Error'}), 500
+    
+
+@app.route('/api/get_monthly_metrics', methods=['GET'])
+def get_monthly_metrics():
+    try:
+        year = int(request.args.get('year', datetime.now().year))
+        monthly_sales_metrics = Purchase.calculate_monthly_metrics(year)
+        new_clients = Client.count_new_clients_monthly(year)
+
+        response = {
+            'monthly_metrics': monthly_sales_metrics,
+            'new_clients_by_month': new_clients,
+        }
+        return jsonify(response), 200
+    except Exception as e:
+        print(f"Error fetching monthly metrics: {e}")
+        return jsonify({'message': 'Internal Server Error'}), 500
+
+
