@@ -218,6 +218,8 @@ class Client:
         WHERE created_at >= CURDATE() - INTERVAL 7 DAY;
         """
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        print(f"Clients Metrics (weekly) Query Result: {result}")  # Debug print
+
         return result[0]['new_clients'] if result else 0
     
 
@@ -232,6 +234,8 @@ class Client:
         """
         data = (year,)
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        print(f"New Clients (monthly) Query Result: {result}")  # Debug print
+
         return [
             {'month': row['month'], 'new_clients': row['new_clients']}
             for row in result

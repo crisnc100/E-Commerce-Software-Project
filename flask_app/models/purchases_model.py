@@ -367,9 +367,10 @@ class Purchase:
         FROM purchases
         LEFT JOIN products ON purchases.product_id = products.id
         LEFT JOIN payments ON purchases.id = payments.purchase_id
-        WHERE purchases.created_at >= CURDATE() - INTERVAL 7 DAY;
+        WHERE purchases.purchase_date >= CURDATE() - INTERVAL 7 DAY;
         """
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        print(f"Weekly Metrics Query Result: {result}")  # Debug print
         return {
             'gross_sales': result[0]['gross_sales'] if result and result[0]['gross_sales'] else 0.0,
             'revenue_earned': result[0]['revenue_earned'] if result and result[0]['revenue_earned'] else 0.0,
@@ -380,19 +381,22 @@ class Purchase:
     def calculate_monthly_metrics(cls, year):
         query = """
         SELECT 
-            MONTH(purchases.created_at) AS month,
+            MONTH(purchases.purchase_date) AS month,
             SUM(purchases.amount) AS gross_sales,
             SUM(purchases.amount - products.price) AS revenue_earned,
             SUM(payments.amount_paid) AS net_sales
         FROM purchases
         LEFT JOIN products ON purchases.product_id = products.id
         LEFT JOIN payments ON purchases.id = payments.purchase_id
-        WHERE YEAR(purchases.created_at) = %s
-        GROUP BY MONTH(purchases.created_at)
-        ORDER BY MONTH(purchases.created_at);
+        WHERE YEAR(purchases.purchase_date) = %s
+        GROUP BY MONTH(purchases.purchase_date)
+        ORDER BY MONTH(purchases.purchase_date);
+
         """
         data = (year,)
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        print(f"Monthly Metrics Query Result: {result}")  # Debug print
+
         return [
             {
                 'month': row['month'],

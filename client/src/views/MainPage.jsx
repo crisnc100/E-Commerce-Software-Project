@@ -9,7 +9,9 @@ import {
   FaEyeSlash,
   FaEye,
   FaChevronUp,
-  FaChevronDown
+  FaChevronDown,
+  FaChartLine,
+  FaDollarSign
 } from 'react-icons/fa';
 import ReactTypingEffect from 'react-typing-effect';
 import AddClientModal from './AddClientModal';
@@ -38,9 +40,16 @@ const MainPage = () => {
   const [notificationsPage, setNotificationsPage] = useState(1);
   const [activitiesPage, setActivitiesPage] = useState(1);
   const [purchasesPage, setPurchasesPage] = useState(1);
-  const [timeSpan, setTimeSpan] = useState(3); // Default: 72 hours
-
+  const [timeSpan, setTimeSpan] = useState(3); // Default: 72 hour
   const itemsPerPage = 5;
+  const [metrics, setMetrics] = useState({
+    new_clients: 0,
+    gross_sales: 0,
+    revenue_earned: 0,
+    net_sales: 0,
+  });
+  const [timeMetricSpan, setTimeMetricSpan] = useState('week'); // 'week' or 'month'
+  const [isLoading, setIsLoading] = useState(true);
 
   // Clock Update
   useEffect(() => {
@@ -106,6 +115,8 @@ const MainPage = () => {
     fetchNotifications();
   }, []);
 
+  
+
 
   const handleMarkAsDelivered = async (purchaseId) => {
     try {
@@ -144,23 +155,46 @@ const MainPage = () => {
   }, []);
 
 
-  // Fetch purchases (placeholder)
-  /*const fetchPurchases = () => {
-    // Replace with actual data fetching
-    setPurchases([
-      { id: 1, client: 'Client A', amount: '$200' },
-      { id: 2, client: 'Client B', amount: '$150' },
-      { id: 3, client: 'Client C', amount: '$350' },
-      { id: 4, client: 'Client D', amount: '$400' },
-      { id: 5, client: 'Client E', amount: '$250' },
-      { id: 6, client: 'Client F', amount: '$500' },
-      { id: 7, client: 'Client G', amount: '$100' },
-      // Add more purchases as needed
-    ]);
+  // Fetch metrics based on time span
+  const fetchMetrics = async () => {
+    try {
+      setIsLoading(true);
+      const response = timeMetricSpan === 'week'
+        ? await apiService.getWeeklyMetrics()
+        : await apiService.getMonthlyMetrics();
+
+      if (timeMetricSpan === 'week') {
+        // Weekly data is straightforward
+        setMetrics({
+          new_clients: response.data.new_clients,
+          gross_sales: response.data.weekly_metrics.gross_sales,
+          revenue_earned: response.data.weekly_metrics.revenue_earned,
+          net_sales: response.data.weekly_metrics.net_sales,
+        });
+      } else {
+        // Monthly data needs extraction
+        const currentMonth = new Date().getMonth() + 1; // Current month number (1-12)
+        const currentMonthMetrics = response.data.monthly_metrics.find(m => m.month === currentMonth) || {};
+        const currentMonthClientsObj = response.data.new_clients_by_month.find(m => m.month === currentMonth) || {};
+
+        setMetrics({
+          new_clients: currentMonthClientsObj.new_clients || 0,
+          gross_sales: currentMonthMetrics.gross_sales || 0,
+          revenue_earned: currentMonthMetrics.revenue_earned || 0,
+          net_sales: currentMonthMetrics.net_sales || 0,
+        });
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      setIsLoading(false);
+    }
   };
 
-  fetchPurchases();
-}, []);*/
+  useEffect(() => {
+    fetchMetrics();
+  }, [timeMetricSpan]);
 
   // Pagination handlers
   const handleNotificationsPageChange = (direction) => {
@@ -189,12 +223,6 @@ const MainPage = () => {
   );
 
 
-
-  const paginatedPurchases = purchases.slice(
-    (purchasesPage - 1) * itemsPerPage,
-    purchasesPage * itemsPerPage
-  );
-
   // Determine if there are more pages
   const notificationsTotalPages = Math.ceil(
     notifications.length / itemsPerPage
@@ -202,8 +230,6 @@ const MainPage = () => {
   const activitiesTotalPages = Math.ceil(recentActivities.length / itemsPerPage);
 
   const isTableView = timeSpan === 14; // Use table view for 14 days
-
-  const purchasesTotalPages = Math.ceil(purchases.length / itemsPerPage);
 
   const handleNotificationClick = (purchaseId, amount) => {
     setSelectedPurchaseId(purchaseId); // Set the selected purchase ID
@@ -430,218 +456,221 @@ const MainPage = () => {
       </div>
       {/* Recent Activities Section */}
       <div className="grid grid-cols-1 md:grid-cols-1 gap-4 max-h-[500px] overflow-y-auto">
-      {!isActivitiesHidden ? (
-        <div className="bg-white p-6 rounded-lg shadow-lg w-full">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center space-x-3">
-              <h2 className="text-2xl font-bold text-gray-800">Recent Activities</h2>
-              <button
-                onClick={handleToggleCollapse}
-                className="text-gray-600 hover:text-gray-800 p-1 rounded focus:outline-none"
-                title={isActivitiesCollapsed ? 'Expand' : 'Collapse'}
-              >
-                {isActivitiesCollapsed ? <FaChevronDown /> : <FaChevronUp />}
-              </button>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <select
-                value={timeSpan}
-                onChange={(e) => setTimeSpan(Number(e.target.value))}
-                className="border rounded px-2 py-1 text-sm"
-              >
-                <option value="3">Last 72 Hours</option>
-                <option value="7">Last 7 Days</option>
-                <option value="14">Last 14 Days</option>
-              </select>
-
-              <button
-                onClick={handleHideActivities}
-                className="text-gray-600 hover:text-gray-800 p-1 rounded focus:outline-none"
-                title="Hide Recent Activities"
-              >
-                <FaEyeSlash />
-              </button>
-            </div>
-          </div>
-
-          {!isActivitiesCollapsed && (
-            <>
-              {recentActivities.length > 0 ? (
-                <>
-                  {!isTableView ? (
-                    <div className="max-h-[300px] overflow-y-auto">
-                      <ul className="divide-y divide-gray-200">
-                        {paginatedActivities.map((activity, index) => (
-                          <li
-                            key={index}
-                            className="flex items-start p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-shadow"
-                          >
-                            <div className="flex-shrink-0">
-                              {activity.action === 'Add Client' && (
-                                <span className="text-blue-500 text-2xl">👤</span>
-                              )}
-                              {activity.action === 'Add Product' && (
-                                <span className="text-purple-500 text-2xl">📦</span>
-                              )}
-                              {activity.action === 'Create Purchase Order' && (
-                                <span className="text-orange-500 text-2xl">🛒</span>
-                              )}
-                              {activity.action === 'Payment Made' && (
-                                <span className="text-green-500 text-2xl">💳</span>
-                              )}
-                              {activity.action.includes('Shipping') && (
-                                <span className="text-yellow-500 text-2xl">🚚</span>
-                              )}
-                            </div>
-
-                            <div className="ml-4 flex-1">
-                              <p className="text-gray-800 font-semibold text-lg">
-                                {activity.action}
-                              </p>
-                              <p className="text-gray-700 text-sm">{activity.details}</p>
-                              <p className="text-gray-500 text-xs mt-2">
-                                {formatDateSafely(activity.created_at)}
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <div className="max-h-[300px] overflow-y-auto">
-                      <table className="min-w-full bg-white rounded-lg shadow-md">
-                        <thead>
-                          <tr>
-                            <th className="py-2 px-4 border-b">Action</th>
-                            <th className="py-2 px-4 border-b">Details</th>
-                            <th className="py-2 px-4 border-b">Timestamp</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {paginatedActivities.map((activity, index) => (
-                            <tr key={index} className="hover:bg-gray-100">
-                              <td className="py-2 px-4">{activity.action}</td>
-                              <td className="py-2 px-4">{activity.details}</td>
-                              <td className="py-2 px-4 text-sm text-gray-500">
-                                {formatDateSafely(activity.created_at)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {recentActivities.length > 0 && (
-                    <div className="flex justify-between items-center mt-4">
-                      <p className="text-sm text-gray-600">
-                        Page {activitiesPage} of {activitiesTotalPages}
-                      </p>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleActivitiesPageChange(-1)}
-                          disabled={activitiesPage === 1}
-                          className={`px-4 py-2 text-sm font-medium rounded-lg ${
-                            activitiesPage === 1
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
-                          }`}
-                        >
-                          Previous
-                        </button>
-                        <button
-                          onClick={() => handleActivitiesPageChange(1)}
-                          disabled={activitiesPage === activitiesTotalPages}
-                          className={`px-4 py-2 text-sm font-medium rounded-lg ${
-                            activitiesPage === activitiesTotalPages
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
-                          }`}
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-gray-500 text-center py-4">No recent activities.</p>
-              )}
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="bg-white p-6 rounded-lg shadow-lg w-full flex justify-center">
-          <button
-            onClick={handleRestoreActivities}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            <FaEye />
-            <span>Restore Recent Activities</span>
-          </button>
-        </div>
-      )}
-    </div>
-
-      {/* Additional Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        {/* Weekly and Monthly Summary Section */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">Weekly Summary</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow">
-              <h3 className="text-lg font-semibold">New Clients</h3>
-              <p className="text-2xl font-bold text-green-600">5</p>
-            </div>
-            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow">
-              <h3 className="text-lg font-semibold">Total Sales</h3>
-              <p className="text-2xl font-bold text-blue-600">$1,500</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Purchases This Month */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">Purchases This Month</h2>
-          {paginatedPurchases.length > 0 ? (
-            <>
-              <ul className="space-y-2">
-                {paginatedPurchases.map((purchase) => (
-                  <li key={purchase.id} className="flex justify-between">
-                    <span>{purchase.client}</span>
-                    <span>{purchase.amount}</span>
-                  </li>
-                ))}
-              </ul>
-              {/* Pagination Controls */}
-              <div className="flex justify-end space-x-2 mt-2">
+        {!isActivitiesHidden ? (
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center space-x-3">
+                <h2 className="text-2xl font-bold text-gray-800">Recent Activities</h2>
                 <button
-                  onClick={() => handlePurchasesPageChange(-1)}
-                  disabled={purchasesPage === 1}
-                  className={`px-2 py-1 rounded ${purchasesPage === 1
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
+                  onClick={handleToggleCollapse}
+                  className="text-gray-600 hover:text-gray-800 p-1 rounded focus:outline-none"
+                  title={isActivitiesCollapsed ? 'Expand' : 'Collapse'}
                 >
-                  Previous
-                </button>
-                <button
-                  onClick={() => handlePurchasesPageChange(1)}
-                  disabled={purchasesPage === purchasesTotalPages}
-                  className={`px-2 py-1 rounded ${purchasesPage === purchasesTotalPages
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                >
-                  Next
+                  {isActivitiesCollapsed ? <FaChevronDown /> : <FaChevronUp />}
                 </button>
               </div>
-            </>
-          ) : (
-            <p className="text-gray-500">No purchases this month.</p>
-          )}
-        </div>
+
+              <div className="flex items-center space-x-3">
+                <select
+                  value={timeSpan}
+                  onChange={(e) => setTimeSpan(Number(e.target.value))}
+                  className="border rounded px-2 py-1 text-sm"
+                >
+                  <option value="3">Last 72 Hours</option>
+                  <option value="7">Last 7 Days</option>
+                  <option value="14">Last 14 Days</option>
+                </select>
+
+                <button
+                  onClick={handleHideActivities}
+                  className="text-gray-600 hover:text-gray-800 p-1 rounded focus:outline-none"
+                  title="Hide Recent Activities"
+                >
+                  <FaEyeSlash />
+                </button>
+              </div>
+            </div>
+
+            {!isActivitiesCollapsed && (
+              <>
+                {recentActivities.length > 0 ? (
+                  <>
+                    {!isTableView ? (
+                      <div className="max-h-[300px] overflow-y-auto">
+                        <ul className="divide-y divide-gray-200">
+                          {paginatedActivities.map((activity, index) => (
+                            <li
+                              key={index}
+                              className="flex items-start p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-shadow"
+                            >
+                              <div className="flex-shrink-0">
+                                {activity.action === 'Add Client' && (
+                                  <span className="text-blue-500 text-2xl">👤</span>
+                                )}
+                                {activity.action === 'Add Product' && (
+                                  <span className="text-purple-500 text-2xl">📦</span>
+                                )}
+                                {activity.action === 'Create Purchase Order' && (
+                                  <span className="text-orange-500 text-2xl">🛒</span>
+                                )}
+                                {activity.action === 'Payment Made' && (
+                                  <span className="text-green-500 text-2xl">💳</span>
+                                )}
+                                {activity.action.includes('Shipping') && (
+                                  <span className="text-yellow-500 text-2xl">🚚</span>
+                                )}
+                              </div>
+
+                              <div className="ml-4 flex-1">
+                                <p className="text-gray-800 font-semibold text-lg">
+                                  {activity.action}
+                                </p>
+                                <p className="text-gray-700 text-sm">{activity.details}</p>
+                                <p className="text-gray-500 text-xs mt-2">
+                                  {formatDateSafely(activity.created_at)}
+                                </p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <div className="max-h-[300px] overflow-y-auto">
+                        <table className="min-w-full bg-white rounded-lg shadow-md">
+                          <thead>
+                            <tr>
+                              <th className="py-2 px-4 border-b">Action</th>
+                              <th className="py-2 px-4 border-b">Details</th>
+                              <th className="py-2 px-4 border-b">Timestamp</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginatedActivities.map((activity, index) => (
+                              <tr key={index} className="hover:bg-gray-100">
+                                <td className="py-2 px-4">{activity.action}</td>
+                                <td className="py-2 px-4">{activity.details}</td>
+                                <td className="py-2 px-4 text-sm text-gray-500">
+                                  {formatDateSafely(activity.created_at)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {recentActivities.length > 0 && (
+                      <div className="flex justify-between items-center mt-4">
+                        <p className="text-sm text-gray-600">
+                          Page {activitiesPage} of {activitiesTotalPages}
+                        </p>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleActivitiesPageChange(-1)}
+                            disabled={activitiesPage === 1}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === 1
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                              }`}
+                          >
+                            Previous
+                          </button>
+                          <button
+                            onClick={() => handleActivitiesPageChange(1)}
+                            disabled={activitiesPage === activitiesTotalPages}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg ${activitiesPage === activitiesTotalPages
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                              }`}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No recent activities.</p>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full flex justify-center">
+            <button
+              onClick={handleRestoreActivities}
+              className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              <FaEye />
+              <span>Restore Recent Activities</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Additional Sections */}
+      {/* Toggle for Time Span */}
+      <div className="flex justify-end mb-6">
+        <select
+          value={timeMetricSpan}
+          onChange={(e) => setTimeMetricSpan(e.target.value)}
+          className="border rounded px-3 py-2 text-sm"
+        >
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+      </div>
+
+      {/* Metrics Section */}
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+        <h2 className="text-xl font-bold mb-4">
+          {timeMetricSpan === 'week' ? 'Weekly Summary' : 'Monthly Summary'}
+        </h2>
+        {isLoading ? (
+          <p>Loading metrics...</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* New Clients */}
+            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow">
+              <FaUserPlus className="text-blue-500 text-3xl mb-2" />
+              <h3 className="text-lg font-semibold">New Clients</h3>
+              <p className="text-2xl font-bold text-blue-600">
+                {metrics.new_clients || 0}
+              </p>
+            </div>
+
+            {/* Gross Sales */}
+            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow"
+              title="Gross Sales: Total amount of all purchases before any costs.">
+              <FaShoppingCart className="text-purple-500 text-3xl mb-2" />
+              <h3 className="text-lg font-semibold">Gross Sales</h3>
+              <p className="text-2xl font-bold text-purple-600">
+                ${metrics.gross_sales?.toLocaleString() || '0'}
+              </p>
+            </div>
+
+
+            {/* Revenue Earned */}
+            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow"
+              title="Revenue Earned: Gross Sales minus the product costs, indicating your profit margin.">
+              <FaDollarSign className="text-green-500 text-3xl mb-2" />
+              <h3 className="text-lg font-semibold">Revenue Earned</h3>
+              <p className="text-2xl font-bold text-green-600">
+                ${metrics.revenue_earned?.toLocaleString() || '0'}
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center bg-gray-100 p-4 rounded-lg shadow"
+              title="Net Sales: The amount of money actually collected from fully paid orders.">
+              <FaChartLine className="text-orange-500 text-3xl mb-2" />
+              <h3 className="text-lg font-semibold">Net Sales</h3>
+              <p className="text-2xl font-bold text-yellow-600">
+                ${metrics.net_sales?.toLocaleString() || '0'}
+              </p>
+            </div>
+
+          </div>
+        )}
       </div>
       {/* Top Products Section */}
       <div className="bg-white p-6 rounded-lg shadow-md col-span-2">
