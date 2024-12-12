@@ -152,6 +152,8 @@ class Payment:
         ORDER BY payments.created_at DESC;
         """
         data = (since_date,)
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-    
- 
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        if isinstance(result, tuple):
+            result = list(result)
+        return result
+

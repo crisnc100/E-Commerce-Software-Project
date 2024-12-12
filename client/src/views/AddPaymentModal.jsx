@@ -133,7 +133,20 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
             <input
               type="number"
               value={amountPaid}
-              onChange={(e) => setAmountPaid(e.target.value)}
+              onChange={(e) => {
+                const newAmount = e.target.value;
+                setAmountPaid(newAmount);
+
+                const paidAmount = parseFloat(newAmount);
+                // Show warning if paid amount is less than remaining balance
+                if (remainingBalance > 0 && !isNaN(paidAmount) && paidAmount < remainingBalance) {
+                  setWarningMessage(
+                    `Warning: The amount entered is less than the remaining balance of $${remainingBalance.toFixed(2)}.`
+                  );
+                } else {
+                  setWarningMessage('');
+                }
+              }}
               placeholder="Enter amount"
               className="w-full p-2 border-l border-gray-300 rounded-r-lg focus:outline-none"
             />

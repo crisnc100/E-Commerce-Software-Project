@@ -337,7 +337,11 @@ class Purchase:
         ORDER BY purchases.created_at DESC;
         """
         data = (since_date,)
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        if isinstance(result, tuple):
+            result = list(result)
+        return result
+
 
     
     @classmethod
@@ -355,7 +359,11 @@ class Purchase:
         ORDER BY purchases.updated_at DESC;
         """
         data = (since_date,)
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        if isinstance(result, tuple):
+            result = list(result)
+        return result
+
     
     @classmethod
     def calculate_weekly_metrics(cls):
@@ -406,6 +414,58 @@ class Purchase:
             }
             for row in result
         ] if result else []
+
+
+    @classmethod
+    def get_top_products(cls, year, month, category):
+        query = """
+        SELECT product_id, product_name, product_screenshot_photo, total_orders, total_sales, rnk FROM (
+            SELECT 
+                product_id,
+                product_name,
+                product_screenshot_photo,
+                total_orders,
+                total_sales,
+                RANK() OVER (
+                    ORDER BY 
+                        (CASE WHEN %s = 'orders' THEN total_orders ELSE 0 END) DESC,
+                        (CASE WHEN %s = 'sales' THEN total_sales ELSE 0 END) DESC
+                ) AS rnk
+            FROM (
+                SELECT 
+                    products.id AS product_id,
+                    products.name AS product_name,
+                    products.screenshot_photo AS product_screenshot_photo,
+                    COUNT(purchases.id) AS total_orders,
+                    COALESCE(SUM(purchases.amount), 0) AS total_sales
+                FROM purchases
+                JOIN products ON purchases.product_id = products.id
+                WHERE YEAR(purchases.created_at) = %s
+                AND MONTH(purchases.created_at) = %s
+                GROUP BY products.id, products.name, products.screenshot_photo
+            ) AS ProductMetrics
+        ) AS RankedMetrics
+        WHERE rnk <= 3;
+        """
+
+        data = (category, category, year, month)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+        if not result:
+            return []
+
+        return [
+            {
+                'product_id': row['product_id'],
+                'product_name': row['product_name'],
+                'product_screenshot_photo': row['product_screenshot_photo'],
+                'total_orders': row['total_orders'] or 0,
+                'total_sales': float(row['total_sales']) if row['total_sales'] is not None else 0.0,
+                'rank': row['rnk']
+            }
+            for row in result
+        ]
+
 
 
 

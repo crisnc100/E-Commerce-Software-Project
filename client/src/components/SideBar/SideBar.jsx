@@ -26,9 +26,6 @@ const SideBar = () => {
         <Link to="analytics" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
           Analytics
         </Link>
-        <Link to="settings" className="block py-2 px-4 rounded hover:bg-gray-700 text-lg">
-          Settings
-        </Link>
       </nav>
     </div>
   );

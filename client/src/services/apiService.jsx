@@ -131,6 +131,13 @@ const apiService = {
   getMonthlyMetrics: () => {
     return axios.get(`http://localhost:5000/api/get_monthly_metrics`)
   },
+  getTopProducts: (year, month, category) => {
+    return axios.get(`http://localhost:5000/api/get_top_products`, {
+      params: { year, month, category },
+    });
+  },
+  
+
 
 };
 

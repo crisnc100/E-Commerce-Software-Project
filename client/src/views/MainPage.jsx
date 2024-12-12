@@ -11,7 +11,9 @@ import {
   FaChevronUp,
   FaChevronDown,
   FaChartLine,
-  FaDollarSign
+  FaDollarSign,
+  FaEquals,
+  FaMedal
 } from 'react-icons/fa';
 import ReactTypingEffect from 'react-typing-effect';
 import AddClientModal from './AddClientModal';
@@ -27,7 +29,6 @@ const MainPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
-  const [purchases, setPurchases] = useState([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -39,7 +40,6 @@ const MainPage = () => {
   // Pagination states
   const [notificationsPage, setNotificationsPage] = useState(1);
   const [activitiesPage, setActivitiesPage] = useState(1);
-  const [purchasesPage, setPurchasesPage] = useState(1);
   const [timeSpan, setTimeSpan] = useState(3); // Default: 72 hour
   const itemsPerPage = 5;
   const [metrics, setMetrics] = useState({
@@ -50,6 +50,9 @@ const MainPage = () => {
   });
   const [timeMetricSpan, setTimeMetricSpan] = useState('week'); // 'week' or 'month'
   const [isLoading, setIsLoading] = useState(true);
+
+  const [category, setCategory] = useState('orders');
+  const [topProducts, setTopProducts] = useState([]);
 
   // Clock Update
   useEffect(() => {
@@ -115,8 +118,49 @@ const MainPage = () => {
     fetchNotifications();
   }, []);
 
-  
+  useEffect(() => {
+    const fetchTopProducts = async () => {
+      try {
+        const response = await apiService.getTopProducts(
+          new Date().getFullYear(),
+          new Date().getMonth() + 1,
+          category
+        );
+        setTopProducts(response.data.top_products);
+      } catch (error) {
+        console.error('Error fetching top products:', error);
+      }
+    };
 
+    fetchTopProducts();
+  }, [category]);
+
+  const productsByRank = topProducts.reduce((acc, product) => {
+    if (!acc[product.rank]) {
+      acc[product.rank] = [];
+    }
+    acc[product.rank].push(product);
+    return acc;
+  }, {});
+
+  // We only want top 3 ranks
+  const sortedRanks = Object.keys(productsByRank)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .slice(0, 3); // just the top 3 ranks
+
+
+  const medalStyles = {
+    1: 'text-yellow-500', // Gold
+    2: 'text-gray-400',   // Silver
+    3: 'text-[#cd7f32]',  // Bronze
+  };
+
+  const rankLabels = {
+    1: '1st Place',
+    2: '2nd Place',
+    3: '3rd Place',
+  };
 
   const handleMarkAsDelivered = async (purchaseId) => {
     try {
@@ -205,9 +249,6 @@ const MainPage = () => {
     setActivitiesPage((prevPage) => prevPage + direction);
   };
 
-  const handlePurchasesPageChange = (direction) => {
-    setPurchasesPage((prevPage) => prevPage + direction);
-  };
 
 
 
@@ -674,33 +715,81 @@ const MainPage = () => {
       </div>
       {/* Top Products Section */}
       <div className="bg-white p-6 rounded-lg shadow-md col-span-2">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Top Products</h2>
-        <table className="min-w-full bg-white rounded-lg shadow-md">
-          <thead>
-            <tr>
-              <th className="py-2 px-4 border-b text-left">Product</th>
-              <th className="py-2 px-4 border-b text-left">Clients</th>
-              <th className="py-2 px-4 border-b text-left">Total Sales</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="py-2 px-4">Product A</td>
-              <td className="py-2 px-4">15</td>
-              <td className="py-2 px-4">$1,500</td>
-            </tr>
-            <tr>
-              <td className="py-2 px-4">Product B</td>
-              <td className="py-2 px-4">12</td>
-              <td className="py-2 px-4">$1,200</td>
-            </tr>
-            <tr>
-              <td className="py-2 px-4">Product C</td>
-              <td className="py-2 px-4">8</td>
-              <td className="py-2 px-4">$800</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-800">Top Products This Month</h2>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            <option value="orders">Most Popular by Clients</option>
+            <option value="sales">Most Popular by Sales</option>
+          </select>
+        </div>
+
+        {sortedRanks.length === 0 ? (
+          <div className="text-gray-500 text-center py-8">
+            No data available for the selected category.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {sortedRanks.map((rank) => {
+              const products = productsByRank[rank];
+              const iconColor = medalStyles[rank] || 'text-gray-500';
+              const label = rankLabels[rank] || `${rank}th Place`;
+              return (
+                <div key={rank}>
+                  {/* Rank Heading */}
+                  <div className="flex items-center mb-2">
+                    <FaMedal className={`text-2xl mr-2 ${iconColor}`} />
+                    <h3 className="text-xl font-semibold">
+                      {label}
+                      {products.length > 1 && (
+                        <span className="ml-2 text-sm text-gray-600">
+                          (tie)
+                        </span>
+                      )}
+                    </h3>
+                  </div>
+
+                  {/* Products for this rank */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.map((product, idx) => (
+                      <div
+                        key={idx}
+                        className="border rounded-lg p-4 bg-gray-50 shadow-sm flex flex-col"
+                      >
+
+                        <div className="font-bold text-lg mb-1">
+                          {product.product_name || 'Unnamed Product'}
+                        </div>
+                        <div className="text-sm text-gray-700">
+                          {category === 'orders'
+                            ? `Clients: ${product.total_orders}`
+                            : `Orders: ${product.total_orders}`}
+                        </div>
+                        <div className="text-sm text-gray-700">
+                          Total Sales: {product.total_sales > 0 ? `$${product.total_sales.toFixed(2)}` : '$0.00'}
+                        </div>
+                        <button
+                          onClick={() => handleViewImageClick(product.product_screenshot_photo)}
+                          className="flex items-center justify-center space-x-1 px-2 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                          style={{ width: '60px' }} // Set a fixed width
+                        >
+                          <FaImage className="text-sm" />
+                          <span className="text-sm">View</span>
+                        </button>
+
+
+
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Modals */}

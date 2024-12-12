@@ -25,7 +25,6 @@ def get_recent_activities():
         recent_purchases = Purchase.get_recent_purchases(since_date)
         recent_payments = Payment.get_recent_payments(since_date)
         recent_shipping_updates = Purchase.get_recent_shipping_updates(since_date)
-
         # Combine and sort by created_at
         all_activities = (
             recent_clients +
@@ -34,6 +33,7 @@ def get_recent_activities():
             recent_payments +
             recent_shipping_updates
         )
+
         sorted_activities = sorted(all_activities, key=lambda x: x['created_at'], reverse=True)
 
         return jsonify({'recent_activities': sorted_activities}), 200
@@ -73,6 +73,20 @@ def get_monthly_metrics():
         return jsonify(response), 200
     except Exception as e:
         print(f"Error fetching monthly metrics: {e}")
+        return jsonify({'message': 'Internal Server Error'}), 500
+
+
+@app.route('/api/get_top_products', methods=['GET'])
+def get_top_products():
+    try:
+        year = int(request.args.get('year', datetime.now().year))
+        month = int(request.args.get('month', datetime.now().month))
+        category = request.args.get('category', 'orders')  # Default to 'orders'
+
+        result = Purchase.get_top_products(year, month, category)
+        return jsonify({'top_products': result}), 200
+    except Exception as e:
+        print(f"Error fetching top products: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
 
 
