@@ -58,7 +58,7 @@ def get_weekly_metrics():
         print(f"Error fetching weekly metrics: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
     
-
+# For dashboard component page:
 @app.route('/api/get_monthly_metrics', methods=['GET'])
 def get_monthly_metrics():
     try:
@@ -74,8 +74,52 @@ def get_monthly_metrics():
     except Exception as e:
         print(f"Error fetching monthly metrics: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
+    
 
 
+#Analytics Component:
+@app.route('/api/get_single_month_metrics', methods=['GET'])
+def get_month_metrics_for_month():
+    try:
+        year = int(request.args.get('year', datetime.now().year))
+        month = int(request.args.get('month', datetime.now().month))
+        
+        monthly_data = Purchase.calculate_single_monthly_metrics(year, month)
+        new_clients = Client.count_single_monthly_new_clients(year, month)
+
+        return jsonify({
+            'monthly_metrics': monthly_data,
+            'new_clients': new_clients
+        }), 200
+    except Exception as e:
+        print(f"Error fetching monthly metrics for month: {e}")
+        return jsonify({'message': 'Internal Server Error'}), 500
+
+@app.route('/api/get_yearly_metrics', methods=['GET'])
+def get_yearly_metrics():
+    try:
+        # Optional year parameter; if not provided, fetch metrics for all years
+        year = request.args.get('year')
+        year = int(year) if year else None
+
+        # Fetch yearly metrics
+        yearly_metrics = Purchase.calculate_yearly_metrics(year)
+
+        # Fetch yearly new clients data
+        new_clients = [
+            row for row in Client.count_new_clients_yearly()
+            if row['year'] == year
+        ]
+        response = {
+            'yearly_metrics': yearly_metrics,
+            'new_clients_by_year': new_clients,
+        }
+        return jsonify(response), 200
+    except Exception as e:
+        print(f"Error fetching yearly metrics: {e}")
+        return jsonify({'message': 'Internal Server Error'}), 500
+
+#Shared metric between MainPage and Analytics component 
 @app.route('/api/get_top_products', methods=['GET'])
 def get_top_products():
     try:

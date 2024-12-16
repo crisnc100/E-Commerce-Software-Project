@@ -228,7 +228,7 @@ class Client:
     
 
     @classmethod
-    def count_new_clients_monthly(cls, year):
+    def count_new_clients_monthly(cls, year,):
         query = """
         SELECT MONTH(created_at) AS month, COUNT(*) AS new_clients
         FROM clients
@@ -244,6 +244,46 @@ class Client:
             {'month': row['month'], 'new_clients': row['new_clients']}
             for row in result
         ] if result else []
+    
+
+    @classmethod
+    def count_single_monthly_new_clients(cls, year, month):
+        query = """
+        SELECT COUNT(*) AS new_clients
+        FROM clients
+        WHERE YEAR(created_at) = %s
+        AND MONTH(created_at) = %s;
+        """
+        data = (year, month)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return result[0]['new_clients'] if result else 0
+
+
+
+    @classmethod
+    def count_new_clients_yearly(cls, year=None):
+        query = """
+        SELECT YEAR(created_at) AS year, COUNT(*) AS new_clients
+        FROM clients
+        {}
+        GROUP BY YEAR(created_at)
+        ORDER BY YEAR(created_at);
+        """
+        where_clause = ""
+        data = None
+        if year:
+            where_clause = "WHERE YEAR(created_at) = %s"
+            data = (year,)
+        
+        query = query.format(where_clause)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        print(f"New Clients (yearly) Query Result: {result}")  # Debug print
+
+        return [
+            {'year': row['year'], 'new_clients': row['new_clients']}
+            for row in result
+        ] if result else []
+
 
 
 

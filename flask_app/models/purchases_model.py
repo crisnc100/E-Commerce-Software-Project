@@ -414,6 +414,79 @@ class Purchase:
             }
             for row in result
         ] if result else []
+    
+
+    @classmethod
+    def calculate_single_monthly_metrics(cls, year, month):
+        query = """
+        SELECT 
+            SUM(purchases.amount) AS gross_sales,
+            SUM(purchases.amount - products.price) AS revenue_earned,
+            SUM(payments.amount_paid) AS net_sales
+        FROM purchases
+        LEFT JOIN products ON purchases.product_id = products.id
+        LEFT JOIN payments ON purchases.id = payments.purchase_id
+        WHERE YEAR(purchases.purchase_date) = %s
+        AND MONTH(purchases.purchase_date) = %s;
+        """
+        data = (year, month)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+        # If no results or the metrics are None, return zeroed values.
+        if not result or not result[0]:
+            return {
+                'gross_sales': 0.0,
+                'revenue_earned': 0.0,
+                'net_sales': 0.0
+            }
+
+        return {
+            'gross_sales': float(result[0]['gross_sales']) if result[0]['gross_sales'] else 0.0,
+            'revenue_earned': float(result[0]['revenue_earned']) if result[0]['revenue_earned'] else 0.0,
+            'net_sales': float(result[0]['net_sales']) if result[0]['net_sales'] else 0.0
+        }
+ 
+
+
+    @classmethod
+    def calculate_yearly_metrics(cls, year=None):
+        query = """
+        SELECT 
+            YEAR(purchases.purchase_date) AS year,
+            SUM(purchases.amount) AS gross_sales,
+            SUM(purchases.amount - products.price) AS revenue_earned,
+            SUM(payments.amount_paid) AS net_sales
+        FROM purchases
+        LEFT JOIN products ON purchases.product_id = products.id
+        LEFT JOIN payments ON purchases.id = payments.purchase_id
+        {}
+        GROUP BY YEAR(purchases.purchase_date)
+        ORDER BY YEAR(purchases.purchase_date);
+        """
+        
+        # Add WHERE clause if a specific year is provided
+        where_clause = ""
+        data = None
+        if year:
+            where_clause = "WHERE YEAR(purchases.purchase_date) = %s"
+            data = (year,)
+
+        # Replace placeholder in query
+        query = query.format(where_clause)
+
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+        return [
+            {
+                'year': row['year'],
+                'gross_sales': row['gross_sales'] if row['gross_sales'] else 0.0,
+                'revenue_earned': row['revenue_earned'] if row['revenue_earned'] else 0.0,
+                'net_sales': row['net_sales'] if row['net_sales'] else 0.0,
+            }
+            for row in result
+        ] if result else []
+
+
 
 
     @classmethod
@@ -440,8 +513,8 @@ class Purchase:
                     COALESCE(SUM(purchases.amount), 0) AS total_sales
                 FROM purchases
                 JOIN products ON purchases.product_id = products.id
-                WHERE YEAR(purchases.created_at) = %s
-                AND MONTH(purchases.created_at) = %s
+                WHERE YEAR(purchases.purchase_date) = %s
+                AND MONTH(purchases.purchase_date) = %s
                 GROUP BY products.id, products.name, products.screenshot_photo
             ) AS ProductMetrics
         ) AS RankedMetrics
@@ -465,6 +538,7 @@ class Purchase:
             }
             for row in result
         ]
+    
 
 
 

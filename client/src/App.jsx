@@ -10,6 +10,7 @@ import ProductsTab from './views/ProductsTab';
 import ClientsTab from './views/ClientsTab';
 import PaymentsTab from './views/PaymentsTab';
 import ClientIDPage from './views/ClientIDPage';
+import Analytics from './views/Analytics';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
             <Route path="clients" element={<ClientsTab />} />
             <Route path="clients/:clientId/:clientName" element={<ClientIDPage />} />
             <Route path="payments" element={<PaymentsTab />} />
+            <Route path="analytics" element={<Analytics />} />
           </Route>
           
         </Routes>
