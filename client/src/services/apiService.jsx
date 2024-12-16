@@ -137,8 +137,10 @@ const apiService = {
     });
   },
   
-  getYearlyMetrics: () => {
-    return axios.get(`http://localhost:5000/api/get_yearly_metrics`)
+  getYearlyMetrics: (year) => {
+    return axios.get(`http://localhost:5000/api/get_yearly_metrics` , {
+      params: {year}
+    });
   },
   getTopProducts: (year, month, category) => {
     return axios.get(`http://localhost:5000/api/get_top_products`, {
