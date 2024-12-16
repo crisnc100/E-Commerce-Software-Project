@@ -1,6 +1,5 @@
-from flask_app.controllers import (client_controller, payments_controller, products_controller,
-                                   purchases_controller, saved_payments_controller, admin_controller, 
-                                   dashboard_controller)
+from flask_app.controllers import (client_controller, dashboard_analytics_controller, payments_controller, products_controller,
+                                   purchases_controller, saved_payments_controller, admin_controller)
 from flask_app import app
 import os
 

@@ -1,10 +1,13 @@
-from flask import jsonify, session, request
+from flask import jsonify, session, request, make_response
 from flask_app import app
 from flask_app.models.client_model import Client
 from flask_app.models.products_model import Product
 from flask_app.models.purchases_model import Purchase
 from flask_app.models.payments_model import Payment
 from datetime import datetime, timedelta
+import pdfkit
+
+
 
 
 #Recent Activites Section: 
@@ -119,6 +122,27 @@ def get_yearly_metrics():
         print(f"Error fetching yearly metrics: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
 
+@app.route('/api/get_monthly_metrics_for_year', methods=['GET'])
+def get_monthly_metrics_for_year():
+    try:
+        year = int(request.args.get('year', datetime.now().year))
+        monthly_data = []
+        for m in range(1, 13):
+            metrics = Purchase.calculate_single_monthly_metrics(year, m)
+            monthly_data.append({
+                'month': m,
+                'gross_sales': metrics['gross_sales'],
+                'revenue_earned': metrics['revenue_earned'],
+                'net_sales': metrics['net_sales']
+            })
+
+        return jsonify({'monthly_metrics': monthly_data}), 200
+    except Exception as e:
+        print(f"Error fetching monthly metrics for year: {e}")
+        return jsonify({'message': 'Internal Server Error'}), 500
+
+
+
 #Shared metric between MainPage and Analytics component 
 @app.route('/api/get_top_products', methods=['GET'])
 def get_top_products():
@@ -132,5 +156,10 @@ def get_top_products():
     except Exception as e:
         print(f"Error fetching top products: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
+
+
+
+
+
 
 

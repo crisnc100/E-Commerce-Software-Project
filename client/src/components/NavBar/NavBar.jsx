@@ -133,6 +133,7 @@ const Navbar = () => {
     } else if (searchType === 'client') {
       const fullName = `${result.first_name} ${result.last_name}`;
       setSelectedClientName(fullName);
+      
       setSelectedProductName(''); // Clear the product name just in case
     }
 
@@ -341,8 +342,18 @@ const Navbar = () => {
             <h2 className="text-2xl font-bold mb-4 text-center">
               {searchType === 'product'
                 ? (selectedProductName ? `Clients Who Purchased: ${selectedProductName}` : 'Clients Who Purchased This Product')
-                : (selectedClientName ? `Products Purchased by ${selectedClientName}` : 'Products Purchased by This Client')}
-            </h2>
+                : (selectedClientName ? (
+                  <span
+                    className="cursor-pointer text-blue-600"
+                    onClick={() => {
+                      navigate(`/dashboard/clients/${selectedItemId}/${selectedClientName.replace(' ', '-')}`);
+                      setIsDetailedViewOpen(false);
+                    }}
+                  >
+                    {`Products Purchased by ${selectedClientName}`}
+                  </span>
+                ) : 'Products Purchased by This Client')}
+          </h2>
 
 
             <div className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
@@ -386,7 +397,7 @@ const Navbar = () => {
                           </div>
                         ) : (
                           <div
-                            className="flex items-center cursor-pointer"
+                            className="flex items-center"
                           >
                             <img
                               src={item.product_screenshot_photo}

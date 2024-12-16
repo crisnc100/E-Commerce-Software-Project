@@ -136,7 +136,9 @@ const apiService = {
       params: { year, month }
     });
   },
-  
+  getMonthlyMetricsForYear: (year) => {
+    return axios.get(`http://localhost:5000/api/get_monthly_metrics_for_year?year=${year}`);
+  },
   getYearlyMetrics: (year) => {
     return axios.get(`http://localhost:5000/api/get_yearly_metrics` , {
       params: {year}

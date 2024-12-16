@@ -115,9 +115,11 @@ class Purchase:
         query = """
         SELECT purchases.id, purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status,
             products.id AS product_id, products.name AS product_name, products.description AS product_description, 
-            products.screenshot_photo AS product_screenshot_photo
+            products.screenshot_photo AS product_screenshot_photo,
+            clients.first_name AS client_first_name, clients.last_name AS client_last_name
         FROM purchases
         JOIN products ON purchases.product_id = products.id
+        JOIN clients ON purchases.client_id = clients.id
         WHERE purchases.client_id = %(client_id)s
         LIMIT %(limit)s OFFSET %(offset)s;
         """
@@ -134,6 +136,7 @@ class Purchase:
         total = count_result[0]['total'] if count_result else 0
 
         return {'items': results, 'total': total}
+
 
 
     @classmethod

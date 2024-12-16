@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import apiService from '../services/apiService';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import { FaArrowLeft, FaArrowRight, FaBullseye } from 'react-icons/fa';
 import {
     Chart as ChartJS,
@@ -35,14 +35,7 @@ const Analytics = () => {
     const [yearlyMonthlyMetrics, setYearlyMonthlyMetrics] = useState([]);
     const [topProducts, setTopProducts] = useState([]);
     const [category, setCategory] = useState('orders');
-    const [targetGoal, setTargetGoal] = useState(0);
-    const [yearEndReport, setYearEndReport] = useState(null); // For yearly report
     const monthName = new Date(0, currentMonth - 1).toLocaleString('default', { month: 'long' });
-
-    useEffect(() => {
-        const savedGoal = localStorage.getItem('targetGoal');
-        if (savedGoal) setTargetGoal(parseInt(savedGoal, 10));
-    }, []);
 
     // Fetch single-month metrics
     useEffect(() => {
@@ -76,33 +69,12 @@ const Analytics = () => {
     useEffect(() => {
         const fetchYearlyMonthlyMetrics = async () => {
             try {
-                const response = await apiService.getMonthlyMetrics(currentYear);
+                const response = await apiService.getMonthlyMetricsForYear(currentYear);
                 const monthlyMetrics = response.data.monthly_metrics || [];
                 setYearlyMonthlyMetrics(monthlyMetrics);
-
-                // Check if December (month 12) data is available for the year-end report
-                const decemberData = monthlyMetrics.find(m => m.month === 12);
-                if (decemberData) {
-                    // Aggregate year data
-                    const totalGrossSales = monthlyMetrics.reduce((sum, m) => sum + Number(m.gross_sales || 0), 0);
-                    const totalRevenue = monthlyMetrics.reduce((sum, m) => sum + Number(m.revenue_earned || 0), 0);
-                    const totalNetSales = monthlyMetrics.reduce((sum, m) => sum + Number(m.net_sales || 0), 0);
-
-
-                    // If you have product cost data separately, incorporate it here. For now, we assume 'revenue_earned' is already profit after cost.
-                    setYearEndReport({
-                        totalGrossSales,
-                        totalRevenue,
-                        totalNetSales,
-                        year: currentYear
-                    });
-                } else {
-                    setYearEndReport(null);
-                }
             } catch (error) {
                 console.error('Error fetching yearly monthly metrics:', error);
                 setYearlyMonthlyMetrics([]);
-                setYearEndReport(null);
             }
         };
         fetchYearlyMonthlyMetrics();
@@ -139,14 +111,9 @@ const Analytics = () => {
         setCurrentYear(prev => prev + direction);
     };
 
-    const handleSetGoal = (e) => {
-        e.preventDefault();
-        localStorage.setItem('targetGoal', targetGoal);
-        alert('Target goal saved locally! Note: Clearing your browsing data will remove it.');
-    };
-
     const monthlyMetrics = monthlyData?.monthly_metrics || {};
     const newClients = monthlyData?.new_clients || 0;
+
 
     // Single-month bar chart
     const monthlyChartData = {
@@ -173,15 +140,6 @@ const Analytics = () => {
         ]
     };
 
-    // New Clients Donut Chart (single-slice)
-    const clientsDoughnutData = {
-        labels: ['New Clients'],
-        datasets: [{
-            data: [newClients],
-            backgroundColor: ['rgba(255, 159, 64, 0.6)'],
-            borderWidth: 1
-        }]
-    };
 
     // Yearly bar chart (just for the selected year)
     const yearlyLabels = yearlyMetrics.map(y => y.year);
@@ -236,12 +194,12 @@ const Analytics = () => {
 
             <p className="mb-4 text-gray-700">
                 Welcome! Use the arrows to navigate between different years and months. The charts below show your monthly and yearly metrics, including gross sales, revenue earned, and net sales.
-                The donut chart shows the number of new clients this month, and the line chart helps you compare sales across all months in the year.
+                The number of new clients this month is highlighted, while the line chart helps you compare sales across all months in the year.
             </p>
             <p className="mb-4 text-gray-700">
                 <strong>Gross Sales</strong> = Total amount from all sales<br />
                 <strong>Revenue Earned</strong> = Gross Sales - (Your cost of products)<br />
-                <strong>Net Sales</strong> = Fully paid amount<br />
+                <strong>Net Sales</strong> = The actual amount collected (fully paid orders)<br />
                 <strong>New Clients</strong> = New clients this month
             </p>
 
@@ -268,6 +226,7 @@ const Analytics = () => {
             </div>
 
             {/* Monthly Metrics Chart */}
+            {/* Monthly Metrics Chart */}
             <div className="bg-white p-6 rounded-lg shadow mb-6" style={{ maxWidth: '800px' }}>
                 <h3 className="text-lg font-bold mb-4">Monthly Metrics for {monthName} {currentYear}</h3>
                 {monthlyData?.monthly_metrics ? (
@@ -277,8 +236,30 @@ const Analytics = () => {
                             responsive: true,
                             maintainAspectRatio: true,
                             aspectRatio: 2,
-                            scales: { x: { stacked: false }, y: { stacked: false } },
-                            plugins: { legend: { position: 'bottom' } }
+                            scales: {
+                                x: { stacked: false },
+                                y: {
+                                    stacked: false,
+                                    ticks: {
+                                        // Add the $ sign to the y-axis labels
+                                        callback: function (value) {
+                                            return `$${value}`;
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                tooltip: {
+                                    callbacks: {
+                                        // Add the $ sign to the tooltips
+                                        label: function (context) {
+                                            let value = context.raw || 0;
+                                            return `${context.dataset.label}: $${value.toLocaleString()}`;
+                                        }
+                                    }
+                                }
+                            }
                         }}
                     />
                 ) : (
@@ -286,34 +267,24 @@ const Analytics = () => {
                 )}
             </div>
 
-            {/* New Clients Donut Chart */}
-            <div className="bg-white p-6 rounded-lg shadow mb-6" style={{ maxWidth: '400px' }}>
+
+            {/* New Clients Single Metric Card */}
+            <div className="bg-white p-6 rounded-lg shadow mb-6 flex flex-col items-center justify-center" style={{ maxWidth: '800px' }}>
                 <h3 className="text-lg font-bold mb-4">New Clients in {monthName} {currentYear}</h3>
                 {typeof newClients === 'number' ? (
-                    <Doughnut
-                        data={clientsDoughnutData}
-                        options={{
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            aspectRatio: 1.5,
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: {
-                                    callbacks: {
-                                        label: () => `New Clients: ${newClients}`
-                                    }
-                                }
-                            }
-                        }}
-                    />
+                    <div className="text-center">
+                        <p className="text-4xl font-bold text-indigo-600">{newClients}</p>
+                        <p className="text-gray-500">Total Clients</p>
+                    </div>
                 ) : (
                     <p className="text-gray-500">No client data available for {monthName} {currentYear}.</p>
                 )}
             </div>
 
+
             {/* Monthly Comparison Line Chart (for the entire year) */}
             <div className="bg-white p-6 rounded-lg shadow mb-6" style={{ maxWidth: '800px' }}>
-                <h3 className="text-lg font-bold mb-4">Monthly Sales Comparison for {currentYear}</h3>
+                <h3 className="text-lg font-bold mb-4">Monthly Gross Sales Comparison for {currentYear}</h3>
                 {yearlyMonthlyMetrics.length ? (
                     <Line
                         data={monthlyComparisonData}
@@ -321,10 +292,29 @@ const Analytics = () => {
                             responsive: true,
                             maintainAspectRatio: true,
                             aspectRatio: 2,
-                            plugins: { legend: { position: 'bottom' } },
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                tooltip: {
+                                    callbacks: {
+                                        // Add $ sign to tooltips
+                                        label: function (context) {
+                                            let value = context.raw || 0;
+                                            return `${context.dataset.label}: $${value.toLocaleString()}`;
+                                        }
+                                    }
+                                }
+                            },
                             scales: {
                                 x: { title: { display: true, text: 'Month' } },
-                                y: { title: { display: true, text: 'Gross Sales' } }
+                                y: {
+                                    title: { display: true, text: 'Gross Sales' },
+                                    ticks: {
+                                        // Add $ sign to y-axis labels
+                                        callback: function (value) {
+                                            return `$${value}`;
+                                        }
+                                    }
+                                }
                             }
                         }}
                     />
@@ -343,8 +333,30 @@ const Analytics = () => {
                             responsive: true,
                             maintainAspectRatio: true,
                             aspectRatio: 2,
-                            scales: { x: { stacked: false }, y: { stacked: false } },
-                            plugins: { legend: { position: 'bottom' } }
+                            scales: {
+                                x: { stacked: false },
+                                y: {
+                                    stacked: false,
+                                    ticks: {
+                                        // Add $ sign to y-axis labels
+                                        callback: function (value) {
+                                            return `$${value}`;
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                tooltip: {
+                                    callbacks: {
+                                        // Add $ sign to tooltips
+                                        label: function (context) {
+                                            let value = context.raw || 0;
+                                            return `${context.dataset.label}: $${value.toLocaleString()}`;
+                                        }
+                                    }
+                                }
+                            }
                         }}
                     />
                 ) : (
@@ -352,33 +364,20 @@ const Analytics = () => {
                 )}
             </div>
 
-            {/* Year-End Report (only if December data is available) */}
-            {yearEndReport && (
-                <div className="bg-white p-6 rounded-lg shadow mb-6 max-w-xl">
-                    <h3 className="text-lg font-bold mb-4">Year-End Report for {yearEndReport.year}</h3>
-                    <p className="mb-2">Total Gross Sales: ${yearEndReport.totalGrossSales.toFixed(2)}</p>
-                    <p className="mb-2">Total Revenue Earned: ${yearEndReport.totalRevenue.toFixed(2)}</p>
-                    <p className="mb-2">Total Net Sales: ${yearEndReport.totalNetSales.toFixed(2)}</p>
-                    <p className="text-gray-600">
-                        This yearly report is available because December data exists, providing a complete picture of the year.
-                    </p>
-                </div>
-            )}
-
             {/* Top Products */}
             <div className="bg-white p-6 rounded-lg shadow mt-6">
                 <h3 className="text-lg font-bold mb-4">
                     Top Products for {monthName} {currentYear}
                 </h3>
                 <p className="text-gray-700 mb-4">
-                    View top products by <strong>Orders</strong> or <strong>Sales</strong>.
+                    View top products by <strong>Clients</strong> or <strong>Sales</strong>.
                 </p>
                 <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="border rounded px-2 py-1 text-sm mb-4"
                 >
-                    <option value="orders">Most Popular by Orders</option>
+                    <option value="orders">Most Popular by Clients</option>
                     <option value="sales">Most Popular by Sales</option>
                 </select>
 
@@ -408,27 +407,6 @@ const Analytics = () => {
                 ) : (
                     <p className="text-gray-500">No top products for {monthName} {currentYear}.</p>
                 )}
-            </div>
-
-            {/* Target Goals */}
-            <div className="bg-white p-6 rounded-lg shadow mt-6" style={{ maxWidth: '1000px' }}>
-                <h3 className="text-lg font-bold mb-4">Set Target Goals</h3>
-                <p className="mb-4 text-gray-700">
-                    Enter a target goal. This is currently stored locally in your browser.
-                    Clearing your browsing data will remove it. For a more permanent solution, consider saving to a database.
-                </p>
-                <form onSubmit={handleSetGoal}>
-                    <input
-                        type="number"
-                        value={targetGoal}
-                        onChange={(e) => setTargetGoal(e.target.value)}
-                        className="p-2 border border-gray-300 rounded w-full mb-4"
-                        placeholder="Enter target goal"
-                    />
-                    <button type="submit" className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center">
-                        <FaBullseye className="mr-2" /> Set Goal
-                    </button>
-                </form>
             </div>
         </div>
     );
