@@ -1,6 +1,9 @@
 import './App.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AuthPage from './views/AuthPage';
+import HomePage from './views/HomePage';
+import RegisterPage from './views/RegisterPage';
+import LoginPage from './views/LoginPage';
 import ForgotPasscode from './views/ForgotPasscode';
 import Dashboard from './views/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -19,14 +22,16 @@ function App() {
         <AutoLogout /> {/* This ensures the user is auto-logged out after inactivity */}
 
         <Routes>
-          <Route path="/" element={<AuthPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-passcode" element={<ForgotPasscode />} />
           
           {/* Protect the dashboard and nested routes */}
           <Route
             path="/dashboard/*"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
                 <Dashboard />
               </ProtectedRoute>
             }

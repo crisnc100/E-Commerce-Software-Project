@@ -16,12 +16,9 @@ app.secret_key = os.getenv('SECRET_KEY')
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # Correct SMTP server for Gmail
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'cortegafit@gmail.com'  # My Gmail address
-app.config['MAIL_PASSWORD'] = 'rwmv hzrb wdqz aaif'  # My app-specific password
-app.config['MAIL_DEFAULT_SENDER'] = 'cortegafit@gmail.com'  # My Gmail address
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
-app.config['SESSION_COOKIE_NAME'] = 'maria_ortega_session'
+app.config['SESSION_COOKIE_NAME'] = 'admin_user_session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)  # Adjust the time as needed
 app.config['SESSION_COOKIE_SECURE'] = False  # Use this if you're using HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access

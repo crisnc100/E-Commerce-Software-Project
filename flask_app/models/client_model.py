@@ -1,4 +1,5 @@
 from flask_app.config.mysqlconnection import connectToMySQL
+from flask_app.utils.session_helper import SessionHelper
 import re
 from datetime import datetime
 
@@ -16,6 +17,7 @@ class Client:
         self.additional_notes = data.get('additional_notes')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
+        self.system_id = data.get('system_id')
     
     def serialize(self):
         return{
@@ -27,12 +29,18 @@ class Client:
             "additional_notes": self.additional_notes,
             "created_at": str(self.created_at), 
             "updated_at": str(self.updated_at),
+            "system_id": self.system_id
         }
     #SAVE
     @classmethod
     def save(cls, data):
-        query = """INSERT INTO clients (first_name, last_name, contact_method, contact_details, additional_notes, created_at, updated_at) 
-        VALUES (%(first_name)s, %(last_name)s, %(contact_method)s, %(contact_details)s, %(additional_notes)s, NOW(), NOW());"""
+        """Save a new client with system_id."""
+        query = """
+        INSERT INTO clients (first_name, last_name, contact_method, contact_details, additional_notes, created_at, updated_at, system_id) 
+        VALUES (%(first_name)s, %(last_name)s, %(contact_method)s, %(contact_details)s, %(additional_notes)s, NOW(), NOW(), %(system_id)s);
+        """
+        # Add system_id from SessionHelper dynamically
+        data['system_id'] = SessionHelper.get_system_id()
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
     
     @staticmethod
@@ -78,9 +86,13 @@ class Client:
 
     @classmethod
     def get_by_id(cls, client_id):
-        """Retrieve a client by ID."""
-        query = "SELECT * FROM clients WHERE id = %(id)s;"
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': client_id})
+        """Retrieve a single client by ID for the current system."""
+        query = """
+        SELECT * FROM clients 
+        WHERE id = %(id)s AND system_id = %(system_id)s;
+        """
+        data = {'id': client_id, 'system_id': SessionHelper.get_system_id()}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return cls(result[0]) if result else None
 
     @classmethod
@@ -88,11 +100,11 @@ class Client:
         limit = 20
         offset = (page - 1) * limit
 
-        base_query = "SELECT SQL_CALC_FOUND_ROWS * FROM clients"
-        params = {'limit': limit, 'offset': offset}
+        base_query = "SELECT SQL_CALC_FOUND_ROWS * FROM clients WHERE system_id = %(system_id)s"
+        params = {'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
 
         if search and search.strip():
-            # Implement server-side search logic
+            # Add search logic
             name_parts = search.strip().split()
             search_conditions = []
             for i, part in enumerate(name_parts):
@@ -100,10 +112,9 @@ class Client:
                     f"(first_name LIKE %(part_{i})s OR last_name LIKE %(part_{i})s)"
                 )
                 params[f"part_{i}"] = f"%{part}%"
-            where_clause = " WHERE " + " AND ".join(search_conditions)
+            where_clause = " AND " + " AND ".join(search_conditions)
             query = f"{base_query} {where_clause} ORDER BY last_name, first_name LIMIT %(limit)s OFFSET %(offset)s;"
         else:
-            # No search, original logic
             query = f"{base_query} ORDER BY last_name, first_name LIMIT %(limit)s OFFSET %(offset)s;"
 
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
@@ -111,6 +122,7 @@ class Client:
         if not results:
             return [], 0
 
+        # Get total count
         count_query = "SELECT FOUND_ROWS() AS total;"
         total_count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query)
         total_count = total_count_result[0]['total'] if total_count_result else 0
@@ -120,21 +132,21 @@ class Client:
 
     @classmethod
     def update(cls, data):
-        """Update a client's information."""
+        """Update a client's information with system validation."""
         query = """
         UPDATE clients 
         SET first_name = %(first_name)s, last_name = %(last_name)s, contact_method = %(contact_method)s, 
-        contact_details = %(contact_details)s, additional_notes = %(additional_notes)s, 
-        updated_at = NOW() 
-        WHERE id = %(id)s;
+            contact_details = %(contact_details)s, additional_notes = %(additional_notes)s, updated_at = NOW()
+        WHERE id = %(id)s AND system_id = %(system_id)s;
         """
+        data['system_id'] = SessionHelper.get_system_id()
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     @classmethod
     def delete(cls, client_id):
         # Check if the client exists
-        select_query = "SELECT id FROM clients WHERE id = %(id)s;"
-        data = {'id': client_id}
+        select_query = "SELECT id FROM clients WHERE id = %(id)s AND system_id = %(system_id)s;"
+        data = {'id': client_id, 'system_id': SessionHelper.get_system_id()}
         result = connectToMySQL('maria_ortegas_project_schema').query_db(select_query, data)
         
         if not result:
@@ -142,7 +154,7 @@ class Client:
             return False
         
         # Delete the client
-        delete_query = "DELETE FROM clients WHERE id = %(id)s;"
+        delete_query = "DELETE FROM clients WHERE id = %(id)s AND system_id = %(system_id)s;"
         connectToMySQL('maria_ortegas_project_schema').query_db(delete_query, data)
         return True
 
@@ -155,9 +167,9 @@ class Client:
         query = """
         SELECT id, first_name, last_name
         FROM clients
-        WHERE (first_name LIKE %s OR last_name LIKE %s)
+        WHERE system_id = %(system_id)s AND (first_name LIKE %s OR last_name LIKE %s)
         """
-        params = [f"%{name_parts[0]}%", f"%{name_parts[0]}%"]
+        params = [SessionHelper.get_system_id(), f"%{name_parts[0]}%", f"%{name_parts[0]}%"]
         for part in name_parts[1:]:
             query += " AND (first_name LIKE %s OR last_name LIKE %s)"
             params.extend([f"%{part}%", f"%{part}%"])
@@ -188,8 +200,11 @@ class Client:
         SELECT clients.*, purchases.*
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id;
+        WHERE clients.system_id = %(system_id)s;
         """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        data = {'system_id': SessionHelper.get_system_id()}
+
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         # Process results to return client with purchase details
         clients = {}
         for row in results:
@@ -203,10 +218,10 @@ class Client:
         query = """
         SELECT 'Add Client' AS action, CONCAT(first_name, ' ', last_name) AS details, created_at
         FROM clients
-        WHERE created_at >= %s
+        WHERE system_id = %s AND created_at >= %s
         ORDER BY created_at DESC;
         """
-        data = (since_date,)
+        data = {'system_id': SessionHelper.get_system_id(), 'since_date': since_date}
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         if isinstance(result, tuple):
             result = list(result)
@@ -219,9 +234,10 @@ class Client:
         query = """
         SELECT COUNT(*) AS new_clients
         FROM clients
-        WHERE created_at >= CURDATE() - INTERVAL 7 DAY;
+        WHERE system_id = %(system_id)s AND created_at >= CURDATE() - INTERVAL 7 DAY;
         """
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        data = {'system_id': SessionHelper.get_system_id()}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         print(f"Clients Metrics (weekly) Query Result: {result}")  # Debug print
 
         return result[0]['new_clients'] if result else 0
@@ -232,11 +248,11 @@ class Client:
         query = """
         SELECT MONTH(created_at) AS month, COUNT(*) AS new_clients
         FROM clients
-        WHERE YEAR(created_at) = %s
+        WHERE system_id = %s AND YEAR(created_at) = %s
         GROUP BY MONTH(created_at)
         ORDER BY MONTH(created_at);
         """
-        data = (year,)
+        data = (SessionHelper.get_system_id(), year)
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         print(f"New Clients (monthly) Query Result: {result}")  # Debug print
 
@@ -251,10 +267,10 @@ class Client:
         query = """
         SELECT COUNT(*) AS new_clients
         FROM clients
-        WHERE YEAR(created_at) = %s
+        WHERE system_id = %s AND YEAR(created_at) = %s
         AND MONTH(created_at) = %s;
         """
-        data = (year, month)
+        data = (SessionHelper.get_system_id(), year, month)
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return result[0]['new_clients'] if result else 0
 
@@ -269,11 +285,11 @@ class Client:
         GROUP BY YEAR(created_at)
         ORDER BY YEAR(created_at);
         """
-        where_clause = ""
-        data = None
+        where_clause = "WHERE system_id = %s"
+        data = [SessionHelper.get_system_id()]
         if year:
-            where_clause = "WHERE YEAR(created_at) = %s"
-            data = (year,)
+            where_clause += "AND YEAR(created_at) = %s"
+            data.append(year)
         
         query = query.format(where_clause)
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)

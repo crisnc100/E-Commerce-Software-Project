@@ -1,4 +1,5 @@
 from flask_app.config.mysqlconnection import connectToMySQL
+from flask_app.utils.session_helper import SessionHelper
 
 class Payment:
     def __init__(self, data):
@@ -42,44 +43,73 @@ class Payment:
     @classmethod
     def get_by_id(cls, payment_id):
         """Retrieve a payment by its ID."""
-        query = "SELECT * FROM payments WHERE id = %(id)s;"
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': payment_id})
+        query = """
+            SELECT payments.* 
+            FROM payments 
+            JOIN purchases ON payments.purchase_id = purchases.id
+            WHERE payments.id = %(id)s AND purchases.system_id = %(system_id)s;
+        """
+        data = {'id': payment_id, 'system_id': SessionHelper.get_system_id()}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return cls(result[0]) if result else None
+
 
     @classmethod
     def get_all(cls):
         """Retrieve all payments."""
-        query = "SELECT * FROM payments;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        query = """
+                SELECT * FROM payments
+                JOIN purchases on payments.purchase_id = purchases.id
+                WHERE purchases.system_id = %(system_id)s;"""
+        data = {'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return [cls(row) for row in results]
 
     @classmethod
     def update(cls, data):
-        """Update an existing payment record."""
+        """Update an existing payment record with system_id check."""
         query = """
         UPDATE payments 
-        SET client_id = %(client_id)s, purchase_id = %(purchase_id)s, payment_date = %(payment_date)s, 
-        amount_paid = %(amount_paid)s, payment_method = %(payment_method)s, updated_at = NOW() 
-        WHERE id = %(id)s;
+        JOIN purchases ON payments.purchase_id = purchases.id
+        SET payments.client_id = %(client_id)s, 
+            payments.purchase_id = %(purchase_id)s, 
+            payments.payment_date = %(payment_date)s, 
+            payments.amount_paid = %(amount_paid)s, 
+            payments.payment_method = %(payment_method)s, 
+            payments.updated_at = NOW()
+        WHERE payments.id = %(id)s AND purchases.system_id = %(system_id)s;
         """
+        data['system_id'] = SessionHelper.get_system_id()
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-    
+
 
     @classmethod
     def delete(cls, payment_id):
-        """Delete a payment record."""
-        query = "DELETE FROM payments WHERE id = %(id)s;"
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': payment_id})
+        """Delete a payment record with system_id check."""
+        query = """
+        DELETE payments 
+        FROM payments
+        JOIN purchases ON payments.purchase_id = purchases.id
+        WHERE payments.id = %(id)s AND purchases.system_id = %(system_id)s;
+        """
+        data = {'id': payment_id, 'system_id': SessionHelper.get_system_id()}
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
 
     ### Additional Methods ###
 
     @classmethod
     def get_payments_by_client(cls, client_id):
         """Retrieve all payments for a specific client."""
-        query = "SELECT * FROM payments WHERE client_id = %(client_id)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        query = """
+        SELECT payments.* 
+        FROM payments
+        JOIN purchases ON payments.purchase_id = purchases.id
+        WHERE payments.client_id = %(client_id)s AND purchases.system_id = %(system_id)s;
+        """
+        data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         
-        # Check if results are valid
         if not results or isinstance(results, bool):
             return []  # Return an empty list if no results or query fails
         
@@ -89,38 +119,54 @@ class Payment:
     @classmethod
     def get_payments_by_purchase(cls, purchase_id):
         """Retrieve all payments for a specific purchase."""
-        query = "SELECT * FROM payments WHERE purchase_id = %(purchase_id)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'purchase_id': purchase_id})
+        query = """
+        SELECT payments.* 
+        FROM payments
+        JOIN purchases ON payments.purchase_id = purchases.id
+        WHERE payments.purchase_id = %(purchase_id)s AND purchases.system_id = %(system_id)s;
+        """
+        data = {'purchase_id': purchase_id, 'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         
-        # Check if results are valid
         if not results or isinstance(results, bool):
             return []  # Return an empty list if no results or query fails
 
-        # Map results to Payment instances
         return [cls(row) for row in results]
-    
+
+
     @classmethod
     def get_payments_with_order_details_by_client(cls, client_id):
+        """Retrieve all payments with product and order details for a specific client."""
         query = """
         SELECT payments.*, purchases.product_id, products.name AS product_name
         FROM payments
         JOIN purchases ON payments.purchase_id = purchases.id
         JOIN products ON purchases.product_id = products.id
-        WHERE payments.client_id = %(client_id)s;
+        WHERE payments.client_id = %(client_id)s AND purchases.system_id = %(system_id)s;
         """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        
         if not results or isinstance(results, bool):
             return []
+        
         return [cls(row) for row in results]
+
 
 
 
     @classmethod
     def get_total_paid_for_purchase(cls, purchase_id):
         """Calculate the total amount paid for a specific purchase."""
-        query = "SELECT SUM(amount_paid) AS total_paid FROM payments WHERE purchase_id = %(purchase_id)s;"
-        result = connectToMySQL('maria_ortegas_project_schema').query_db({'purchase_id': purchase_id})
-        return result[0]['total_paid'] if result[0]['total_paid'] is not None else 0.0
+        query = """
+        SELECT SUM(payments.amount_paid) AS total_paid
+        FROM payments
+        JOIN purchases ON payments.purchase_id = purchases.id
+        WHERE payments.purchase_id = %(purchase_id)s AND purchases.system_id = %(system_id)s;
+        """
+        data = {'purchase_id': purchase_id, 'system_id': SessionHelper.get_system_id()}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return result[0]['total_paid'] if result and result[0]['total_paid'] is not None else 0.0
 
     ### Validation and Utility Methods ###
 
@@ -148,10 +194,10 @@ class Payment:
         JOIN purchases ON payments.purchase_id = purchases.id
         JOIN products ON purchases.product_id = products.id
         JOIN clients ON purchases.client_id = clients.id
-        WHERE payments.created_at >= %s
+        WHERE payments.created_at >= %s AND purchases.system_id = %s
         ORDER BY payments.created_at DESC;
         """
-        data = (since_date,)
+        data = (since_date, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         if isinstance(result, tuple):
             result = list(result)

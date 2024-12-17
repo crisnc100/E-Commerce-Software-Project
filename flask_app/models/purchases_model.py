@@ -1,4 +1,5 @@
 from flask_app.config.mysqlconnection import connectToMySQL
+from flask_app.utils.session_helper import SessionHelper
 from datetime import datetime, timedelta, timezone
 import logging
 import json
@@ -10,6 +11,7 @@ class Purchase:
         self.id = data.get('id')
         self.client_id = data.get('client_id')
         self.product_id = data.get('product_id')
+        self.system_id = data.get('system_id')
         self.size = data.get('size')
         self.purchase_date = data.get('purchase_date')
         self.amount = data.get('amount')
@@ -32,6 +34,7 @@ class Purchase:
             'id': self.id,
             'client_id': self.client_id,
             'product_id': self.product_id,
+            'system_id': self.system_id,
             'product_name': self.product_name,
             'size': self.size,
             'purchase_date': self.purchase_date,
@@ -55,23 +58,26 @@ class Purchase:
     def save(cls, data):
         """Create a new purchase record."""
         query = """
-        INSERT INTO purchases (client_id, product_id, size, purchase_date, amount, payment_status, shipping_status, created_at, updated_at) 
-        VALUES (%(client_id)s, %(product_id)s, %(size)s, %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, NOW(), NOW());
+        INSERT INTO purchases (client_id, product_id, system_id, 
+        size, purchase_date, amount, payment_status, shipping_status, created_at, updated_at) 
+        VALUES (%(client_id)s, %(product_id)s, %(system_id)s, %(size)s, 
+        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, NOW(), NOW());
         """
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     @classmethod
     def get_by_id(cls, purchase_id):
         """Retrieve a purchase by its ID."""
-        query = "SELECT * FROM purchases WHERE id = %(id)s;"
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': purchase_id})
+        query = "SELECT * FROM purchases WHERE id = %(id)s AND system_id = %(system_id)s;"
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': purchase_id, 'system_id': SessionHelper.get_system_id()})
         return cls(result[0]) if result else None
 
     @classmethod
     def get_all(cls):
         """Retrieve all purchases."""
-        query = "SELECT * FROM purchases;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        query = "SELECT * FROM purchases WHERE system_id = %(system_id)s;"
+        data = {'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return [cls(row) for row in results]
 
     @classmethod
@@ -82,23 +88,26 @@ class Purchase:
         SET client_id = %(client_id)s, product_id = %(product_id)s, size = %(size)s, 
         purchase_date = %(purchase_date)s, amount = %(amount)s, payment_status = %(payment_status)s, 
         shipping_status = %(shipping_status)s, updated_at = NOW() 
-        WHERE id = %(id)s;
+        WHERE id = %(id)s AND system_id = %(system_id)s;
         """
+        data['system_id'] = SessionHelper.get_system_id()
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     @classmethod
     def delete(cls, purchase_id):
         """Delete a purchase record."""
-        query = "DELETE FROM purchases WHERE id = %(id)s;"
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': purchase_id})
+        query = "DELETE FROM purchases WHERE id = %(id)s AND system_id = %(system_id)s;"
+        data = {'id': purchase_id, 'system_id': SessionHelper.get_system_id()}
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     ### Additional Methods ###
 
     @classmethod
     def get_purchases_by_client(cls, client_id):
         """Retrieve all purchases made by a specific client."""
-        query = "SELECT * FROM purchases WHERE client_id = %(client_id)s;"
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        query = "SELECT * FROM purchases WHERE client_id = %(client_id)s AND system_id = %(system_id)s;"
+        data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         
         # Check if results are valid
         if not results or isinstance(results, bool):
@@ -120,19 +129,20 @@ class Purchase:
         FROM purchases
         JOIN products ON purchases.product_id = products.id
         JOIN clients ON purchases.client_id = clients.id
-        WHERE purchases.client_id = %(client_id)s
+        WHERE purchases.client_id = %(client_id)s AND system_id = %(system_id)s
         LIMIT %(limit)s OFFSET %(offset)s;
         """
-        params = {'client_id': client_id, 'limit': limit, 'offset': offset}
+        params = {'client_id': client_id, 'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
 
         # Fetch the total count
         count_query = """
         SELECT COUNT(*) AS total
         FROM purchases
-        WHERE client_id = %(client_id)s;
+        WHERE client_id = %(client_id)s AND system_id = %(system_id)s;
         """
-        count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, {'client_id': client_id})
+        data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
+        count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, data)
         total = count_result[0]['total'] if count_result else 0
 
         return {'items': results, 'total': total}
@@ -148,18 +158,19 @@ class Purchase:
             purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id
-        WHERE purchases.product_id = %(product_id)s
+        WHERE purchases.product_id = %(product_id)s AND system_id = %(system_id)s
         LIMIT %(limit)s OFFSET %(offset)s;
         """
-        params = {'product_id': product_id, 'limit': limit, 'offset': offset}
+        params = {'product_id': product_id, 'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
 
         count_query = """
         SELECT COUNT(*) AS total
         FROM purchases
-        WHERE product_id = %(product_id)s;
+        WHERE product_id = %(product_id)s AND system_id = %(system_id)s;
         """
-        count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, {'product_id': product_id})
+        data = {'product_id': product_id, 'system_id': SessionHelper.get_system_id()}
+        count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, data)
         total = count_result[0]['total'] if count_result else 0
         return {'items': results, 'total': total}
 
@@ -176,9 +187,10 @@ class Purchase:
             purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id
-        WHERE purchases.product_id = %(product_id)s;
+        WHERE purchases.product_id = %(product_id)s AND system_id = %(system_id)s;
         """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'product_id': product_id})
+        data = {'product_id': product_id, 'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return results  # Return the raw results or serialize if needed
 
     
@@ -195,11 +207,11 @@ class Purchase:
         FROM purchases
         JOIN products ON purchases.product_id = products.id
         LEFT JOIN payments ON purchases.id = payments.purchase_id
-        WHERE purchases.client_id = %(client_id)s
+        WHERE purchases.client_id = %(client_id)s AND system_id = %(system_id)s
         GROUP BY purchases.id;
         """
-
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'client_id': client_id})
+        data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         if not results or isinstance(results, bool):
             return []
         purchases = []
@@ -232,10 +244,11 @@ class Purchase:
         query = """
         UPDATE purchases 
         SET payment_status = %(payment_status)s, updated_at = NOW() 
-        WHERE id = %(id)s;
+        WHERE id = %(id)s AND system_id = %(system_id)s;
         """
         data = {
             'id': purchase_id,
+            'system_id': SessionHelper.get_system_id(),
             'payment_status': payment_status,
         }
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
@@ -246,17 +259,19 @@ class Purchase:
         query = """
         UPDATE purchases 
         SET shipping_status = %(shipping_status)s, updated_at = NOW() 
-        WHERE id = %(id)s;
+        WHERE id = %(id)s AND system_id = %(system_id)s;
         """
-        data = {'id': purchase_id, 'shipping_status': new_status}
+        data = {'id': purchase_id, 'system_id': SessionHelper.get_system_id(), 'shipping_status': new_status}
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
 
     @classmethod
     def get_total_amount_by_client(cls, client_id):
         """Calculate the total amount spent by a specific client."""
-        query = "SELECT SUM(amount) AS total_spent FROM purchases WHERE client_id = %(client_id)s;"
-        result = connectToMySQL('maria_ortegas_project_schema').query_db({'client_id': client_id})
+        query = """SELECT SUM(amount) AS total_spent FROM purchases 
+        WHERE client_id = %(client_id)s AND system_id = %(system_id)s;"""
+        data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return result[0]['total_spent'] if result[0]['total_spent'] is not None else 0.0
     
     @classmethod
@@ -266,14 +281,18 @@ class Purchase:
         SET p.payment_status = 'Overdue'
         WHERE p.payment_status = 'Pending'
         AND DATE(p.purchase_date) <= CURDATE() - INTERVAL 14 DAY
+        AND p.system_id = %(system_id)s
         AND NOT EXISTS (
             SELECT 1
             FROM payments pay
             WHERE pay.purchase_id = p.id
-                AND pay.amount_paid > 0
+            AND pay.amount_paid > 0 
+            AND pay.system_id = %(system_id)s
+
         );
         """
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        data = {'system_id': SessionHelper.get_system_id()}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         print(f"Update query result: {result}")
 
 
@@ -296,9 +315,10 @@ class Purchase:
         FROM purchases
         JOIN clients ON purchases.client_id = clients.id
         JOIN products ON purchases.product_id = products.id
-        WHERE purchases.payment_status = 'Overdue'
+        WHERE purchases.payment_status = 'Overdue' AND purchases.system_id = %(system_id)s;
         """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        data = {'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         print(f"Overdue purchases: {results}")
         return [cls(result) for result in results]
 
@@ -320,10 +340,12 @@ class Purchase:
         JOIN clients c ON p.client_id = c.id
         JOIN products pr ON p.product_id = pr.id
         WHERE p.payment_status = 'Paid'
+        AND p.system_id = %(system_id)s
         AND p.shipping_status != 'Delivered'
         AND DATE(p.purchase_date) <= CURDATE() - INTERVAL 28 DAY;
         """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        data = {'system_id': SessionHelper.get_system_id()}
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return [cls(data) for data in results]
     
     @classmethod
@@ -336,10 +358,10 @@ class Purchase:
         FROM purchases
         JOIN products p ON purchases.product_id = p.id
         JOIN clients c ON purchases.client_id = c.id
-        WHERE purchases.created_at >= %s
+        WHERE purchases.created_at >= %s AND purchases.system_id = %s
         ORDER BY purchases.created_at DESC;
         """
-        data = (since_date,)
+        data = (since_date, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         if isinstance(result, tuple):
             result = list(result)
@@ -357,11 +379,11 @@ class Purchase:
         FROM purchases
         JOIN products p ON purchases.product_id = p.id
         JOIN clients c ON purchases.client_id = c.id
-        WHERE purchases.updated_at >= %s 
+        WHERE purchases.updated_at >= %s AND purchases.system_id = %s
         AND purchases.shipping_status IS NOT NULL
         ORDER BY purchases.updated_at DESC;
         """
-        data = (since_date,)
+        data = (since_date, SessionHelper.get_system_id)
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         if isinstance(result, tuple):
             result = list(result)
@@ -378,9 +400,11 @@ class Purchase:
         FROM purchases
         LEFT JOIN products ON purchases.product_id = products.id
         LEFT JOIN payments ON purchases.id = payments.purchase_id
-        WHERE purchases.purchase_date >= CURDATE() - INTERVAL 7 DAY;
+        WHERE purchases.purchase_date >= CURDATE() - INTERVAL 7 DAY
+        AND purchases.system_id = %(system_id)s;
         """
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+        data = {'system_id': SessionHelper.get_system_id()}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         print(f"Weekly Metrics Query Result: {result}")  # Debug print
         return {
             'gross_sales': result[0]['gross_sales'] if result and result[0]['gross_sales'] else 0.0,
@@ -399,12 +423,12 @@ class Purchase:
         FROM purchases
         LEFT JOIN products ON purchases.product_id = products.id
         LEFT JOIN payments ON purchases.id = payments.purchase_id
-        WHERE YEAR(purchases.purchase_date) = %s
+        WHERE YEAR(purchases.purchase_date) = %s AND purchases.system_id = %s
         GROUP BY MONTH(purchases.purchase_date)
         ORDER BY MONTH(purchases.purchase_date);
 
         """
-        data = (year,)
+        data = (year, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         print(f"Monthly Metrics Query Result: {result}")  # Debug print
 
@@ -430,9 +454,10 @@ class Purchase:
         LEFT JOIN products ON purchases.product_id = products.id
         LEFT JOIN payments ON purchases.id = payments.purchase_id
         WHERE YEAR(purchases.purchase_date) = %s
-        AND MONTH(purchases.purchase_date) = %s;
+        AND MONTH(purchases.purchase_date) = %s
+        AND purchases.system_id = %s;
         """
-        data = (year, month)
+        data = (year, month, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
         # If no results or the metrics are None, return zeroed values.
@@ -468,11 +493,11 @@ class Purchase:
         """
         
         # Add WHERE clause if a specific year is provided
-        where_clause = ""
-        data = None
+        where_clause = "WHERE purchases.system_id = %s"
+        data = [SessionHelper.get_system_id()]
         if year:
-            where_clause = "WHERE YEAR(purchases.purchase_date) = %s"
-            data = (year,)
+            where_clause += "AND YEAR(purchases.purchase_date) = %s"
+            data.append(year)
 
         # Replace placeholder in query
         query = query.format(where_clause)
@@ -518,13 +543,14 @@ class Purchase:
                 JOIN products ON purchases.product_id = products.id
                 WHERE YEAR(purchases.purchase_date) = %s
                 AND MONTH(purchases.purchase_date) = %s
+                AND purchases.system_id = %s
                 GROUP BY products.id, products.name, products.screenshot_photo
             ) AS ProductMetrics
         ) AS RankedMetrics
         WHERE rnk <= 3;
         """
 
-        data = (category, category, year, month)
+        data = (category, category, year, month, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
         if not result:

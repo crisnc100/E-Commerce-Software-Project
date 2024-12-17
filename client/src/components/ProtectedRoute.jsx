@@ -1,32 +1,50 @@
-// src/components/ProtectedRoute.js
-
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import apiService from '../services/apiService';
 
-const ProtectedRoute = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+  const [authStatus, setAuthStatus] = useState({
+    loading: true,
+    user: null,
+    error: null,
+  });
 
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
         const response = await apiService.isAuthenticated();
-        setIsAuthenticated(response.data.authenticated);
+        setAuthStatus({
+          loading: false,
+          user: response.data.user, // Example: { role, email }
+          error: null,
+        });
       } catch (error) {
         console.error('Authentication check failed:', error);
-        setIsAuthenticated(false);
+        setAuthStatus({
+          loading: false,
+          user: null,
+          error: error.message || 'Failed to authenticate',
+        });
       }
     };
 
     checkAuthentication();
   }, []);
 
-  // Prevent accessing protected routes if not authenticated
-  if (isAuthenticated === null) {
-    return <div>Loading...</div>; // Loading state while authentication is being verified
+  const { loading, user } = authStatus;
+
+  // Show loading state while authentication is being checked
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
-  return isAuthenticated ? children : <Navigate to="/" replace />;
+  // Redirect if user is not authenticated or role is not allowed
+  if (!user || (allowedRoles.length > 0 && !allowedRoles.includes(user.role))) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Render the protected content
+  return children;
 };
 
 export default ProtectedRoute;
