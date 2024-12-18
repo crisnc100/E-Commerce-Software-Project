@@ -129,7 +129,7 @@ class Purchase:
         FROM purchases
         JOIN products ON purchases.product_id = products.id
         JOIN clients ON purchases.client_id = clients.id
-        WHERE purchases.client_id = %(client_id)s AND system_id = %(system_id)s
+        WHERE purchases.client_id = %(client_id)s AND purchases.system_id = %(system_id)s
         LIMIT %(limit)s OFFSET %(offset)s;
         """
         params = {'client_id': client_id, 'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
@@ -158,7 +158,7 @@ class Purchase:
             purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id
-        WHERE purchases.product_id = %(product_id)s AND system_id = %(system_id)s
+        WHERE purchases.product_id = %(product_id)s AND purchases.system_id = %(system_id)s
         LIMIT %(limit)s OFFSET %(offset)s;
         """
         params = {'product_id': product_id, 'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
@@ -187,7 +187,7 @@ class Purchase:
             purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id
-        WHERE purchases.product_id = %(product_id)s AND system_id = %(system_id)s;
+        WHERE purchases.product_id = %(product_id)s AND purchases.system_id = %(system_id)s;
         """
         data = {'product_id': product_id, 'system_id': SessionHelper.get_system_id()}
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
@@ -207,7 +207,7 @@ class Purchase:
         FROM purchases
         JOIN products ON purchases.product_id = products.id
         LEFT JOIN payments ON purchases.id = payments.purchase_id
-        WHERE purchases.client_id = %(client_id)s AND system_id = %(system_id)s
+        WHERE purchases.client_id = %(client_id)s AND purchases.system_id = %(system_id)s
         GROUP BY purchases.id;
         """
         data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
@@ -383,7 +383,7 @@ class Purchase:
         AND purchases.shipping_status IS NOT NULL
         ORDER BY purchases.updated_at DESC;
         """
-        data = (since_date, SessionHelper.get_system_id)
+        data = (since_date, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         if isinstance(result, tuple):
             result = list(result)
@@ -493,11 +493,11 @@ class Purchase:
         """
         
         # Add WHERE clause if a specific year is provided
-        where_clause = "WHERE purchases.system_id = %s"
-        data = [SessionHelper.get_system_id()]
+        where_clause = ""
+        data = None
         if year:
-            where_clause += "AND YEAR(purchases.purchase_date) = %s"
-            data.append(year)
+            where_clause = "WHERE YEAR(purchases.purchase_date) = %s"
+            data = (year,)
 
         # Replace placeholder in query
         query = query.format(where_clause)
@@ -513,6 +513,44 @@ class Purchase:
             }
             for row in result
         ] if result else []
+
+
+
+
+    @classmethod
+    def get_top_products(cls, year, month, category):
+        query = """
+        SELECT product_id, product_name, product_screenshot_photo, total_orders, total_sales, rnk FROM (
+            SELECT 
+                product_id,
+                product_name,
+                product_screenshot_photo,
+                total_orders,
+                total_sales,
+                RANK() OVER (
+                    ORDER BY 
+                        (CASE WHEN %s = 'orders' THEN total_orders ELSE 0 END) DESC,
+                        (CASE WHEN %s = 'sales' THEN total_sales ELSE 0 END) DESC
+                ) AS rnk
+            FROM (
+                SELECT 
+                    products.id AS product_id,
+                    products.name AS product_name,
+                    products.screenshot_photo AS product_screenshot_photo,
+                    COUNT(purchases.id) AS total_orders,
+                    COALESCE(SUM(purchases.amount), 0) AS total_sales
+                FROM purchases
+                JOIN products ON purchases.product_id = products.id
+                WHERE YEAR(purchases.purchase_date) = %s
+                AND MONTH(purchases.purchase_date) = %s
+                GROUP BY products.id, products.name, products.screenshot_photo
+            ) AS ProductMetrics
+        ) AS RankedMetrics
+        WHERE rnk <= 3;
+        """
+
+        data = (category, category, year, month)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
 
 

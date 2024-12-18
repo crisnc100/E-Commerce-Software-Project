@@ -218,10 +218,10 @@ class Client:
         query = """
         SELECT 'Add Client' AS action, CONCAT(first_name, ' ', last_name) AS details, created_at
         FROM clients
-        WHERE system_id = %s AND created_at >= %s
+        WHERE clients.created_at >= %s AND clients.system_id = %s
         ORDER BY created_at DESC;
         """
-        data = {'system_id': SessionHelper.get_system_id(), 'since_date': since_date}
+        data = (since_date, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         if isinstance(result, tuple):
             result = list(result)

@@ -32,29 +32,36 @@ const apiService = {
     axios.post('http://localhost:5000/api/logout', {}, { withCredentials: true }),
   createProduct: (formData) =>
     axios.post('http://localhost:5000/api/create_product', formData, {
+      withCredentials: true,
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+    
   getAllProducts: (page = 1, search = '') => {
     let url = `http://localhost:5000/api/get_all_products/page/${page}`;
     if (search) {
       url += `?search=${encodeURIComponent(search)}`;
     }
-    return axios.get(url);
+    return axios.get(url, {withCredentials: true });
   },
   getClientsForProduct: (productId) =>
-    axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`
+    axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`, { withCredentials: true }
 
     ),
-  updateProduct: (productId, formData) => {
-    return axios.put(`http://localhost:5000/api/update_product/${productId}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  },
+    updateProduct: (productId, formData) => {
+      return axios.put(
+        `http://localhost:5000/api/update_product/${productId}`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          withCredentials: true,
+        }
+      );
+    },    
   deleteProduct: (productId) => {
-    return axios.delete(`http://localhost:5000/api/delete_product/${productId}`);
+    return axios.delete(`http://localhost:5000/api/delete_product/${productId}`, { withCredentials: true });
   },
   addClient: (formData) =>
-    axios.post('http://localhost:5000/api/add_client', formData
+    axios.post('http://localhost:5000/api/add_client', formData, { withCredentials: true }
 
     ),
   allClients: (page = 1, search = '') => {
@@ -62,68 +69,68 @@ const apiService = {
     if (search) {
       url += `?search=${encodeURIComponent(search)}`;
     }
-    return axios.get(url);
+    return axios.get(url, { withCredentials: true });
   },
   updateClient: (clientId, formData) =>
-    axios.put(`http://localhost:5000/api/update_client/${clientId}`, formData
+    axios.put(`http://localhost:5000/api/update_client/${clientId}`, formData, { withCredentials: true }
 
     ),
   deleteClient: (clientId) => {
-    return axios.delete(`http://localhost:5000/api/delete_client/${clientId}`);
+    return axios.delete(`http://localhost:5000/api/delete_client/${clientId}`, { withCredentials: true });
   },
   getClientById: (clientId) =>
-    axios.get(`http://localhost:5000/api/get_one_client/${clientId}`
+    axios.get(`http://localhost:5000/api/get_one_client/${clientId}`, { withCredentials: true }
 
     ),
   createPurchase: (formData) =>
-    axios.post('http://localhost:5000/api/create_purchase', formData
+    axios.post('http://localhost:5000/api/create_purchase', formData, { withCredentials: true }
 
     ),
   updatePurchase: (purchaseId, formData) =>
-    axios.put(`http://localhost:5000/api/update_purchase/${purchaseId}`, formData
+    axios.put(`http://localhost:5000/api/update_purchase/${purchaseId}`, formData, { withCredentials: true }
 
     ),
   updatePurchaseStatus: (purchaseId, formData) => axios.put(`http://localhost:5000/api/update_purchase_status/${purchaseId}`, formData
-
-  ),
+    , { withCredentials: true }
+    ),
   getPurchasesByClientId: (clientId) =>
-    axios.get(`http://localhost:5000/api/get_purchases_by_client/${clientId}`
+    axios.get(`http://localhost:5000/api/get_purchases_by_client/${clientId}`, { withCredentials: true }
 
     ),
   updatePurchaseShipping: (purchaseId, formData) =>
     axios.put(
       `http://localhost:5000/api/update_shipping_status/${purchaseId}`,
-      { shipping_status: formData }, // Wrap the value in an object
+      { shipping_status: formData },
       {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        withCredentials: true,
+        headers: { 'Content-Type': 'application/json' }
       }
     ),
+    
   getLatePendingDeliveries: () => {
-    return axios.get(`http://localhost:5000/api/get_late_pending_deliveries`)
+    return axios.get(`http://localhost:5000/api/get_late_pending_deliveries`, { withCredentials: true })
   },
   deletePurchase: (purchaseId) => {
-    return axios.delete(`http://localhost:5000/api/delete_purchase/${purchaseId}`);
+    return axios.delete(`http://localhost:5000/api/delete_purchase/${purchaseId}`, { withCredentials: true });
   },
   getOverduePurchases: () => {
     return axios.get(`http://localhost:5000/api/get_overdue_purchases`, { withCredentials: true })
   },
   getTotalAmountByClientId: (clientId) =>
-    axios.get(`http://localhost:5000/api/get_total_amount_by_client/${clientId}`
+    axios.get(`http://localhost:5000/api/get_total_amount_by_client/${clientId}`, { withCredentials: true }
 
     ),
-  createPayment: (formData) => axios.post('http://localhost:5000/api/create_payment', formData
+  createPayment: (formData) => axios.post('http://localhost:5000/api/create_payment', formData, { withCredentials: true }
 
   ),
-  getPaymentsByPurchaseId: (purchaseId) => axios.get(`http://localhost:5000/api/get_payments_by_purchase/${purchaseId}`
+  getPaymentsByPurchaseId: (purchaseId) => axios.get(`http://localhost:5000/api/get_payments_by_purchase/${purchaseId}`, { withCredentials: true }
 
   ),
-  getPaymentsByClientId: (clientId) => axios.get(`http://localhost:5000/api/get_payments_by_client/${clientId}`
+  getPaymentsByClientId: (clientId) => axios.get(`http://localhost:5000/api/get_payments_by_client/${clientId}`, { withCredentials: true }
 
   ),
   deletePayment: (paymentId) => {
-    return axios.delete(`http://localhost:5000/api/delete_payment/${paymentId}`);
+    return axios.delete(`http://localhost:5000/api/delete_payment/${paymentId}`, { withCredentials: true });
   },
 
   allPurchasesByClientId: (clientId, page = 1) =>
@@ -151,7 +158,8 @@ const apiService = {
     return axios.get(`http://localhost:5000/api/get_monthly_metrics`, { withCredentials: true })
   },
   getSingleMonthMetrics: (year, month) => {
-    return axios.get(`http://localhost:5000/api/get_single_month_metrics`, {
+    return axios.get(`http://localhost:5000/api/get_single_month_metrics`, { 
+      withCredentials: true,
       params: { year, month }
     });
   },
@@ -159,12 +167,13 @@ const apiService = {
     return axios.get(`http://localhost:5000/api/get_monthly_metrics_for_year?year=${year}`, { withCredentials: true });
   },
   getYearlyMetrics: (year) => {
-    return axios.get(`http://localhost:5000/api/get_yearly_metrics`, {
+    return axios.get(`http://localhost:5000/api/get_yearly_metrics`, { 
+      withCredentials: true,
       params: { year }
     });
   },
   getTopProducts: (year, month, category) => {
-    return axios.get(`http://localhost:5000/api/get_top_products`, {
+    return axios.get(`http://localhost:5000/api/get_top_products`, { withCredentials: true,
       params: { year, month, category },
     });
   },
