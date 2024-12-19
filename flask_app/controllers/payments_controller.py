@@ -4,6 +4,7 @@ from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.payments_model import Payment
 from flask_app.models.purchases_model import Purchase
+from decimal import Decimal, InvalidOperation
 
 
 # CREATE Payment
@@ -37,38 +38,64 @@ def get_payment(payment_id):
 
 
 # UPDATE Payment
+
+
 @app.route('/api/update_payment/<int:payment_id>', methods=['PUT'])
 def update_payment(payment_id):
     try:
         data = request.get_json()
 
-        # Check if the payment exists
+        # Convert amount_paid to Decimal
+        if 'amount_paid' in data:
+            try:
+                data['amount_paid'] = Decimal(data['amount_paid'])
+            except (InvalidOperation, TypeError):
+                return jsonify({"error": "Invalid payment amount."}), 400
+
+        # Fetch the payment
         payment = Payment.get_by_id(payment_id)
         if not payment:
             return jsonify({"error": "Payment not found"}), 404
 
-        # Validate the new amount
-        if data['amount_paid'] <= 0:
-            return jsonify({"error": "Payment amount must be greater than 0"}), 400
+        # Fetch the purchase
+        purchase = Purchase.get_by_id(payment.purchase_id)
+        if not purchase:
+            print(f"Purchase ID from payment: {payment.purchase_id}")
+            return jsonify({"error": "Associated purchase not found"}), 404
 
-        if data['amount_paid'] > payment.purchase.amount * 1.5:  # 50% buffer
+        # Validate the new amount
+        buffer_limit = Decimal('1.5')
+        if data['amount_paid'] > purchase.amount * buffer_limit:
             return jsonify({"error": "Payment amount is unusually high. Please confirm manually."}), 400
 
         # Update payment
-        Payment.update(payment_id, data)
+        data['id'] = payment_id
+        data['client_id'] = payment.client_id
+        data['purchase_id'] = payment.purchase_id
+
+        try:
+            Payment.update(data)
+        except Exception as e:
+            print(f"SQL Update Failed: {str(e)}")
+            return jsonify({"error": "Database update failed"}), 500
 
         # Recalculate purchase status
-        purchase = Purchase.get_by_id(payment.purchase_id)
-        total_paid = purchase.get_total_paid()
+        total_paid = purchase.get_total_amount(purchase.id)
         if total_paid == purchase.amount:
-            purchase.update_payment_status('Paid')
+            Purchase.update_payment_status(purchase.id, 'Paid')
         elif total_paid < purchase.amount:
-            purchase.update_payment_status('Partial')
+            Purchase.update_payment_status(purchase.id, 'Partial')
+
 
         return jsonify({"message": "Payment updated successfully"}), 200
+
     except Exception as e:
         print(f"Error updating payment: {str(e)}")
         return jsonify({"error": "An error occurred"}), 500
+
+
+
+
 
 
 
@@ -88,13 +115,13 @@ def delete_payment(payment_id):
         purchase = Purchase.get_by_id(payment.purchase_id)
 
         # Update purchase status if necessary
-        total_paid = purchase.get_total_paid()
+        total_paid = purchase.get_total_amount(purchase.id)
         if total_paid == 0:
-            purchase.update_payment_status('Pending')
+            purchase.update_payment_status(purchase.id,'Pending')
         elif total_paid < purchase.amount:
-            purchase.update_payment_status('Partial')
+            purchase.update_payment_status(purchase.id, 'Partial')
         else:
-            purchase.update_payment_status('Paid')
+            purchase.update_payment_status(purchase.id, 'Paid')
 
         return jsonify({"message": "Payment deleted successfully"}), 200
     except Exception as e:

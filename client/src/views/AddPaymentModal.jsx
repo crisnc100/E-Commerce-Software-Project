@@ -22,10 +22,10 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
     const paidAmount = parseFloat(amountPaid);
 
     if (!paymentDate) newErrors.paymentDate = 'Payment date is required.';
-    if (!amountPaid || isNaN(paidAmount) || paidAmount <= 0) {
+    if (!amountPaid || isNaN(amountPaid) || amountPaid <= 0) {
       newErrors.amountPaid = 'A valid payment amount is required.';
-    } else if (remainingBalance > 0 && paidAmount < remainingBalance) {
-      setWarningMessage(`Warning: The amount paid is less than the remaining balance of $${remainingBalance.toFixed(2)}.`);
+    } else if (parseFloat(amountPaid) < parseFloat(totalAmountDue || 0)) {
+      setWarningMessage('The payment amount is less than the total due.');
     } else {
       setWarningMessage('');
     }
@@ -36,6 +36,18 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleAmountPaidChange = (e) => {
+    const value = e.target.value;
+    setAmountPaid(value);
+    const amountDue = parseFloat(totalAmountDue || 0); // Safeguard totalAmountDue
+    const paidAmount = parseFloat(value);
+    if (!isNaN(amountDue) && paidAmount < amountDue) {
+      setWarningMessage('Warning: The amount paid is less than the total amount due.');
+    } else {
+      setWarningMessage('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -121,7 +133,7 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
           <input
             type="date"
             value={paymentDate}
-            onChange={(e) => setPaymentDate(e.target.value)}
+            onChange={handleAmountPaidChange}
             className={`w-full p-2 border ${errors.paymentDate ? 'border-red-500' : 'border-gray-300'} rounded-lg mb-4`}
           />
           {errors.paymentDate && <p className="text-red-500 text-sm">{errors.paymentDate}</p>}

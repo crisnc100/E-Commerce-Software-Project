@@ -260,8 +260,9 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
 
     const handleSaveEditPayment = async (updatedPayment) => {
         try {
-            if (updatedPayment.amount_paid <= 0) {
-                setSuccessMessage("Payment amount must be greater than 0.");
+            const amountPaid = parseFloat(updatedPayment.amount_paid); // Convert to a float
+            if (isNaN(amountPaid) || amountPaid <= 0) {
+                setSuccessMessage("Payment amount must be a valid number greater than 0.");
                 return;
             }
 

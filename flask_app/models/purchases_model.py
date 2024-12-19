@@ -3,6 +3,8 @@ from flask_app.utils.session_helper import SessionHelper
 from datetime import datetime, timedelta, timezone
 import logging
 import json
+from decimal import Decimal
+
 
 
 
@@ -63,15 +65,16 @@ class Purchase:
         VALUES (%(client_id)s, %(product_id)s, %(system_id)s, %(size)s, 
         %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, NOW(), NOW());
         """
+        data['system_id'] = SessionHelper.get_system_id()
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     @classmethod
     def get_by_id(cls, purchase_id):
-        """Retrieve a purchase by its ID."""
         query = "SELECT * FROM purchases WHERE id = %(id)s AND system_id = %(system_id)s;"
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'id': purchase_id, 'system_id': SessionHelper.get_system_id()})
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(
+            query, {'id': purchase_id, 'system_id': SessionHelper.get_system_id()}
+        )
         return cls(result[0]) if result else None
-
     @classmethod
     def get_all(cls):
         """Retrieve all purchases."""
@@ -273,6 +276,25 @@ class Purchase:
         data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return result[0]['total_spent'] if result[0]['total_spent'] is not None else 0.0
+    
+    @classmethod
+    def get_total_amount(cls, purchase_id):
+        query = """
+        SELECT SUM(payments.amount_paid) AS total_paid
+        FROM payments
+        JOIN purchases ON payments.purchase_id = purchases.id
+        WHERE purchases.id = %(purchase_id)s
+        AND purchases.system_id = %(system_id)s;
+        """
+        data = {
+            'purchase_id': purchase_id,
+            'system_id': SessionHelper.get_system_id()
+        }
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        # result is expected to be a list of dicts
+        if result and result[0]['total_paid'] is not None:
+            return Decimal(result[0]['total_paid'])
+        return Decimal('0.00')
     
     @classmethod
     def update_overdue_purchases(cls):

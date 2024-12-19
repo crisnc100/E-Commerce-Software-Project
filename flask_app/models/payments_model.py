@@ -68,19 +68,33 @@ class Payment:
     @classmethod
     def update(cls, data):
         """Update an existing payment record with system_id check."""
-        query = """
-        UPDATE payments 
-        JOIN purchases ON payments.purchase_id = purchases.id
-        SET payments.client_id = %(client_id)s, 
-            payments.purchase_id = %(purchase_id)s, 
-            payments.payment_date = %(payment_date)s, 
-            payments.amount_paid = %(amount_paid)s, 
-            payments.payment_method = %(payment_method)s, 
-            payments.updated_at = NOW()
-        WHERE payments.id = %(id)s AND purchases.system_id = %(system_id)s;
-        """
-        data['system_id'] = SessionHelper.get_system_id()
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        try:
+            # Type conversion
+            data['system_id'] = SessionHelper.get_system_id()
+
+            # Debugging
+            print("Data before query execution:", data)
+            print("Data types before query execution:", {key: type(value) for key, value in data.items()})
+
+            # SQL Query
+            query = """
+            UPDATE payments 
+            JOIN purchases ON payments.purchase_id = purchases.id
+            SET payments.client_id = %(client_id)s, 
+                payments.purchase_id = %(purchase_id)s, 
+                payments.payment_date = %(payment_date)s, 
+                payments.amount_paid = %(amount_paid)s, 
+                payments.payment_method = %(payment_method)s, 
+                payments.updated_at = NOW()
+            WHERE payments.id = %(id)s AND purchases.system_id = %(system_id)s;
+            """
+            return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+        except Exception as e:
+            print(f"Error updating payment: {e}")
+            return {"error": "An error occurred"}, 500
+
+
 
 
     @classmethod

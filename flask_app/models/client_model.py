@@ -167,7 +167,7 @@ class Client:
         query = """
         SELECT id, first_name, last_name
         FROM clients
-        WHERE system_id = %(system_id)s AND (first_name LIKE %s OR last_name LIKE %s)
+        WHERE system_id = %s AND (first_name LIKE %s OR last_name LIKE %s)
         """
         params = [SessionHelper.get_system_id(), f"%{name_parts[0]}%", f"%{name_parts[0]}%"]
         for part in name_parts[1:]:

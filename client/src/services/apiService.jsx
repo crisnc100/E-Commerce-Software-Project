@@ -35,28 +35,28 @@ const apiService = {
       withCredentials: true,
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-    
+
   getAllProducts: (page = 1, search = '') => {
     let url = `http://localhost:5000/api/get_all_products/page/${page}`;
     if (search) {
       url += `?search=${encodeURIComponent(search)}`;
     }
-    return axios.get(url, {withCredentials: true });
+    return axios.get(url, { withCredentials: true });
   },
   getClientsForProduct: (productId) =>
     axios.get(`http://localhost:5000/api/get_clients_for_product/${productId}`, { withCredentials: true }
 
     ),
-    updateProduct: (productId, formData) => {
-      return axios.put(
-        `http://localhost:5000/api/update_product/${productId}`,
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          withCredentials: true,
-        }
-      );
-    },    
+  updateProduct: (productId, formData) => {
+    return axios.put(
+      `http://localhost:5000/api/update_product/${productId}`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
+      }
+    );
+  },
   deleteProduct: (productId) => {
     return axios.delete(`http://localhost:5000/api/delete_product/${productId}`, { withCredentials: true });
   },
@@ -92,7 +92,7 @@ const apiService = {
     ),
   updatePurchaseStatus: (purchaseId, formData) => axios.put(`http://localhost:5000/api/update_purchase_status/${purchaseId}`, formData
     , { withCredentials: true }
-    ),
+  ),
   getPurchasesByClientId: (clientId) =>
     axios.get(`http://localhost:5000/api/get_purchases_by_client/${clientId}`, { withCredentials: true }
 
@@ -106,7 +106,7 @@ const apiService = {
         headers: { 'Content-Type': 'application/json' }
       }
     ),
-    
+
   getLatePendingDeliveries: () => {
     return axios.get(`http://localhost:5000/api/get_late_pending_deliveries`, { withCredentials: true })
   },
@@ -123,6 +123,9 @@ const apiService = {
   createPayment: (formData) => axios.post('http://localhost:5000/api/create_payment', formData, { withCredentials: true }
 
   ),
+  updatePayment: (paymentId, formData) =>
+    axios.put(`http://localhost:5000/api/update_payment/${paymentId}`, formData, { withCredentials: true }
+    ),
   getPaymentsByPurchaseId: (purchaseId) => axios.get(`http://localhost:5000/api/get_payments_by_purchase/${purchaseId}`, { withCredentials: true }
 
   ),
@@ -136,11 +139,11 @@ const apiService = {
   allPurchasesByClientId: (clientId, page = 1) =>
     axios.get(`http://localhost:5000/api/all_purchases_for_client/${clientId}/page/${page}`
 
-    , { withCredentials: true }),
+      , { withCredentials: true }),
   allPurchasesByProductId: (productId, page = 1) =>
     axios.get(`http://localhost:5000/api/all_purchases_for_product/${productId}/page/${page}`
 
-    , { withCredentials: true }),
+      , { withCredentials: true }),
 
   searchProductsByName: (name) => {
     return axios.get(`http://localhost:5000/api/search_products?name=${name}`, { withCredentials: true });
@@ -158,7 +161,7 @@ const apiService = {
     return axios.get(`http://localhost:5000/api/get_monthly_metrics`, { withCredentials: true })
   },
   getSingleMonthMetrics: (year, month) => {
-    return axios.get(`http://localhost:5000/api/get_single_month_metrics`, { 
+    return axios.get(`http://localhost:5000/api/get_single_month_metrics`, {
       withCredentials: true,
       params: { year, month }
     });
@@ -167,13 +170,14 @@ const apiService = {
     return axios.get(`http://localhost:5000/api/get_monthly_metrics_for_year?year=${year}`, { withCredentials: true });
   },
   getYearlyMetrics: (year) => {
-    return axios.get(`http://localhost:5000/api/get_yearly_metrics`, { 
+    return axios.get(`http://localhost:5000/api/get_yearly_metrics`, {
       withCredentials: true,
       params: { year }
     });
   },
   getTopProducts: (year, month, category) => {
-    return axios.get(`http://localhost:5000/api/get_top_products`, { withCredentials: true,
+    return axios.get(`http://localhost:5000/api/get_top_products`, {
+      withCredentials: true,
       params: { year, month, category },
     });
   },
