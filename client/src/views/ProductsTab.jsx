@@ -47,7 +47,9 @@ const ProductsTab = () => {
     setIsLoading(true);
     try {
       const response = await apiService.getAllProducts(page, search);
+      console.log('API Response:', response.data); // Log the full response
       const newProducts = response.data.products;
+      console.log('Fetched products:', newProducts); // Ensure this is an array
       const totalCount = response.data.total_count;
 
       // Instead of appending, always replace:
@@ -189,7 +191,7 @@ const ProductsTab = () => {
 
       // Re-fetch the updated product list
       const response = await apiService.getAllProducts();
-      setProducts(response.data);
+      setProducts(response.data.products);
 
       setSuccessMessage('Product updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);

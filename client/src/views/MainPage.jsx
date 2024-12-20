@@ -168,12 +168,18 @@ const MainPage = () => {
       setNotifications((prev) =>
         prev.filter((notification) => notification.id !== purchaseId)
       );
-      alert('Purchase marked as delivered!');
+      setSuccessMessage('Order marked as delivered!');
+  
+      // Clear the success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
     } catch (error) {
       console.error('Error marking as delivered:', error);
       alert('Failed to mark as delivered. Please try again.');
     }
   };
+  
 
   const fetchRecentActivities = async () => {
     try {

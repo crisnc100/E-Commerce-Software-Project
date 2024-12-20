@@ -72,10 +72,6 @@ class Payment:
             # Type conversion
             data['system_id'] = SessionHelper.get_system_id()
 
-            # Debugging
-            print("Data before query execution:", data)
-            print("Data types before query execution:", {key: type(value) for key, value in data.items()})
-
             # SQL Query
             query = """
             UPDATE payments 

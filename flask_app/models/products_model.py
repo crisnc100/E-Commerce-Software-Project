@@ -73,29 +73,18 @@ class Product:
     @classmethod
     def update(cls, data):
         """Update an existing product's information."""
-        query = """
-        UPDATE products 
-        SET name = %(name)s, screenshot_photo = %(screenshot_photo)s, description = %(description)s, 
-        price = %(price)s, updated_at = NOW() 
-        WHERE products.id = %(id)s;
-        """
-        
-        # Debugging System ID retrieval
         try:
-            system_id = SessionHelper.get_system_id()
-            print("System ID Retrieved:", system_id)
-        except Exception as e:
-            print("Error Retrieving System ID:", str(e))
-            raise
-
-        data['system_id'] = system_id
-        print("Data Before Query:", data)
-
-        try:
+            data['system_id'] = SessionHelper.get_system_id()
+            query = """
+            UPDATE products 
+            SET name = %(name)s, screenshot_photo = %(screenshot_photo)s, description = %(description)s, 
+            price = %(price)s, updated_at = NOW() 
+            WHERE products.id = %(id)s AND products.system_id = %(system_id)s;
+            """
             return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         except Exception as e:
-            print("Query Execution Failed:", e)
-            raise
+            print(f"Error updating payment: {e}")
+            return {"error": "An error occurred"}, 500
 
 
     @classmethod
