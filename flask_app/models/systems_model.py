@@ -4,19 +4,27 @@ class System:
     def __init__(self, data):
         self.id = data.get('id')
         self.owner_id = data.get('owner_id')
+        self.name = data.get('name')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
 
     # Create a new system
     @classmethod
-    def create_system(cls, owner_id):
-        """Create a new system and return the system ID."""
+    def create_system(cls, name, owner_id):
+        """Create a new system and return the ID."""
         query = """
-        INSERT INTO systems (owner_id, created_at, updated_at)
-        VALUES (%(owner_id)s, NOW(), NOW());
+        INSERT INTO systems (name, owner_id, created_at, updated_at)
+        VALUES (%(name)s, %(owner_id)s, NOW(), NOW());
         """
-        data = {'owner_id': owner_id}
+        data = {'name': name, 'owner_id': owner_id}
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    
+    @classmethod
+    def system_name_exists(cls, name):
+        """Check if a system name already exists."""
+        query = "SELECT * FROM systems WHERE name = %(name)s;"
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'name': name})
+        return bool(result)
     
   
     @classmethod

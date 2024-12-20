@@ -31,6 +31,7 @@ class Product:
         INSERT INTO products (name, screenshot_photo, description, price, created_at, updated_at, system_id) 
         VALUES (%(name)s, %(screenshot_photo)s, %(description)s, %(price)s, NOW(), NOW(), %(system_id)s);
         """
+        data['system_id'] = SessionHelper.get_system_id()
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     @classmethod

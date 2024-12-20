@@ -18,6 +18,10 @@ const apiService = {
   // Login with email and passcode (first-time login)
   login: (data) =>
     axios.post('http://localhost:5000/api/login', data, { withCredentials: true }),
+  getUser: () => 
+    axios.get(`http://localhost:5000/api/get_user`, {withCredentials: true}
+
+    ),
 
   // Quick login with passcode only
   quickLogin: (data) =>

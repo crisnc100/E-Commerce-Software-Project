@@ -13,6 +13,8 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     const checkAuthentication = async () => {
       try {
         const response = await apiService.isAuthenticated();
+        console.log('Authenticated Response:', response.data); // Debug log
+
         setAuthStatus({
           loading: false,
           user: response.data.user, // Example: { role, email }

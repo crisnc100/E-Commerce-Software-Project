@@ -11,11 +11,18 @@ def system_exists():
     """
     Check if the system exists and return session status.
     """
+    print(f"Session data during system check: {dict(session)}")  # Debug print
     system = System.get_system()
+    session_active = 'system_id' in session and 'user_id' in session
+    quick_login_available = 'system_id' in session  # Check only for system_id
     return jsonify({
         'exists': bool(system),
-        'session_active': 'system_id' in session
+        'session_active': session_active,
+        'quick_login_available': quick_login_available
     }), 200
+
+
+
 
 
 # REGISTER ADMIN AND INITIAL SYSTEM SETUP
@@ -25,23 +32,75 @@ def register_admin():
     Register the initial admin user for the system.
     """
     data = request.get_json()
-    first_name, last_name, email, passcode = data.get('first_name'), data.get('last_name'), data.get('email'), data.get('passcode')
+    system_name = data.get('system_name')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    email = data.get('email')
+    passcode = data.get('passcode')
 
-    if User.get_user():
-        return jsonify({'error': 'System already initialized'}), 400
+    # Validate input fields
+    if not all([system_name, first_name, last_name, email, passcode]):
+        return jsonify({'error': 'All fields are required'}), 400
 
+    # Validate system name
+    if System.system_name_exists(system_name):
+        return jsonify({'error': 'System name already exists'}), 400
+
+    # Prevent duplicate email registration
+    if User.get_by_email(email):
+        return jsonify({'error': 'Email already registered'}), 400
+
+    # Validate passcode strength
     if not User.validate_passcode(passcode):
         return jsonify({'error': 'Passcode must be at least 6 characters'}), 400
 
+    # Hash the passcode
     passcode_hash = User.hash_passcode(passcode)
-    user_id = User.create_user({'first_name': first_name, 'last_name': last_name, 'email': email, 'passcode_hash': passcode_hash, 'role': 'admin'})
-    system_id = System.create_system(owner_id=user_id)
-    User.update_system_id(user_id, system_id)
-    
-    SessionHelper.set_system_id(system_id)
-    session.update({'user_id': user_id, 'email': email, 'role': 'admin'})
 
-    return jsonify({'message': 'Admin account created', 'system_id': system_id}), 201
+    try:
+        # Create the system without an owner initially
+        system_id = System.create_system(name=system_name, owner_id=None)
+
+        # Create the admin user and link to the system
+        admin_id = User.create_admin({
+            'first_name': first_name,
+            'last_name': last_name,
+            'email': email,
+            'passcode_hash': passcode_hash,
+            'system_id': system_id
+        })
+
+        # Update the system with the owner's ID
+        System.update_owner(system_id, admin_id)
+
+        # Update session
+        session.update({'system_id': system_id, 'user_id': admin_id, 'role': 'admin'})
+
+        return jsonify({
+            'message': 'System created successfully',
+            'system_id': system_id,
+            'admin_email': email,
+            'system_name': system_name
+        }), 201
+    except Exception as e:
+        app.logger.error(f"Error creating system: {str(e)}")  # Log the error for debugging
+        return jsonify({'error': 'An unexpected error occurred'}), 500
+
+    
+
+@app.route('/api/validate_system_name', methods=['POST'])
+def validate_system_name():
+    """
+    Check if a system name is available.
+    """
+    data = request.get_json()
+    system_name = data.get('system_name')
+
+    if System.system_name_exists(system_name):
+        return jsonify({'available': False, 'error': 'System name already exists'}), 400
+
+    return jsonify({'available': True}), 200
+
 
 
 # LOGIN WITH EMAIL AND PASSCODE
@@ -54,11 +113,15 @@ def login():
     email, passcode_input = data.get('email'), data.get('passcode')
 
     user = User.get_by_email(email)
+    print(f"User fetched by email: {vars(user) if user else 'No user found'}")  # Debug print
+
     if not user or not User.verify_passcode(passcode_input, user.passcode_hash):
         return jsonify({'error': 'Invalid email or passcode'}), 401
 
     SessionHelper.set_system_id(user.system_id)
     session.update({'user_id': user.id, 'email': user.email, 'role': user.role})
+    print(f"Session after login: {dict(session)}")  # Debug print
+
 
     return jsonify({'message': 'Login successful'}), 200
 
@@ -122,21 +185,51 @@ def quick_login():
     data = request.get_json()
     passcode_input = data.get('passcode')
 
-    user = User.get_user()
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'No active session'}), 401
+
+    user = User.get_by_id(user_id)
     if not user or not User.verify_passcode(passcode_input, user.passcode_hash):
         return jsonify({'error': 'Invalid passcode'}), 401
 
-    return jsonify({'message': 'Quick login successful'}), 200
+    # Add email and role to the session
+    session.update({
+        'session_active': True,
+        'email': user.email,
+        'role': user.role
+    })
+
+    return jsonify({
+        'message': 'Quick login successful',
+        'user': {
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }
+    }), 200
+
+
+
+
+
 
 
 # LOGOUT
 @app.route('/api/logout', methods=['POST'])
 def logout():
     """
-    Log the user out and clear session data.
+    Log the user out and clear session data, except for system_id and user_id (for quick login).
     """
+    system_id = session.get('system_id')
+    user_id = session.get('user_id')  # Preserve user_id for quick login
     session.clear()
+    if system_id:
+        session['system_id'] = system_id
+    if user_id:  # Add this line
+        session['user_id'] = user_id  # Preserve user_id for quick login
     return jsonify({'message': 'Logged out successfully'}), 200
+
+
 
 @app.route('/api/is_authenticated', methods=['GET'])
 def is_authenticated():
@@ -155,3 +248,18 @@ def is_authenticated():
         }), 200
     else:
         return jsonify({'authenticated': False}), 401
+    
+
+@app.route('/api/get_user', methods=['GET'])
+def get_user():
+    """
+    Retrieve the logged-in user's details from the session.
+    """
+    if 'user_id' in session:
+        user = User.get_by_id(session['user_id'])  # Create a `get_by_id` method in `User` model
+        if user:
+            return jsonify({
+                'first_name': user.first_name,
+                'last_name': user.last_name
+            }), 200
+    return jsonify({'error': 'No user logged in'}), 401

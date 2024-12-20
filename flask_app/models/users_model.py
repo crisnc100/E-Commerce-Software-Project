@@ -2,6 +2,8 @@ from flask_app.config.mysqlconnection import connectToMySQL
 from flask_bcrypt import Bcrypt
 from flask_app import app
 from flask_app.utils.session_helper import SessionHelper
+from flask import request, jsonify, session
+
 
 bcrypt = Bcrypt(app)  # Initialize bcrypt
 
@@ -25,13 +27,23 @@ class User:
         query = "SELECT * FROM users WHERE email = %(email)s;"
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'email': email})
         return cls(result[0]) if result else None
+    
+
+    @classmethod
+    def create_admin(cls, data):
+        """Create a new admin user and return the user ID."""
+        query = """
+        INSERT INTO users (first_name, last_name, email, passcode_hash, system_id, role, created_at, updated_at)
+        VALUES (%(first_name)s, %(last_name)s, %(email)s, %(passcode_hash)s, %(system_id)s, 'admin', NOW(), NOW());
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     @classmethod
     def create_user(cls, data):
         """Create a user record."""
         query = """
         INSERT INTO users (first_name, last_name, email, passcode_hash, system_id, role, created_at, updated_at)
-        VALUES (%(first_name)s, %(last_name)s, %(email)s, %(passcode_hash)s, %(system_id)s, %(role)s, NOW(), NOW());
+        VALUES (%(first_name)s, %(last_name)s, %(email)s, %(passcode_hash)s, %(system_id)s, 'user', NOW(), NOW());
         """
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
@@ -51,6 +63,14 @@ class User:
         query = "SELECT * FROM users LIMIT 1;"
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query)
         return cls(result[0]) if result else None
+    
+    @classmethod
+    def get_by_id(cls, user_id):
+        """Retrieve a user record by ID."""
+        query = "SELECT * FROM users WHERE id = %(user_id)s;"
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'user_id': user_id})
+        return cls(result[0]) if result else None
+
 
 
     @classmethod
@@ -72,8 +92,6 @@ class User:
     @staticmethod
     def verify_passcode(passcode_input, passcode_hash):
         """Verify the passcode against the stored hash."""
-        print(f"Input Passcode: {passcode_input}")
-        print(f"Stored Passcode Hash: {passcode_hash}")
         return bcrypt.check_password_hash(passcode_hash, passcode_input)
 
 
