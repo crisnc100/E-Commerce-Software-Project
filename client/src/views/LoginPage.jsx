@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReactTypingEffect from 'react-typing-effect';
 import apiService from '../services/apiService';
 
 const LoginPage = () => {
@@ -15,19 +16,26 @@ const LoginPage = () => {
       try {
         const response = await apiService.systemExists();
         console.log('System Exists Response:', response.data); // Debug print
-        setIsQuickLogin(response.data.quick_login_available);
-        if (response.data.session_active) {
-          fetchUserName(); // Fetch user's name only if session is active
+        const sessionActive = response.data.session_active;
+
+        if (sessionActive) {
+          const user = await fetchUserName();
+          // Disable Quick Login for users with temp passwords
+          if (user && user.is_temp_password) {
+            setIsQuickLogin(false);
+          } else {
+            setIsQuickLogin(response.data.quick_login_available);
+          }
+        } else {
+          setIsQuickLogin(response.data.quick_login_available);
         }
       } catch (err) {
         console.error('Error checking system status:', err);
       }
     };
-  
+
     checkSystemStatus();
   }, []);
-  
-  
 
   const fetchUserName = async () => {
     try {
@@ -43,32 +51,44 @@ const LoginPage = () => {
       let response;
       if (isQuickLogin) {
         response = await apiService.quickLogin({ passcode });
-        console.log('Quick Login Response:', response.data); // Debug log
       } else {
         response = await apiService.login({ email, passcode });
-        console.log('Normal Login Response:', response.data); // Debug log
       }
   
-      console.log('Navigating to /dashboard'); // Debug print
+      // Redirect to dashboard if login is successful
       navigate('/dashboard');
     } catch (err) {
-      console.error('Login Error:', err); // Debug log for errors
-      setError(err.response?.data?.error || 'Login failed');
+      // Handle 403 error specifically for temporary password
+      if (err.response?.status === 403 && err.response?.data?.force_password_change) {
+        navigate('/update-password-required');
+      } else {
+        // For other errors, show the error message
+        setError(err.response?.data?.error || 'Login failed');
+      }
     }
   };
   
-  
-
   const handleSubmit = (e) => {
     e.preventDefault();
     handleLogin();
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
       <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
         <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          {isQuickLogin ? `Welcome back, ${userName || 'User'}!` : 'Login'}
+          {isQuickLogin ? (
+            <ReactTypingEffect
+                        text={`Welcome back, ${userName || 'User'}!`}
+                        className="text-3xl font-semibold text-gray-800"
+                        speed={100}
+                        eraseDelay={1000000}
+                        typingDelay={500}
+                      />
+          ) : (
+            'Login'
+          )}
         </h2>
         <p className="text-gray-600 text-center mb-6">
           {isQuickLogin
@@ -102,6 +122,24 @@ const LoginPage = () => {
             {isQuickLogin ? 'Unlock' : 'Login'}
           </button>
         </form>
+
+        <div className="mt-6 flex flex-col gap-4">
+          {isQuickLogin && (
+            <button
+              onClick={() => setIsQuickLogin(false)} // Switch to normal login
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded transition"
+            >
+              Switch to Normal Login
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/register')} // Navigate to the system registration page
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition"
+          >
+            Register a New System
+          </button>
+        </div>
+
         <footer className="mt-6 text-gray-500 text-sm text-center">
           &copy; {new Date().getFullYear()} Your Company. All rights reserved.
         </footer>

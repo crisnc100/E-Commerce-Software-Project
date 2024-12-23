@@ -2,7 +2,15 @@ from flask_app.config.mysqlconnection import connectToMySQL
 from flask_bcrypt import Bcrypt
 from flask_app import app
 from flask_app.utils.session_helper import SessionHelper
-from flask import request, jsonify, session
+from flask import g
+import random
+import string
+import datetime
+from datetime import datetime, timedelta
+
+
+LAST_LOGIN_TRACKER = {}
+
 
 
 bcrypt = Bcrypt(app)  # Initialize bcrypt
@@ -18,6 +26,8 @@ class User:
         self.role = data.get('role')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
+        self.is_temp_password = data.get('is_temp_password')
+        self.temp_password_expiry = data.get('temp_password_expiry')
 
     ### Class Methods ###
 
@@ -39,13 +49,35 @@ class User:
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     @classmethod
-    def create_user(cls, data):
-        """Create a user record."""
-        query = """
-        INSERT INTO users (first_name, last_name, email, passcode_hash, system_id, role, created_at, updated_at)
-        VALUES (%(first_name)s, %(last_name)s, %(email)s, %(passcode_hash)s, %(system_id)s, 'user', NOW(), NOW());
+    def generate_temporary_password(cls):
         """
-        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        Generate a strong random temporary password.
+        """
+        characters = string.ascii_letters + string.digits + "!@#$%^&*()"
+        temp_password = ''.join(random.choice(characters) for _ in range(12))
+        return temp_password
+
+    @classmethod
+    def add_user_with_temp_password(cls, user_data):
+        """
+        Add a new user with a temporary password.
+        """
+        temp_password = cls.generate_temporary_password()
+        hashed_password = bcrypt.generate_password_hash(temp_password).decode('utf-8')
+        expiry_time = datetime.now() + timedelta(hours=48)
+
+        query = """
+            INSERT INTO users (first_name, last_name, email, passcode_hash, system_id, role, is_temp_password, temp_password_expiry)
+            VALUES (%(first_name)s, %(last_name)s, %(email)s, %(passcode_hash)s, %(system_id)s, %(role)s, %(is_temp_password)s, %(temp_password_expiry)s)
+        """
+        data = {
+            **user_data,
+            'passcode_hash': hashed_password,
+            'is_temp_password': True,
+            'temp_password_expiry': expiry_time
+        }
+        user_id = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return {'id': user_id, 'temp_password': temp_password}
 
     @classmethod
     def update_system_id(cls, user_id, system_id):
@@ -70,17 +102,24 @@ class User:
         query = "SELECT * FROM users WHERE id = %(user_id)s;"
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, {'user_id': user_id})
         return cls(result[0]) if result else None
+    
+
+    
 
 
 
     @classmethod
-    def update_passcode(cls, data):
-        """Update the user's passcode."""
+    def update_temp_password(cls, user_id, new_password):
+        hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+
         query = """
-        UPDATE users SET passcode_hash = %(passcode_hash)s, updated_at = NOW()
-        WHERE id = %(id)s;
+            UPDATE users
+            SET passcode_hash = %(passcode_hash)s, is_temp_password = FALSE, temp_password_expiry = NULL
+            WHERE id = %(id)s
         """
+        data = {'passcode_hash': hashed_password, 'id': user_id}
         connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
 
     ### Validation and Authentication ###
 
@@ -100,3 +139,53 @@ class User:
     def hash_passcode(passcode):
         """Hash the passcode before storing."""
         return bcrypt.generate_password_hash(passcode)
+    
+
+    @classmethod
+    def get_users_by_system(cls, system_id):
+        """
+        Fetch all users associated with a specific system from the database.
+        """
+        query = """
+            SELECT id, first_name, last_name, email, role
+            FROM users
+            WHERE system_id = %(system_id)s;
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'system_id': system_id})
+    
+    @staticmethod
+    def log_last_login(user_id):
+        """
+        Logs the last login time for a user.
+        """
+        LAST_LOGIN_TRACKER[user_id] = datetime.now()  # Corrected to `datetime.now()`
+
+
+    @classmethod
+    def get_last_login(cls, user_id):
+        """
+        Retrieve the last login time for a user from the tracker.
+        """
+        return LAST_LOGIN_TRACKER.get(user_id, None)
+
+
+    @classmethod
+    def get_users_with_last_login(cls, system_id):
+        """
+        Fetch users for a system and include their last login information.
+        """
+        users = cls.get_users_by_system(system_id)
+        for user in users:
+            user['last_login'] = cls.get_last_login(user['id'])
+        return users
+    
+    # User Model: flask_app/models/user.py
+    @classmethod
+    def delete_user(cls, user_id):
+        """
+        Delete a user by their ID.
+        """
+        query = "DELETE FROM users WHERE id = %(user_id)s;"
+        connectToMySQL('maria_ortegas_project_schema').query_db(query, {'user_id': user_id})
+        return True
+

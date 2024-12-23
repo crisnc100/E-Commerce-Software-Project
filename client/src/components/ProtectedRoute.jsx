@@ -17,7 +17,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
         setAuthStatus({
           loading: false,
-          user: response.data.user, // Example: { role, email }
+          user: response.data.user, // Example: { role, email, is_temp_password }
           error: null,
         });
       } catch (error) {
@@ -40,8 +40,18 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     return <div>Loading...</div>;
   }
 
-  // Redirect if user is not authenticated or role is not allowed
-  if (!user || (allowedRoles.length > 0 && !allowedRoles.includes(user.role))) {
+  // Redirect to login if the user is not authenticated
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Check if the user has a temporary password and redirect to update-password
+  if (user.is_temp_password) {
+    return <Navigate to="/update-password-required" replace />;
+  }
+
+  // Restrict access if the user's role is not allowed
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 

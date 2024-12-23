@@ -16,26 +16,18 @@ def get_recent_activities():
     try:
         # Calculate the time interval
         time_span = int(request.args.get('time_span', 3))  # Default to 72 hours
-        print(f"Received time_span: {time_span}")
 
         since_date = datetime.now() - timedelta(days=time_span)
-        print(f"Since Date: {since_date}")
-
         # Fetch data from models
         recent_clients = Client.get_recent_clients(since_date)
-        print("Recent Clients:", recent_clients)
 
         recent_products = Product.get_recent_products(since_date)
-        print("Recent Products:", recent_products)
 
         recent_purchases = Purchase.get_recent_purchases(since_date)
-        print("Recent Purchases:", recent_purchases)
 
         recent_payments = Payment.get_recent_payments(since_date)
-        print("Recent Payments:", recent_payments)
 
         recent_shipping_updates = Purchase.get_recent_shipping_updates(since_date)
-        print("Recent Shipping Updates:", recent_shipping_updates)
 
         # Combine and sort
         all_activities = (
@@ -45,11 +37,9 @@ def get_recent_activities():
             recent_payments +
             recent_shipping_updates
         )
-        print("All Activities Combined:", all_activities)
 
         # Sort by created_at
         sorted_activities = sorted(all_activities, key=lambda x: x['created_at'], reverse=True)
-        print("Sorted Activities:", sorted_activities)
 
         return jsonify({'recent_activities': sorted_activities}), 200
 

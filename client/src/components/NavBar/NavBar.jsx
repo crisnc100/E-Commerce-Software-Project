@@ -1,7 +1,7 @@
 // src/components/Navbar.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiUpload, FiLock, FiUser } from 'react-icons/fi';
+import { FiUpload, FiLock, FiUser, FiSettings } from 'react-icons/fi';
 import apiService from '../../services/apiService';
 import UploadProductModal from '../UploadProductModal';
 import { useCallback } from 'react';
@@ -10,7 +10,8 @@ import { Modal } from 'react-responsive-modal';
 
 
 
-const Navbar = () => {
+const Navbar = ({ role }) => {
+
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [searchType, setSearchType] = useState('product'); // 'product' or 'client'
@@ -133,7 +134,7 @@ const Navbar = () => {
     } else if (searchType === 'client') {
       const fullName = `${result.first_name} ${result.last_name}`;
       setSelectedClientName(fullName);
-      
+
       setSelectedProductName(''); // Clear the product name just in case
     }
 
@@ -300,20 +301,23 @@ const Navbar = () => {
           {isProfileMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg flex flex-col">
               <Link
-                to="/settings"
-                className="block px-4 py-2 text-gray-800 hover:bg-gray-200"
+                to="settings"
+                className="block px-4 py-2 flex items-center text-gray-800 hover:bg-gray-200"
               >
-                Settings
+                <FiSettings className="mr-1" /> Settings
               </Link>
-              <button
-                onClick={handleLogout}
-                className="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-200"
-              >
-                Logout
-              </button>
+              {role === 'admin' && (
+                <Link
+                  to="admin"
+                  className="block px-4 py-2 flex items-center text-gray-800 hover:bg-gray-200"
+                >
+                  <FiUser className="mr-1" /> Admin
+                </Link>
+              )}
             </div>
           )}
         </div>
+
       </div>
 
       {/* Upload Product Modal */}
@@ -353,7 +357,7 @@ const Navbar = () => {
                     {`Products Purchased by ${selectedClientName}`}
                   </span>
                 ) : 'Products Purchased by This Client')}
-          </h2>
+            </h2>
 
 
             <div className="overflow-y-auto" style={{ maxHeight: '65vh' }}>

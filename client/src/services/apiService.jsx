@@ -15,13 +15,36 @@ const apiService = {
       passcode
     }, { withCredentials: true }),
 
+  addUserWithTempPass: (firstName, lastName, email, role) =>
+    axios.post(`http://localhost:5000/api/add_user_manually`, {
+      first_name: firstName,
+      last_name: lastName,
+      email: email,
+      role: role
+    }, { withCredentials: true }),
+
   // Login with email and passcode (first-time login)
   login: (data) =>
     axios.post('http://localhost:5000/api/login', data, { withCredentials: true }),
-  getUser: () => 
-    axios.get(`http://localhost:5000/api/get_user`, {withCredentials: true}
+  getUser: () =>
+    axios.get(`http://localhost:5000/api/get_user`, { withCredentials: true }
 
     ),
+  getUsersBySystem: () =>
+    axios.get(`http://localhost:5000/api/get_users_by_system`, { withCredentials: true }
+
+    ),
+  deleteUser: (userId) => {
+    axios.delete(`http://localhost:5000/api/delete_user/${userId}`, { withCredentials: true });
+  },
+
+  updateTempPasscode: (newPasscode) =>
+    axios.post(
+      'http://localhost:5000/api/update_temp_password',
+      { new_password: newPasscode },
+      { withCredentials: true }
+    ),
+  
 
   // Quick login with passcode only
   quickLogin: (data) =>
