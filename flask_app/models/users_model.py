@@ -109,16 +109,24 @@ class User:
 
 
     @classmethod
-    def update_temp_password(cls, user_id, new_password):
-        hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+    def update_temp_password(cls, user_id, new_password, temp_password_expiry=None, is_temp_password=False):
+            hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
 
-        query = """
-            UPDATE users
-            SET passcode_hash = %(passcode_hash)s, is_temp_password = FALSE, temp_password_expiry = NULL
-            WHERE id = %(id)s
-        """
-        data = {'passcode_hash': hashed_password, 'id': user_id}
-        connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+            query = """
+                UPDATE users
+                SET passcode_hash = %(passcode_hash)s,
+                    is_temp_password = %(is_temp_password)s,
+                    temp_password_expiry = %(temp_password_expiry)s
+                WHERE id = %(id)s
+            """
+            data = {
+                'passcode_hash': hashed_password,
+                'is_temp_password': is_temp_password,
+                'temp_password_expiry': temp_password_expiry,
+                'id': user_id
+            }
+            connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
 
 
     ### Validation and Authentication ###
@@ -147,7 +155,7 @@ class User:
         Fetch all users associated with a specific system from the database.
         """
         query = """
-            SELECT id, first_name, last_name, email, role
+            SELECT id, first_name, last_name, email, role, is_temp_password
             FROM users
             WHERE system_id = %(system_id)s;
         """

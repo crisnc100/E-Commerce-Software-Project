@@ -44,7 +44,14 @@ const apiService = {
       { new_password: newPasscode },
       { withCredentials: true }
     ),
-  
+  resendTempPassword: (userId) =>
+    axios.post(
+      'http://localhost:5000/api/resend_temp_password',
+      { user_id: userId },
+      { withCredentials: true }
+    ),
+
+
 
   // Quick login with passcode only
   quickLogin: (data) =>

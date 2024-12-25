@@ -5,6 +5,9 @@ from flask_app.models.systems_model import System
 from flask_app.utils.session_helper import SessionHelper
 from flask_mail import Mail, Message
 mail = Mail(app)
+from datetime import datetime, timedelta
+import datetime  # Ensure datetime is imported at the top
+
 
 
 
@@ -115,16 +118,15 @@ def add_user_manually():
     """
     admin_id = session.get('user_id')
     role = session.get('role')
+    system_id = session.get('system_id')
+
 
     # Debugging: Check session data
-    print(f"Session data: admin_id={admin_id}, role={role}")
-
     if not admin_id or role != 'admin':
         return jsonify({'error': 'Unauthorized access'}), 403
 
     try:
         data = request.get_json()
-        print(f"Received data: {data}")  # Debugging: Log received data
 
         email = data.get('email')
         if not email:
@@ -134,6 +136,10 @@ def add_user_manually():
         existing_user = User.get_by_email(email)
         if existing_user:
             return jsonify({'error': 'Email already exists in the system'}), 400
+        
+        system_data = System.get_system_by_id(system_id)
+        if not system_data:
+            raise ValueError(f"System with ID {system_id} not found")
 
         user_data = {
             'first_name': data.get('first_name'),
@@ -154,7 +160,7 @@ def add_user_manually():
         # Prepare and send email
         # Send email
         msg = Message(
-            subject="Welcome to Your System",
+            subject=f"Welcome to {system_data.name}",
             recipients=[user_data['email']]
         )
         msg.html = f"""
@@ -165,7 +171,7 @@ def add_user_manually():
             <li><strong>Temporary Password:</strong> {user['temp_password']}</li>
         </ul>
         <p>Please log in using these credentials and update your password within 48 hours.</p>
-        <p>Best regards,<br>The System Team</p>
+        <p>Best regards,<br>{system_data.name} Team</p>
         """
         mail.send(msg)
 
@@ -194,6 +200,13 @@ def login():
     user = User.get_by_email(email)
     if not user or not User.verify_passcode(passcode_input, user.passcode_hash):
         return jsonify({'error': 'Invalid email or passcode'}), 401
+    
+
+      # Check if the password is temporary and expired
+    if user.is_temp_password and user.temp_password_expiry < datetime.datetime.now():
+        return jsonify({
+            'error': 'Temporary password has expired. Please contact your admin for a new password.'
+        }), 403
 
     # Check if temporary password is being used
     if user.is_temp_password:
@@ -385,6 +398,70 @@ def delete_user(user_id):
         return jsonify({'message': 'User deleted successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
+
+@app.route('/api/resend_temp_password', methods=['POST'])
+def resend_temp_password():
+    """
+    Resend a new temporary password to a user.
+    """
+    admin_id = session.get('user_id')
+    role = session.get('role')
+    system_id = session.get('system_id')
+
+    if not admin_id or role != 'admin':
+        return jsonify({'error': 'Unauthorized access'}), 403
+
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+
+        if not user_id:
+            raise ValueError("User ID is missing in the request")
+
+        # Fetch the user
+        user = User.get_by_id(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Fetch system data
+        system_data = System.get_system_by_id(system_id)
+        if not system_data:
+            raise ValueError(f"System with ID {system_id} not found")
+
+        # Generate a new temporary password
+        new_temp_password = User.generate_temporary_password()
+
+        # Calculate new expiry time (48 hours from now)
+        new_expiry_time = datetime.now() + timedelta(hours=48)
+
+        # Update the user's password and expiry time
+        User.update_temp_password(user_id, new_temp_password, temp_password_expiry=new_expiry_time, is_temp_password=True)
+
+        # Send email with the new temporary password
+        msg = Message(
+            subject=f"New Temporary Password for {system_data.name}",
+            recipients=[user.email]
+        )
+        msg.html = f"""
+        <p>Hi {user.first_name},</p>
+        <p>A new temporary password has been generated for your account:</p>
+        <ul>
+            <li><strong>Email:</strong> {user.email}</li>
+            <li><strong>New Temporary Password:</strong> {new_temp_password}</li>
+        </ul>
+        <p>Please log in using these credentials and update your password within 48 hours.</p>
+        <p>Best regards,<br>{system_data.name} Team</p>
+        """
+        mail.send(msg)
+
+        return jsonify({'message': 'New temporary password sent successfully.'}), 200
+
+    except Exception as e:
+        print(f"Error in resend_temp_password: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 
 
 

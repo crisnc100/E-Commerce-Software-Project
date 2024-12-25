@@ -54,25 +54,27 @@ const LoginPage = () => {
       } else {
         response = await apiService.login({ email, passcode });
       }
-  
+
       // Redirect to dashboard if login is successful
       navigate('/dashboard');
     } catch (err) {
       // Handle 403 error specifically for temporary password
       if (err.response?.status === 403 && err.response?.data?.force_password_change) {
         navigate('/update-password-required');
+      } else if (err.response?.status === 403) {
+        setError('Temporary password has expired. Contact the admin for a new password.');
       } else {
         // For other errors, show the error message
         setError(err.response?.data?.error || 'Login failed');
       }
     }
   };
-  
+
   const handleSubmit = (e) => {
     e.preventDefault();
     handleLogin();
   };
-  
+
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
@@ -80,12 +82,12 @@ const LoginPage = () => {
         <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
           {isQuickLogin ? (
             <ReactTypingEffect
-                        text={`Welcome back, ${userName || 'User'}!`}
-                        className="text-3xl font-semibold text-gray-800"
-                        speed={100}
-                        eraseDelay={1000000}
-                        typingDelay={500}
-                      />
+              text={`Welcome back, ${userName || 'User'}!`}
+              className="text-3xl font-semibold text-gray-800"
+              speed={100}
+              eraseDelay={1000000}
+              typingDelay={500}
+            />
           ) : (
             'Login'
           )}
