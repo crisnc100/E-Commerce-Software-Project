@@ -6,22 +6,8 @@ import apiService from '../services/apiService';
 
 
 
-const Dashboard = () => {
-    const [userRole, setUserRole] = useState('');
+const Dashboard = ({user}) => {
 
-
-    useEffect(() => {
-        const fetchUserRole = async () => {
-            try {
-                const response = await apiService.getUser();
-                setUserRole(response.data.role);
-            } catch (err) {
-                console.error('Error fetching user role:', err);
-            }
-        };
-    
-        fetchUserRole();
-    }, []);
     
 
     return (
@@ -31,9 +17,9 @@ const Dashboard = () => {
 
             {/* Main Content Area */}
             <div className="flex-1 ml-72"> {/* Adjust the 'ml-72' to match the sidebar width */}
-                <NavBar role={userRole} />
+                <NavBar role={user.role} />
                 <main className="p-4">
-                    <Outlet /> {/* Renders the routed components */}
+                <Outlet context={{ user }} /> 
                 </main>
             </div>
         </div>

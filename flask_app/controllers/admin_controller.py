@@ -6,7 +6,6 @@ from flask_app.utils.session_helper import SessionHelper
 from flask_mail import Mail, Message
 mail = Mail(app)
 from datetime import datetime, timedelta
-import datetime  # Ensure datetime is imported at the top
 
 
 
@@ -197,13 +196,14 @@ def login():
     data = request.get_json()
     email, passcode_input = data.get('email'), data.get('passcode')
 
+
     user = User.get_by_email(email)
     if not user or not User.verify_passcode(passcode_input, user.passcode_hash):
         return jsonify({'error': 'Invalid email or passcode'}), 401
     
 
       # Check if the password is temporary and expired
-    if user.is_temp_password and user.temp_password_expiry < datetime.datetime.now():
+    if user.is_temp_password and user.temp_password_expiry < datetime.now():
         return jsonify({
             'error': 'Temporary password has expired. Please contact your admin for a new password.'
         }), 403
@@ -217,11 +217,15 @@ def login():
             'force_password_change': True
         }), 403
 
+    User.log_last_login(user.id)
 
     # Log the last login and update session
     SessionHelper.set_system_id(user.system_id)
     session.update({'user_id': user.id, 'email': user.email, 'role': user.role})
-    User.log_last_login(user.id)
+    session['user_id'] = user.id
+    session['system_id'] = user.system_id
+    session['role'] = user.role
+    session['session_active'] = True  # <--- Mark as fully logged in
 
     return jsonify({'message': 'Login successful'}), 200
 
@@ -264,6 +268,7 @@ def quick_login():
     data = request.get_json()
     passcode_input = data.get('passcode')
 
+
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({'error': 'No active session'}), 401
@@ -286,6 +291,8 @@ def quick_login():
         'role': user.role
     })
     User.log_last_login(user.id)
+    session['session_active'] = True  # <--- Now the user is "fully" active
+
 
     return jsonify({
         'message': 'Quick login successful',
@@ -299,31 +306,39 @@ def quick_login():
 # LOGOUT
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    """
-    Log the user out and clear session data, except for system_id and user_id (for quick login).
-    """
     system_id = session.get('system_id')
-    user_id = session.get('user_id')  # Preserve user_id for quick login
-    session.clear()
+    user_id = session.get('user_id')
+
+    session.clear()  # This removes everything including 'session_active'
+
     if system_id:
         session['system_id'] = system_id
-    if user_id:  # Add this line
-        session['user_id'] = user_id  # Preserve user_id for quick login
+    if user_id:
+        session['user_id'] = user_id
+        # The user can still "quick login"
+    
+    # Notice we do NOT set session['session_active'] = True again
+
     return jsonify({'message': 'Logged out successfully'}), 200
 
 
 
+
+
+# CHECK IF AUTHENTICATED
 @app.route('/api/is_authenticated', methods=['GET'])
 def is_authenticated():
     """
-    Check if the user is authenticated by verifying session data.
+    Must have system_id, user_id, AND session_active == True 
+    to be considered 'authenticated'
     """
-    if 'system_id' in session and 'user_id' in session:
+    if (
+        'system_id' in session 
+        and 'user_id' in session 
+        and session.get('session_active') is True
+    ):
         user_id = session['user_id']
-
-        # Fetch user details, including is_temp_password
-        user = User.get_by_id(user_id)  # Assume this method fetches all user fields including `is_temp_password`
-        
+        user = User.get_by_id(user_id)
         if user:
             return jsonify({
                 'authenticated': True,
@@ -332,12 +347,12 @@ def is_authenticated():
                     'id': user.id,
                     'email': user.email,
                     'role': user.role,
-                    'is_temp_password': user.is_temp_password  # Add the temporary password flag
+                    'is_temp_password': user.is_temp_password
                 }
             }), 200
 
-    # If no session or user is not found, return unauthorized
     return jsonify({'authenticated': False}), 401
+
 
     
 
@@ -373,9 +388,7 @@ def get_users_by_system():
         # Get users in the system
         users = User.get_users_by_system(system_id)
 
-        # Append last login information for each user
-        for user in users:
-            user['last_login'] = User.get_last_login(user['id'])
+
 
         return jsonify(users), 200
     except Exception as e:
@@ -461,6 +474,55 @@ def resend_temp_password():
     except Exception as e:
         print(f"Error in resend_temp_password: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/api/forgot_password', methods=['POST'])
+def forgot_password():
+    """
+    Process password reset requests.
+    """
+    try:
+        data = request.get_json()
+        email = data.get('email')
+
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+
+        # Fetch user by email
+        user = User.get_by_email(email)
+        if not user:
+            return jsonify({'error': 'No user found with that email'}), 404
+
+        # Generate and update temporary password
+        temp_password = User.generate_temporary_password()
+        User.update_temp_password(
+            user.id, temp_password, 
+            temp_password_expiry=datetime.now() + timedelta(hours=24), 
+            is_temp_password=True
+        )
+
+        # Send email with temporary password
+        msg = Message(
+            subject="Password Reset Request",
+            recipients=[user.email]
+        )
+        msg.html = f"""
+        <p>Hi {user.first_name},</p>
+        <p>We received a request to reset your password. Below is your temporary password:</p>
+        <ul>
+            <li><strong>Temporary Password:</strong> {temp_password}</li>
+        </ul>
+        <p>Please log in with this password and update it within 24 hours.</p>
+        <p>If you did not request this, please ignore this email.</p>
+        """
+        mail.send(msg)
+
+        return jsonify({'message': 'Temporary password sent to your email'}), 200
+    except Exception as e:
+        print(f"Error in forgot_password: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 
 

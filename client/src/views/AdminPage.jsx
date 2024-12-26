@@ -15,13 +15,15 @@ const AdminPage = () => {
   const [addingUser, setAddingUser] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Delete confirmation modal
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [deleteUserId, setDeleteUserId] = useState(null);
-
-  // Resend-password confirmation modal
+  // For resend password
   const [isResendConfirmModalOpen, setIsResendConfirmModalOpen] = useState(false);
   const [resendUserId, setResendUserId] = useState(null);
+  const [isResendingPassword, setIsResendingPassword] = useState(false);
+
+  // For deleting user
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -49,12 +51,11 @@ const AdminPage = () => {
         newUser.email,
         newUser.role
       );
-      // Fetch the updated user list after adding the user
+      // Fetch the updated user list
       const updatedUsers = await apiService.getUsersBySystem();
       setUsers(updatedUsers.data);
       setNewUser({ first_name: '', last_name: '', email: '', role: 'user' });
       setSuccessMessage('User added successfully!');
-
       setTimeout(() => {
         setSuccessMessage('');
       }, 3000);
@@ -69,30 +70,31 @@ const AdminPage = () => {
     }
   };
 
-  // Step 1: Instead of window.confirm, we open a custom modal:
+  // === Resend Password Flow ===
   const confirmResendTempPassword = (userId) => {
     setResendUserId(userId);
     setIsResendConfirmModalOpen(true);
   };
 
-  // Step 2: Actual resend after user confirms in the modal
   const handleResendTempPassword = async () => {
     setError('');
     setSuccessMessage('');
+    setIsResendingPassword(true); // show "Sending..."
 
     try {
       const response = await apiService.resendTempPassword(resendUserId);
       setSuccessMessage(response.data.message);
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to resend temporary password.');
     } finally {
       setIsResendConfirmModalOpen(false);
       setResendUserId(null);
+      setIsResendingPassword(false); // hide "Sending..."
     }
   };
 
+  // === Delete User Flow ===
   const confirmDelete = (userId) => {
     setDeleteUserId(userId);
     setIsConfirmModalOpen(true);
@@ -101,6 +103,7 @@ const AdminPage = () => {
   const handleDeleteUser = async () => {
     setError('');
     setSuccessMessage('');
+    setIsDeletingUser(true); // show "Deleting..."
 
     try {
       await apiService.deleteUser(deleteUserId);
@@ -112,8 +115,23 @@ const AdminPage = () => {
     } finally {
       setIsConfirmModalOpen(false);
       setDeleteUserId(null);
+      setIsDeletingUser(false); // hide "Deleting..."
     }
   };
+
+  const formatDateSafely = (dateString) => {
+    if (!dateString) return 'Unknown Date';
+  
+    const date = new Date(dateString);
+    const correctedDate = new Date(
+      date.getTime() + date.getTimezoneOffset() * 60000
+    );
+  
+    return isNaN(correctedDate)
+      ? 'Unknown Date'
+      : correctedDate.toLocaleString(); // This includes both date and time
+  };
+  
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
@@ -184,7 +202,9 @@ const AdminPage = () => {
               <td className="border px-4 py-2">{`${user.first_name} ${user.last_name}`}</td>
               <td className="border px-4 py-2">{user.email}</td>
               <td className="border px-4 py-2 capitalize">{user.role}</td>
-              <td className="border px-4 py-2">{user.last_login || 'N/A'}</td>
+              <td className="border px-4 py-2">
+                {user.last_login ? formatDateSafely(user.last_login) : 'N/A'}
+              </td>
               <td className="border px-4 py-2">
                 {user.role !== 'admin' && (
                   <div className="flex space-x-2">
@@ -229,8 +249,9 @@ const AdminPage = () => {
               <button
                 onClick={handleDeleteUser}
                 className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
+                disabled={isDeletingUser}
               >
-                Delete
+                {isDeletingUser ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
@@ -256,8 +277,9 @@ const AdminPage = () => {
               <button
                 onClick={handleResendTempPassword}
                 className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg"
+                disabled={isResendingPassword}
               >
-                Resend
+                {isResendingPassword ? 'Sending...' : 'Resend'}
               </button>
             </div>
           </div>

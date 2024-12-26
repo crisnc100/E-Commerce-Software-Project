@@ -1,7 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import AuthPage from './views/AuthPage';
 import Settings from './views/Settings';
 import AdminPage from './views/AdminPage';
 import AdminRoute from './components/AdminRoute';
@@ -9,7 +8,7 @@ import UpdatePasswordRequired from './views/UpdatePasswordRequired';
 import HomePage from './views/HomePage';
 import RegisterPage from './views/RegisterPage';
 import LoginPage from './views/LoginPage';
-import ForgotPasscode from './views/ForgotPasscode';
+import ForgotPassword from './views/ForgotPassword';
 import Dashboard from './views/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import AutoLogout from './components/AutoLogout'; // Auto-logout for inactivity
@@ -24,6 +23,7 @@ import apiService from './services/apiService';
 
 function App() {
   const [userRole, setUserRole] = useState('')
+
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -47,7 +47,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-passcode" element={<ForgotPasscode />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/update-password-required" element={<UpdatePasswordRequired />} />
 
 
@@ -65,7 +65,7 @@ function App() {
             <Route
               path="admin"
               element={
-                <AdminRoute role={userRole}>
+                <AdminRoute>
                   <AdminPage />
                 </AdminRoute>
               }

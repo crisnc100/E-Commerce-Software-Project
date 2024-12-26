@@ -31,7 +31,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     };
 
     checkAuthentication();
-  }, []);
+  }, [allowedRoles]);
 
   const { loading, user } = authStatus;
 
@@ -56,7 +56,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   }
 
   // Render the protected content
-  return children;
+  return React.cloneElement(children, { user });
 };
 
 export default ProtectedRoute;

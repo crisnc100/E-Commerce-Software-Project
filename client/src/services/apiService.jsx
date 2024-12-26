@@ -64,6 +64,13 @@ const apiService = {
   // Logout the user and clear the session
   logout: () =>
     axios.post('http://localhost:5000/api/logout', {}, { withCredentials: true }),
+  forgotPassword: (email) =>
+    axios.post(
+      'http://localhost:5000/api/forgot_password',
+      { email },
+      { withCredentials: true }
+    ),
+  
   createProduct: (formData) =>
     axios.post('http://localhost:5000/api/create_product', formData, {
       withCredentials: true,

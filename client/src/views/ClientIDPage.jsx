@@ -28,6 +28,8 @@ const ClientIDPage = () => {
     const [isAddPurchaseModalOpen, setIsAddPurchaseModalOpen] = useState(false); // New state for modal
     const [currentPage, setCurrentPage] = useState(1); // Track current page
     const itemsPerPage = 4; // Max items per page
+    const [deleteClientId, setDeleteClientId] = useState(null);
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
 
 
@@ -154,9 +156,29 @@ const ClientIDPage = () => {
         setIsEditing(false);
         setEditedClientInfo({}); // Reset edited data
     };
-    const handleDeleteClient = () => {
-        // Logic to confirm and delete client
+
+    const confirmDelete = (clientId) => {
+        setDeleteClientId(clientId);
+        setIsConfirmModalOpen(true);
     };
+    const handleDelete = async () => {
+        try {
+            const response = await apiService.deleteClient(deleteClientId);
+            if (response.data.success) {
+                setClients(prevClients => prevClients.filter(client => client.id !== deleteClientId));
+                setSuccessMessage('Client successfully deleted');
+                setTimeout(() => setSuccessMessage(''), 3000);
+            } else {
+                console.error(response.data.message || 'Failed to delete client');
+            }
+        } catch (error) {
+            console.error('Error deleting client:', error);
+        } finally {
+            setIsConfirmModalOpen(false);
+            setDeleteClientId(null);
+        }
+    };
+
 
     const formatContactDetails = (contactDetails) => {
         // Simple logic to format phone numbers and emails
@@ -194,7 +216,7 @@ const ClientIDPage = () => {
         );
         return parseFloat(order.amount || 0) - totalPaid;
     };
-    
+
 
     const paginateOrders = (sortedOrders) => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -407,7 +429,7 @@ const ClientIDPage = () => {
                                 <FaEdit className="mr-1" /> Edit Info
                             </button>
                             <button
-                                onClick={handleDeleteClient}
+                                onClick={() => confirmDelete(clientId)}
                                 className="flex items-center bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded"
                             >
                                 <FaTrash className="mr-1" /> Delete Client
@@ -495,6 +517,32 @@ const ClientIDPage = () => {
                     Next
                 </button>
             </div>
+             {/* Confirmation Modal */}
+             {isConfirmModalOpen && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg">
+                        <h2 className="text-lg font-bold mb-4">Confirm Deletion</h2>
+                        <p>Are you sure you want to delete this client?</p>
+                        <div className="flex justify-end mt-4">
+                            <button
+                                onClick={() => {
+                                    setIsConfirmModalOpen(false);
+                                    setDeleteClientId(null);
+                                }}
+                                className="mr-4 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded-lg"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

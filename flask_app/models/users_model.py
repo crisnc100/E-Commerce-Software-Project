@@ -8,11 +8,6 @@ import string
 import datetime
 from datetime import datetime, timedelta
 
-
-LAST_LOGIN_TRACKER = {}
-
-
-
 bcrypt = Bcrypt(app)  # Initialize bcrypt
 
 class User:
@@ -28,6 +23,7 @@ class User:
         self.updated_at = data.get('updated_at')
         self.is_temp_password = data.get('is_temp_password')
         self.temp_password_expiry = data.get('temp_password_expiry')
+        self.last_login = data.get('last_login')
 
     ### Class Methods ###
 
@@ -104,9 +100,6 @@ class User:
         return cls(result[0]) if result else None
     
 
-    
-
-
 
     @classmethod
     def update_temp_password(cls, user_id, new_password, temp_password_expiry=None, is_temp_password=False):
@@ -148,6 +141,23 @@ class User:
         """Hash the passcode before storing."""
         return bcrypt.generate_password_hash(passcode)
     
+    @staticmethod
+    def log_last_login(user_id):
+        """
+        Logs the last login time for a user in the database.
+        """
+        query = """
+            UPDATE users
+            SET last_login = %(last_login)s
+            WHERE id = %(id)s;
+        """
+        data = {
+            'last_login': datetime.now(),
+            'id': user_id
+        }
+        connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+    
 
     @classmethod
     def get_users_by_system(cls, system_id):
@@ -155,37 +165,12 @@ class User:
         Fetch all users associated with a specific system from the database.
         """
         query = """
-            SELECT id, first_name, last_name, email, role, is_temp_password
+            SELECT id, first_name, last_name, email, role, is_temp_password, last_login
             FROM users
             WHERE system_id = %(system_id)s;
         """
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, {'system_id': system_id})
     
-    @staticmethod
-    def log_last_login(user_id):
-        """
-        Logs the last login time for a user.
-        """
-        LAST_LOGIN_TRACKER[user_id] = datetime.now()  # Corrected to `datetime.now()`
-
-
-    @classmethod
-    def get_last_login(cls, user_id):
-        """
-        Retrieve the last login time for a user from the tracker.
-        """
-        return LAST_LOGIN_TRACKER.get(user_id, None)
-
-
-    @classmethod
-    def get_users_with_last_login(cls, system_id):
-        """
-        Fetch users for a system and include their last login information.
-        """
-        users = cls.get_users_by_system(system_id)
-        for user in users:
-            user['last_login'] = cls.get_last_login(user['id'])
-        return users
     
     # User Model: flask_app/models/user.py
     @classmethod
