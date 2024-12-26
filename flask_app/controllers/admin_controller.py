@@ -6,7 +6,9 @@ from flask_app.utils.session_helper import SessionHelper
 from flask_mail import Mail, Message
 mail = Mail(app)
 from datetime import datetime, timedelta
+import re
 
+EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9.+_-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]+$')
 
 
 
@@ -255,6 +257,72 @@ def update_temp_password():
         return jsonify({'message': 'Password updated successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/update_user_info', methods=['POST','PUT'])
+def update_user_info():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Unauthorized access'}), 403
+
+    data = request.get_json()
+    email = data.get('email')
+
+    if email and not EMAIL_REGEX.match(email):
+        return jsonify({'error': 'Invalid email format'}), 400
+
+    # Prevent duplicate email registration
+    existing_user = User.get_by_email(email)
+    if existing_user and existing_user.id != user_id:
+        return jsonify({'error': 'Email already registered'}), 400
+
+    updated_data = {
+        'id': user_id,
+        'first_name': data.get('first_name'),
+        'last_name': data.get('last_name'),
+        'email': email
+    }
+
+    try:
+        User.update_user_info(updated_data)
+        return jsonify({'message': 'User information updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': f"Error updating user info: {str(e)}"}), 500
+
+
+    
+
+@app.route('/api/update_user_password', methods=['POST','PUT'])
+def update_user_password():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Unauthorized access'}), 403
+
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+    confirm_password = data.get('confirm_password')
+
+    if new_password != confirm_password:
+        return jsonify({'error': 'Passwords do not match'}), 400
+
+    user = User.get_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    if not User.verify_passcode(current_password, user.passcode_hash):
+        return jsonify({'error': 'Current password is incorrect'}), 401
+
+    if not User.validate_passcode(new_password):
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+
+    hashed_password = User.hash_passcode(new_password)
+    try:
+        User.update_passcode_hash(user_id, hashed_password)
+        return jsonify({'message': 'Password updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': f"Error updating password: {str(e)}"}), 500
+
 
 
 
@@ -522,6 +590,8 @@ def forgot_password():
     except Exception as e:
         print(f"Error in forgot_password: {e}")
         return jsonify({'error': str(e)}), 500
+
+    
 
 
 

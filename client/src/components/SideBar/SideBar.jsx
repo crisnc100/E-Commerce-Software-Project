@@ -6,7 +6,7 @@ const SideBar = () => {
     <div className="w-72 bg-gray-800 text-white h-screen fixed flex flex-col">
       {/* Logo or Brand */}
       <div className="p-4 text-2xl font-bold border-b border-gray-700">
-        Maria's Dashboard
+        Dashboard
       </div>
 
       {/* Navigation Links */}

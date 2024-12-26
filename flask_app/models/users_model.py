@@ -119,7 +119,28 @@ class User:
                 'id': user_id
             }
             connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    
+    @classmethod
+    def update_user_info(cls, data):
+        query = """
+            UPDATE users 
+            SET first_name=%(first_name)s, 
+                last_name=%(last_name)s, 
+                email=%(email)s, 
+                updated_at=NOW() 
+            WHERE id=%(id)s;
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
+    @classmethod
+    def update_passcode_hash(cls, user_id, passcode_hash):
+        query = """
+            UPDATE users 
+            SET passcode_hash=%(passcode_hash)s, 
+                updated_at=NOW() 
+            WHERE id=%(id)s;
+        """
+        return connectToMySQL('maria_ortegas_project_schema').query_db({'id': user_id, 'passcode_hash': passcode_hash})
 
 
     ### Validation and Authentication ###

@@ -50,8 +50,17 @@ const apiService = {
       { user_id: userId },
       { withCredentials: true }
     ),
-
-
+    updateUserInfo: (data) =>
+      axios.put('http://localhost:5000/api/update_user_info', data, {
+        withCredentials: true,
+      }),
+  
+    updateUserPassword: (currentPassword, newPassword, confirmPassword) =>
+      axios.put(
+        'http://localhost:5000/api/update_user_password',
+        { current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword },
+        { withCredentials: true }
+      ),
 
   // Quick login with passcode only
   quickLogin: (data) =>
