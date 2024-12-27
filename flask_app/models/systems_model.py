@@ -54,3 +54,13 @@ class System:
         """
         data = {'system_id': system_id, 'owner_id': owner_id}
         connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    
+
+    @classmethod
+    def delete_system(cls, system_id):
+        """
+        Delete a system by ID
+        """
+        query = "DELETE FROM systems WHERE id = %(system_id)s;"
+        connectToMySQL('maria_ortegas_project_schema').query_db(query, {'system_id': system_id})
+        return True

@@ -7,13 +7,21 @@ const apiService = {
   systemExists: () => axios.get('http://localhost:5000/api/system_exists', { withCredentials: true }),
 
   // Register the admin user during the initial system setup
-  registerAdmin: (firstName, lastName, email, passcode) =>
-    axios.post('http://localhost:5000/api/register_admin', {
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      passcode
-    }, { withCredentials: true }),
+  // apiService.js
+  getSystemInfo: () => axios.get('http://localhost:5000/api/get_system_info', { withCredentials: true }),
+  registerAdmin: (data) =>
+    axios.post('http://localhost:5000/api/register_admin', data, {
+      withCredentials: true
+    }),
+
+
+  validateSystemName: (data) =>
+    axios.post('http://localhost:5000/api/validate_system_name', data, {
+      withCredentials: true
+    }),
+  deleteSystem: (systemId) => {
+    axios.delete(`http://localhost:5000/api/delete_system/${systemId}`, { withCredentials: true });
+  },
 
   addUserWithTempPass: (firstName, lastName, email, role) =>
     axios.post(`http://localhost:5000/api/add_user_manually`, {
@@ -34,8 +42,11 @@ const apiService = {
     axios.get(`http://localhost:5000/api/get_users_by_system`, { withCredentials: true }
 
     ),
-  deleteUser: (userId) => {
-    axios.delete(`http://localhost:5000/api/delete_user/${userId}`, { withCredentials: true });
+  deleteUserSelf: (userId) => {
+    axios.delete(`http://localhost:5000/api/delete_user_self/${userId}`, { withCredentials: true });
+  },
+  deleteUserByAdmin: (userId) => {
+    axios.delete(`http://localhost:5000/api/delete_user_by_admin/${userId}`, { withCredentials: true });
   },
 
   updateTempPasscode: (newPasscode) =>
@@ -50,17 +61,17 @@ const apiService = {
       { user_id: userId },
       { withCredentials: true }
     ),
-    updateUserInfo: (data) =>
-      axios.put('http://localhost:5000/api/update_user_info', data, {
-        withCredentials: true,
-      }),
-  
-    updateUserPassword: (currentPassword, newPassword, confirmPassword) =>
-      axios.put(
-        'http://localhost:5000/api/update_user_password',
-        { current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword },
-        { withCredentials: true }
-      ),
+  updateUserInfo: (data) =>
+    axios.put('http://localhost:5000/api/update_user_info', data, {
+      withCredentials: true,
+    }),
+
+  updateUserPassword: (currentPassword, newPassword, confirmPassword) =>
+    axios.put(
+      'http://localhost:5000/api/update_user_password',
+      { current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword },
+      { withCredentials: true }
+    ),
 
   // Quick login with passcode only
   quickLogin: (data) =>
@@ -79,7 +90,7 @@ const apiService = {
       { email },
       { withCredentials: true }
     ),
-  
+
   createProduct: (formData) =>
     axios.post('http://localhost:5000/api/create_product', formData, {
       withCredentials: true,

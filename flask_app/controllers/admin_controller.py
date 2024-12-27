@@ -30,6 +30,33 @@ def system_exists():
     }), 200
 
 
+@app.route('/api/get_system_info', methods=['GET'])
+def get_system_info():
+    """
+    Retrieves the current system info based on session['system_id'].
+    """
+    if 'system_id' not in session:
+        return jsonify({'error': 'No system in session'}), 401
+
+    try:
+        system_id = session['system_id']
+        system = System.get_system_by_id(system_id)
+
+        if not system:
+            return jsonify({'error': 'System not found'}), 404
+
+        return jsonify({
+            'id': system.id,
+            'owner_id': system.owner_id,
+            'name': system.name
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error retrieving system: {str(e)}")
+        return jsonify({'error': 'An error occurred while retrieving system data.'}), 500
+
+
+
 
 
 
@@ -433,6 +460,7 @@ def get_user():
         user = User.get_by_id(session['user_id'])  # Create a `get_by_id` method in `User` model
         if user:
             return jsonify({
+                'id': user.id,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'email': user.email,
@@ -464,8 +492,8 @@ def get_users_by_system():
 
 
 # Controller: flask_app/controllers/admin_controller.py
-@app.route('/api/delete_user/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
+@app.route('/api/delete_user_by_admin/<int:user_id>', methods=['DELETE'])
+def delete_user_by_admin(user_id):
     """
     Delete a user by their ID.
     """
@@ -479,6 +507,97 @@ def delete_user(user_id):
         return jsonify({'message': 'User deleted successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
+@app.route('/api/delete_user_self/<int:user_id>', methods=['DELETE'])
+def delete_user_self(user_id):
+    """
+    Delete a user by their own ID. Clears the session so they're logged out, 
+    and sends a confirmation email to the user.
+    """
+    try:
+        # Optional: Ensure the user can only delete their own account.
+        if session.get('user_id') != user_id:
+            return jsonify({'error': 'Unauthorized. You can only delete your own account.'}), 403
+
+        user = User.get_by_id(user_id)  # So we can email them
+        if not user:
+            return jsonify({'error': 'User not found.'}), 404
+
+        # 1) Delete the user
+        User.delete_user(user_id)
+
+        # 2) Mark session inactive & clear it
+        session['session_active'] = False
+        session.clear()
+
+        # 3) Send a "Your account was deleted" email
+        msg = Message(
+            subject=f"Confirmation of Account Deletion",
+            recipients=[user.email]
+        )
+        msg.html = f"""
+        <p>Dear {user.first_name},</p>
+        <p>This is to confirm that your account associated with <strong>{user.email}</strong>
+        has been deleted off the system at your request.</p>
+        <p>If you did not initiate this action or have any concerns,
+        please contact admin immediately.</p>
+        <p>Thank you,<br>System Ecommerce Team</p>
+        """
+        mail.send(msg)
+
+        return jsonify({'message': 'User account deleted successfully. Session cleared, confirmation email sent.'}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/delete_system/<int:system_id>', methods=['DELETE'])
+def delete_system(system_id):
+    """
+    Delete a system by its ID.
+    Clears the session, marks it inactive, and sends a confirmation 
+    email to the system owner.
+    """
+    try:
+        # Optional check to ensure the user is the owner, etc.
+        system_data = System.get_system_by_id(system_id)
+        if not system_data:
+            return jsonify({'error': 'System not found.'}), 404
+
+        # Maybe also check session user is indeed system_data.owner_id
+        # if session.get('user_id') != system_data.owner_id:
+        #     return jsonify({'error': 'Unauthorized. Only system owner can delete the system.'}), 403
+
+        # 1) Delete the system
+        System.delete_system(system_id)
+
+        # 2) Mark session as inactive & clear
+        session['session_active'] = False
+        session.clear()
+
+        # 3) Retrieve the system owner to send email
+        owner_user = User.get_by_id(system_data.owner_id) 
+        if owner_user:
+            msg = Message(
+                subject=f"System Deletion Confirmation: {system_data.name}",
+                recipients=[owner_user.email]
+            )
+            msg.html = f"""
+            <p>Hi {owner_user.first_name},</p>
+            <p>Your system <strong>{system_data.name}</strong> has been successfully 
+            deleted along with all associated user data and products.</p>
+            <p>If this was not your intention, please contact support immediately.</p>
+            <p>Thank you,<br>System Ecommerce Team</p>
+            """
+            mail.send(msg)
+
+        return jsonify({'message': 'System deleted successfully. Session marked inactive and cleared. Email sent.'}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
     
 
 

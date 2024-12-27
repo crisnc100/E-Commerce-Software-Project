@@ -1,8 +1,9 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Settings from './views/Settings';
 import AdminPage from './views/AdminPage';
+import Goodbye from './views/Goodbye';
 import AdminRoute from './components/AdminRoute';
 import UpdatePasswordRequired from './views/UpdatePasswordRequired';
 import HomePage from './views/HomePage';
@@ -25,18 +26,26 @@ function App() {
   const [userRole, setUserRole] = useState('')
 
 
+  // In the useEffect:
   useEffect(() => {
     const fetchUserRole = async () => {
-        try {
-            const response = await apiService.getUser();
-            setUserRole(response.data.role);
-        } catch (err) {
-            console.error('Error fetching user role:', err);
+      try {
+        const response = await apiService.getUser();
+        setUserRole(response.data.role);
+      } catch (err) {
+        // If 401, it just means “not logged in.”
+        if (err.response?.status === 401) {
+          console.log('No user session; user not logged in.');
+        } else {
+          console.error('Error fetching user role:', err);
         }
+      }
     };
 
     fetchUserRole();
-}, []);
+  }, []);
+
+
 
   return (
     <>
@@ -49,6 +58,8 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/update-password-required" element={<UpdatePasswordRequired />} />
+          <Route path="/goodbye" element={<Goodbye />} />
+
 
 
           {/* Protect the dashboard and nested routes */}

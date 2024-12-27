@@ -5,6 +5,7 @@ import { FiTrash2, FiRefreshCw } from 'react-icons/fi';
 const AdminPage = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState('');
   const [newUser, setNewUser] = useState({
     first_name: '',
@@ -24,6 +25,8 @@ const AdminPage = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState(null);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -38,6 +41,21 @@ const AdminPage = () => {
     };
 
     fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await apiService.getUser();
+        console.log(response.data)
+        setCurrentUser(response.data);
+
+      } catch (error) {
+        console.error("Failed to fetch current user", error);
+      }
+    };
+
+    fetchCurrentUser();
   }, []);
 
   const handleAddUser = async () => {
@@ -106,7 +124,7 @@ const AdminPage = () => {
     setIsDeletingUser(true); // show "Deleting..."
 
     try {
-      await apiService.deleteUser(deleteUserId);
+      await apiService.deleteUserByAdmin(deleteUserId);
       setUsers((prev) => prev.filter((user) => user.id !== deleteUserId));
       setSuccessMessage('User deleted successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -121,17 +139,17 @@ const AdminPage = () => {
 
   const formatDateSafely = (dateString) => {
     if (!dateString) return 'Unknown Date';
-  
+
     const date = new Date(dateString);
     const correctedDate = new Date(
       date.getTime() + date.getTimezoneOffset() * 60000
     );
-  
+
     return isNaN(correctedDate)
       ? 'Unknown Date'
       : correctedDate.toLocaleString(); // This includes both date and time
   };
-  
+
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
@@ -206,25 +224,27 @@ const AdminPage = () => {
                 {user.last_login ? formatDateSafely(user.last_login) : 'N/A'}
               </td>
               <td className="border px-4 py-2">
-                {user.role !== 'admin' && (
-                  <div className="flex space-x-2">
+                <div className="flex space-x-2">
+                  {user.role !== 'admin' && (
                     <button
                       onClick={() => confirmDelete(user.id)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <FiTrash2 className="inline-block" /> Delete
                     </button>
-                    {user.is_temp_password === 1 && (
-                      <button
-                        onClick={() => confirmResendTempPassword(user.id)}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <FiRefreshCw className="inline-block" /> Resend Password
-                      </button>
-                    )}
-                  </div>
-                )}
+                  )}
+                  {user.is_temp_password === 1 && user.id !== currentUser?.id && currentUser?.role === 'admin' && (
+                    <button
+                      onClick={() => confirmResendTempPassword(user.id)}
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      <FiRefreshCw className="inline-block" /> Resend Password
+                    </button>
+                  )}
+                </div>
               </td>
+
+
             </tr>
           ))}
         </tbody>

@@ -11,6 +11,9 @@ const RegisterPage = () => {
   const [passcode, setPasscode] = useState('');
   const [confirmPasscode, setConfirmPasscode] = useState('');
   const [error, setError] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const navigate = useNavigate();
 
   const handleNextStep = async () => {
@@ -39,9 +42,12 @@ const RegisterPage = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
+    setIsRegistering(true);
+    setSuccessMessage(''); // clear old success messages if any
 
     if (passcode !== confirmPasscode) {
       setError('Passcodes do not match');
+      setIsRegistering(false);
       return;
     }
 
@@ -53,9 +59,18 @@ const RegisterPage = () => {
         email,
         passcode,
       });
-      navigate('/dashboard'); // Redirect to the dashboard upon successful registration
+
+      // Registration successful
+      setSuccessMessage('System created successfully! Redirecting...');
+      
+      // Optionally wait 2 seconds, then navigate
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to register admin user.');
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -67,8 +82,20 @@ const RegisterPage = () => {
         </h2>
 
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        {successMessage && <p className="text-green-500 text-sm mb-4">{successMessage}</p>}
 
-        {step === 1 && (
+        {/* Simple loading spinner */}
+        {isRegistering && (
+          <div className="flex items-center justify-center mb-4">
+            <svg
+              className="animate-spin h-5 w-5 mr-3 text-blue-500"
+              viewBox="0 0 24 24"
+            ></svg>
+            <span className="text-blue-500 text-sm">Creating your system...</span>
+          </div>
+        )}
+
+        {step === 1 && !isRegistering && (
           <div>
             <p className="text-gray-600 text-center mb-4">
               Enter a unique name for your system to get started.
@@ -98,7 +125,7 @@ const RegisterPage = () => {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && !isRegistering && (
           <form onSubmit={handleRegister} className="space-y-4">
             <p className="text-gray-600 text-center mb-4">
               Set up your admin account for the system: <strong>{systemName}</strong>

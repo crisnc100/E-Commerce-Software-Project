@@ -140,7 +140,12 @@ class User:
                 updated_at=NOW() 
             WHERE id=%(id)s;
         """
-        return connectToMySQL('maria_ortegas_project_schema').query_db({'id': user_id, 'passcode_hash': passcode_hash})
+        data = {
+            'id': user_id,
+            'passcode_hash': passcode_hash
+        }
+        return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
 
 
     ### Validation and Authentication ###

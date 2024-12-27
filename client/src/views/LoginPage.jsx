@@ -11,6 +11,8 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [userName, setUserName] = useState('');
   const [showPasscode, setShowPasscode] = useState(false); // Toggles passcode visibility
+  const [isLoading, setIsLoading] = useState(false); // Manage login state
+
 
   const navigate = useNavigate();
 
@@ -52,6 +54,8 @@ const LoginPage = () => {
   };
 
   const handleLogin = async () => {
+    setIsLoading(true); // Start loading
+    setError('');
     try {
       let response;
       if (isQuickLogin) {
@@ -153,9 +157,17 @@ const LoginPage = () => {
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition"
+            disabled={isLoading} // Disable button during loading
           >
-            {isQuickLogin ? 'Unlock' : 'Login'}
+            {isLoading
+              ? isQuickLogin
+                ? 'Unlocking...'
+                : 'Logging in...'
+              : isQuickLogin
+                ? 'Unlock'
+                : 'Login'}
           </button>
+
         </form>
 
         <div className="mt-6 flex flex-col gap-4">
