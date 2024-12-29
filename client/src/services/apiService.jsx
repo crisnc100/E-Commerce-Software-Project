@@ -19,8 +19,8 @@ const apiService = {
     axios.post('http://localhost:5000/api/validate_system_name', data, {
       withCredentials: true
     }),
-  deleteSystem: (systemId) => {
-    axios.delete(`http://localhost:5000/api/delete_system/${systemId}`, { withCredentials: true });
+  deleteSystem: (systemId, userId) => {
+    axios.delete(`http://localhost:5000/api/delete_system/${systemId}/${userId}`, { withCredentials: true });
   },
 
   addUserWithTempPass: (firstName, lastName, email, role) =>

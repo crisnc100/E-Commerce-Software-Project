@@ -545,57 +545,59 @@ def delete_user_self(user_id):
         <p>Thank you,<br>System Ecommerce Team</p>
         """
         mail.send(msg)
-
         return jsonify({'message': 'User account deleted successfully. Session cleared, confirmation email sent.'}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/delete_system/<int:system_id>', methods=['DELETE'])
-def delete_system(system_id):
+@app.route('/api/delete_system/<int:system_id>/<int:user_id>', methods=['DELETE'])
+def delete_system(system_id, user_id):
     """
-    Delete a system by its ID.
-    Clears the session, marks it inactive, and sends a confirmation 
-    email to the system owner.
+    Delete a system by its ID and send a confirmation email to the owner.
     """
     try:
-        # Optional check to ensure the user is the owner, etc.
+        if session.get('user_id') != user_id:
+            return jsonify({'error': 'Unauthorized. You can only delete your own account.'}), 403
+        owner_user = User.get_by_id(user_id)
+        if not owner_user:
+            return jsonify({'error': 'Owner not found. Email not sent.'}), 404
+
+        print(f"Owner User: {owner_user}")
+
+        # Delete the system
         system_data = System.get_system_by_id(system_id)
         if not system_data:
             return jsonify({'error': 'System not found.'}), 404
 
-        # Maybe also check session user is indeed system_data.owner_id
-        # if session.get('user_id') != system_data.owner_id:
-        #     return jsonify({'error': 'Unauthorized. Only system owner can delete the system.'}), 403
-
-        # 1) Delete the system
         System.delete_system(system_id)
+        print(f"System {system_id} deleted.")
 
-        # 2) Mark session as inactive & clear
-        session['session_active'] = False
-        session.clear()
-
-        # 3) Retrieve the system owner to send email
-        owner_user = User.get_by_id(system_data.owner_id) 
-        if owner_user:
-            msg = Message(
-                subject=f"System Deletion Confirmation: {system_data.name}",
-                recipients=[owner_user.email]
-            )
-            msg.html = f"""
+        # Send confirmation email
+        msg = Message(
+            subject=f"System Deletion Confirmation: {system_data.name}",
+            recipients=[owner_user.email]
+        )
+        msg.html =  f"""
             <p>Hi {owner_user.first_name},</p>
             <p>Your system <strong>{system_data.name}</strong> has been successfully 
             deleted along with all associated user data and products.</p>
             <p>If this was not your intention, please contact support immediately.</p>
             <p>Thank you,<br>System Ecommerce Team</p>
             """
-            mail.send(msg)
+        mail.send(msg)
+        print(f"Email sent successfully to: {owner_user.email}")
 
-        return jsonify({'message': 'System deleted successfully. Session marked inactive and cleared. Email sent.'}), 200
+        # Clear the session
+        session['session_active'] = False
+        session.clear()
+
+        return jsonify({'message': 'System deleted successfully. Email sent.'}), 200
 
     except Exception as e:
+        print(f"Error: {e}")
         return jsonify({'error': str(e)}), 500
+
 
 
     

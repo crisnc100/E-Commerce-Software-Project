@@ -64,3 +64,15 @@ class System:
         query = "DELETE FROM systems WHERE id = %(system_id)s;"
         connectToMySQL('maria_ortegas_project_schema').query_db(query, {'system_id': system_id})
         return True
+
+
+    @classmethod
+    def get_all_system_ids(cls):
+        """Fetch all system IDs from the database."""
+        query = "SELECT id FROM systems;"
+        try:
+            results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
+            return [row['id'] for row in results]
+        except Exception as e:
+            print(f"Error fetching system IDs: {e}")
+            return []

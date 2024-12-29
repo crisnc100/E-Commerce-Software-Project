@@ -297,7 +297,7 @@ class Purchase:
         return Decimal('0.00')
     
     @classmethod
-    def update_overdue_purchases(cls):
+    def update_overdue_purchases(cls, system_id):
         query = """
         UPDATE purchases p
         SET p.payment_status = 'Overdue'
@@ -308,16 +308,15 @@ class Purchase:
             SELECT 1
             FROM payments pay
             WHERE pay.purchase_id = p.id
-            AND pay.amount_paid > 0 
-            AND pay.system_id = %(system_id)s
-
+                AND pay.amount_paid > 0
         );
         """
-        data = {'system_id': SessionHelper.get_system_id()}
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        print(f"Update query result: {result}")
-
-
+        data = {'system_id': system_id}
+        try:
+            result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+            print(f"Query executed successfully for system_id {system_id}. Rows affected: {result}")
+        except Exception as e:
+            print(f"Error executing query for system_id {system_id}: {e}")
 
     @classmethod
     def get_overdue_purchases(cls):
@@ -341,12 +340,11 @@ class Purchase:
         """
         data = {'system_id': SessionHelper.get_system_id()}
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        print(f"Overdue purchases: {results}")
         return [cls(result) for result in results]
 
 
     @classmethod
-    def check_for_pending_deliveries(cls):
+    def check_for_pending_deliveries(cls, system_id):
         """
         Identifies purchases that are 'Paid' but have not been marked as delivered after 28 days.
         Returns a list of such purchases.
@@ -366,9 +364,14 @@ class Purchase:
         AND p.shipping_status != 'Delivered'
         AND DATE(p.purchase_date) <= CURDATE() - INTERVAL 28 DAY;
         """
-        data = {'system_id': SessionHelper.get_system_id()}
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        return [cls(data) for data in results]
+        data = {'system_id': system_id}
+        try:
+            results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+            return [cls(data) for data in results]
+        except Exception as e:
+            print(f"Error executing query for pending deliveries for system_id {system_id}: {e}")
+            return []
+
     
     @classmethod
     def get_recent_purchases(cls, since_date):
@@ -427,7 +430,6 @@ class Purchase:
         """
         data = {'system_id': SessionHelper.get_system_id()}
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        print(f"Weekly Metrics Query Result: {result}")  # Debug print
         return {
             'gross_sales': result[0]['gross_sales'] if result and result[0]['gross_sales'] else 0.0,
             'revenue_earned': result[0]['revenue_earned'] if result and result[0]['revenue_earned'] else 0.0,
@@ -452,7 +454,6 @@ class Purchase:
         """
         data = (year, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        print(f"Monthly Metrics Query Result: {result}")  # Debug print
 
         return [
             {

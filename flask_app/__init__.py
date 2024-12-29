@@ -35,4 +35,3 @@ app.config['S3_REGION'] = os.getenv('S3_REGION')
 
 # Initialize Flask-Mail with the app configuration
 mail = Mail(app)
-#csrf = CSRFProtect(app)

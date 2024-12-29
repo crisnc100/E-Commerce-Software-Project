@@ -6,6 +6,7 @@ from flask_app.models.purchases_model import Purchase
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
+from flask_app.utils.session_helper import SessionHelper
 
 
 # CREATE Purchase
@@ -210,12 +211,22 @@ def all_purchases_for_product(product_id, page):
 @app.route('/api/get_late_pending_deliveries', methods=['GET'])
 def get_late_pending_deliveries():
     try:
-        pending_deliveries = Purchase.check_for_pending_deliveries()
+        # Retrieve the system_id from the session
+        system_id = SessionHelper.get_system_id()
+
+        # Pass the system_id to check_for_pending_deliveries
+        pending_deliveries = Purchase.check_for_pending_deliveries(system_id)
+
+        # Serialize the results
         serialized_purchases = [purchase.serialize() for purchase in pending_deliveries]
+        
         return jsonify({'pending_deliveries': serialized_purchases}), 200
     except Exception as e:
         print(f"Error fetching pending deliveries: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
+
+
+
 
     
 
