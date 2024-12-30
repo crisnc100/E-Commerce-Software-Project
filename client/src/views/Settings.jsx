@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 // If you need to redirect after deactivation, import useNavigate
 import { useNavigate } from 'react-router-dom';
-import paypal_logo from '../assets/paypal-logo-no-background.png'
+import { FiEye, FiEyeOff, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import paypal_logo_pp from '../assets/paypal-logo-pp.png'
 
 const Settings = () => {
@@ -24,6 +24,8 @@ const Settings = () => {
         id: null,
         owner_id: null,
         name: '',
+        paypal_client_id: '',
+        paypal_secret: ''
     });
 
     // --------------------------------------
@@ -56,6 +58,15 @@ const Settings = () => {
     const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
     const [deactivateStep, setDeactivateStep] = useState(1);
     const [deactivateType, setDeactivateType] = useState('');  // "system" or "account"
+    const [paypalClientId, setPaypalClientId] = useState('');
+    const [paypalSecret, setPaypalSecret] = useState('');
+    const [isAddPayPalModalOpen, setIsAddPayPalModalOpen] = useState(false);
+    const [isEditPayPalModalOpen, setIsEditPayPalModalOpen] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
+    const [showPayPalClientId, setShowPayPalClientId] = useState(false);
+    const [showPayPalSecret, setShowPayPalSecret] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
 
 
     // ------------------------------------------------------------------------
@@ -85,7 +96,11 @@ const Settings = () => {
                     id: res.data.id,
                     owner_id: res.data.owner_id,
                     name: res.data.name,
+                    paypal_client_id: res.data.paypal_client_id,
+                    paypal_secret: res.data.paypal_secret
                 });
+                setIsConnected(!!(res.data.paypal_client_id && res.data.paypal_secret));
+
             } catch (err) {
                 console.error('Failed to load system info', err);
             }
@@ -200,10 +215,50 @@ const Settings = () => {
     // --------------------------------------
     // PayPal Integration
     // --------------------------------------
-    const handleConnectPayPal = () => {
-        console.log('Connecting to PayPal...');
-        // Possibly open a new window or redirect to PayPal flow
+    const handleOpenAddPayPalModal = () => {
+        setIsAddPayPalModalOpen(true);
+        setPaypalClientId(''); // Clear fields for adding
+        setPaypalSecret('');
     };
+
+    const handleOpenEditPayPalModal = () => {
+        setIsEditPayPalModalOpen(true);
+        setPaypalClientId(systemInfo.paypal_client_id || ''); // Pre-fill fields for editing
+        setPaypalSecret(systemInfo.paypal_secret || '');
+    };
+
+    const handleClosePayPalModal = () => {
+        setIsAddPayPalModalOpen(false);
+        setIsEditPayPalModalOpen(false);
+        setPaypalClientId(''); // Reset fields on close
+        setPaypalSecret('');
+    };
+
+
+    const handleSavePayPalCredentials = async () => {
+        setIsSaving(true); // Start saving state
+        try {
+            const data = {
+                system_id: systemInfo.id,
+                paypal_client_id: paypalClientId,
+                paypal_secret: paypalSecret,
+            };
+
+            await apiService.updatePaypalCredentials(data);
+            setSuccessMessage('PayPal credentials updated successfully.');
+            setTimeout(() => setSuccessMessage(''), 3000);
+            handleClosePayPalModal(); // Close modal after saving
+            setIsConnected(true); // Update connection status
+        } catch (err) {
+            console.error('Failed to update PayPal credentials:', err);
+            setErrorMessage('Failed to update PayPal credentials.');
+            setTimeout(() => setErrorMessage(''), 3000);
+        } finally {
+            setIsSaving(false); // End saving state
+        }
+    };
+
+
 
     // --------------------------------------
     // Deactivate System or Account
@@ -417,29 +472,75 @@ const Settings = () => {
                 </button>
             </section>
 
-            {/* 3) PayPal Integration */}
-            <section className="mb-8">
-                <h3 className="text-xl font-semibold mb-4">Payment Integration</h3>
-                <div className="flex items-center">
-                    <button
-                        onClick={handleConnectPayPal}
-                        className="flex items-center bg-gray-200 hover:bg-gray-300 
-               text-black font-medium px-5 py-1 rounded-full shadow-md"
-                    >
-                        <img
-                            src={paypal_logo_pp}
-                            alt="PayPal Logo"
-                            className="w-12 h-auto object-contain"
-                        />
-                        <span>Connect with PayPal</span>
-                    </button>
+            {userInfo.id === systemInfo.owner_id ? (
+                <div className='mb-8'>
+                    <h3 className="text-xl font-semibold mb-4">Payment Integration</h3>
+                    {!isConnected ? (
+                        <button
+                            onClick={handleOpenAddPayPalModal}
+                            className="flex items-center bg-gray-200 hover:bg-gray-300 
+                    text-black font-medium px-5 py-2 rounded-full shadow-md"
+                        >
+                            <img
+                                src={paypal_logo_pp}
+                                alt="PayPal Logo"
+                                className="w-10 h-auto object-contain"
+                            />
+                            <span>Connect with PayPal</span>
+                        </button>
+                    ) : (
+                        <div className="p-4 bg-green-100 border border-green-300 w-1/2 rounded-lg shadow-md">
+                            <div className="flex items-center mb-4">
+                                <img
+                                    src={paypal_logo_pp}
+                                    alt="PayPal Logo"
+                                    className="w-14 h-auto object-contain"
+                                />
+                                <div>
+                                    <h4 className="text-lg font-medium text-green-800">PayPal Account Connected</h4>
+                                    <p className="text-sm text-gray-600">You can now use PayPal for payment links.</p>
+
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleOpenEditPayPalModal}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded shadow-md transition-all"
+                            >
+                                Edit PayPal Credentials
+                            </button>
+                        </div>
+
+                    )}
                 </div>
+            ) : (
+                // Non-Owner View
+                // Non-Owner View
+<section className="mb-8">
+    <h3 className="text-xl font-semibold mb-4">Payment Integration</h3>
+    <div
+        className={`flex items-center p-4 rounded ${isConnected
+            ? 'bg-green-100 border border-green-300 text-green-700'
+            : 'bg-red-100 border border-red-300 text-red-700'
+            }`}
+    >
+        <div className="mr-3">
+            {isConnected ? <FiCheckCircle size={24} /> : <FiXCircle size={24} />}
+        </div>
+        <div>
+            {isConnected ? (
+                <>
+                    <span>PayPal Account Connected</span>
+                    <p className="text-sm text-gray-600">You can now use PayPal for payment links.</p>
+                </>
+            ) : (
+                <span>PayPal Not Connected. Please contact the system owner.</span>
+            )}
+        </div>
+    </div>
+</section>
 
+            )}
 
-
-
-
-            </section>
 
             {/* 4) Danger Zone: Deactivate */}
             <section>
@@ -553,6 +654,156 @@ const Settings = () => {
                     </div>
                 </div>
             )}
+
+            {/* PayPal Modal */}
+            {isAddPayPalModalOpen && (
+                <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h3 className="text-lg font-bold mb-4">Connect PayPal Account</h3>
+
+                        {/* Instructions Section */}
+                        <details className="mb-4 bg-gray-100 p-4 rounded-lg">
+                            <summary className="cursor-pointer font-medium text-indigo-600">
+                                How to Get Your PayPal Client ID and Secret
+                            </summary>
+                            <ol className="mt-2 list-decimal list-inside text-sm text-gray-700">
+                                <li>
+                                    Go to the <a href="https://developer.paypal.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline"><strong>PayPal Developer Dashboard</strong></a>.
+                                </li>
+                                <li>
+                                    Log in with your PayPal account credentials. Ensure this is your <strong>business account</strong>.
+                                </li>
+                                <li>
+                                    Navigate to the <strong>My Apps & Credentials</strong> section.
+                                </li>
+                                <li>
+                                    Under the <strong>"Live"</strong> tab, click <strong>Create App</strong>.
+                                </li>
+                                <li>
+                                    Enter a name for your app (e.g., <strong>"Ecommerce Integration"</strong>) and click <strong>Create App</strong>.
+                                </li>
+                                <li>
+                                    After creating the app, you’ll see your <strong>Client ID</strong> and <strong>Secret</strong>. Copy both.
+                                </li>
+                                <li>
+                                    Return here and paste the <strong>Client ID</strong> and <strong>Secret</strong> below.
+                                </li>
+                                <li>
+                                    Make sure you're using the <strong>Live Credentials</strong>, not Sandbox ones.
+                                </li>
+                            </ol>
+                        </details>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                PayPal Client ID
+                            </label>
+                            <input
+                                type="text"
+                                value={paypalClientId}
+                                onChange={(e) => setPaypalClientId(e.target.value)}
+                                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:ring-indigo-300"
+                                placeholder="Enter your PayPal Client ID"
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                PayPal Secret
+                            </label>
+                            <input
+                                type="password"
+                                value={paypalSecret}
+                                onChange={(e) => setPaypalSecret(e.target.value)}
+                                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:ring-indigo-300"
+                                placeholder="Enter your PayPal Secret"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setIsAddPayPalModalOpen(false)}
+                                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSavePayPalCredentials}
+                                className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded ${isSaving ? "cursor-not-allowed opacity-70" : ""
+                                    }`}
+                                disabled={isSaving}
+                            >
+                                {isSaving ? "Saving..." : "Save"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit PayPal Modal */}
+            {isEditPayPalModalOpen && (
+                <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h3 className="text-lg font-bold mb-4">Edit PayPal Account</h3>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                PayPal Client ID
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showPayPalClientId ? "text" : "password"}
+                                    value={paypalClientId}
+                                    onChange={(e) => setPaypalClientId(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:ring-indigo-300"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPayPalClientId((prev) => !prev)}
+                                    className=" border-l-0 rounded-r px-3 py-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                                >
+                                    {showPayPalClientId ? <FiEyeOff /> : <FiEye />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                PayPal Secret
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showPayPalSecret ? "text" : "password"}
+                                    value={paypalSecret}
+                                    onChange={(e) => setPaypalSecret(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:ring-indigo-300"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPayPalSecret((prev) => !prev)}
+                                    className="border-l-0 rounded-r px-3 py-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                                >
+                                    {showPayPalSecret ? <FiEyeOff /> : <FiEye />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={() => setIsEditPayPalModalOpen(false)}
+                                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSavePayPalCredentials}
+                                className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded ${isSaving ? "cursor-not-allowed opacity-70" : ""}`}
+                                disabled={isSaving}
+                            >
+                                {isSaving ? "Updating..." : "Update"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+
 
             {/* Deactivate Modal (System or Account) */}
             {isDeactivateModalOpen && (

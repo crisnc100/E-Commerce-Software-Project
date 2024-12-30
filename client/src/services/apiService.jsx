@@ -48,6 +48,10 @@ const apiService = {
   deleteUserByAdmin: (userId) => {
     axios.delete(`http://localhost:5000/api/delete_user_by_admin/${userId}`, { withCredentials: true });
   },
+  updatePaypalCredentials: (data) =>
+    axios.put(`http://localhost:5000/api/update_paypal_credentials`, data, {
+      withCredentials: true,
+    }),
 
   updateTempPasscode: (newPasscode) =>
     axios.post(
@@ -147,6 +151,10 @@ const apiService = {
     axios.post('http://localhost:5000/api/create_purchase', formData, { withCredentials: true }
 
     ),
+  generatePayPalLink: (data) =>
+    axios.post(`http://localhost:5000/api/generate_paypal_link`, data, {
+      withCredentials: true,
+    }),
   updatePurchase: (purchaseId, formData) =>
     axios.put(`http://localhost:5000/api/update_purchase/${purchaseId}`, formData, { withCredentials: true }
 

@@ -8,10 +8,6 @@ import { AsyncPaginate } from 'react-select-async-paginate';
 
 
 const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
-    const [clients, setClients] = useState([]);
-    const [products, setProducts] = useState([]);
-
-
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [selectedSize, setSelectedSize] = useState('');
@@ -443,7 +439,7 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                                     onChange={(e) => setAddPaymentNow(e.target.checked)}
                                     className="form-checkbox"
                                 />
-                                <span className="ml-2">Add payment now</span>
+                                <span className="ml-2">Add manual payment now</span>
                             </label>
 
                             {/* Buttons */}

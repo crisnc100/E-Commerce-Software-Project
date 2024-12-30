@@ -5,6 +5,8 @@ class System:
         self.id = data.get('id')
         self.owner_id = data.get('owner_id')
         self.name = data.get('name')
+        self.paypal_client_id = data.get('paypal_client_id')
+        self.paypal_secret = data.get('paypal_secret')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
 
@@ -54,6 +56,23 @@ class System:
         """
         data = {'system_id': system_id, 'owner_id': owner_id}
         connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    
+
+
+    @classmethod
+    def update_paypal_credentials(cls, system_id, paypal_client_id, paypal_secret):
+        query = """
+        UPDATE systems
+        SET paypal_client_id = %(paypal_client_id)s, paypal_secret = %(paypal_secret)s
+        WHERE id = %(system_id)s
+        """
+        data = {
+            'system_id': system_id,
+            'paypal_client_id': paypal_client_id,
+            'paypal_secret': paypal_secret
+        }
+        connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
     
 
     @classmethod

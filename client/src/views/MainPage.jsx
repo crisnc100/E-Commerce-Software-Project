@@ -33,7 +33,8 @@ const MainPage = () => {
   const [selectedPurchaseId, setSelectedPurchaseId] = useState(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedProductImage, setSelectedProductImage] = useState('');
-  const [totalAmountDue, setTotalAmountDue] = useState(null);
+  const [totalAmountDueDash, setTotalAmountDueDash] = useState(null);
+  const [clientId, setClientId] = useState(null);
 
   const [isActivitiesHidden, setIsActivitiesHidden] = useState(false);
   const [isActivitiesCollapsed, setIsActivitiesCollapsed] = useState(false);
@@ -82,6 +83,7 @@ const MainPage = () => {
       const overduePurchases = overdueResponse.data.map((purchase) => ({
         id: purchase.id,
         type: 'overdue', // Notification type for overdue purchases
+        clientId: purchase.client_id,
         clientName: `${purchase.client_first_name} ${purchase.client_last_name}`,
         amount: purchase.amount,
         productName: purchase.product_name,
@@ -169,7 +171,7 @@ const MainPage = () => {
         prev.filter((notification) => notification.id !== purchaseId)
       );
       setSuccessMessage('Order marked as delivered!');
-  
+
       // Clear the success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage('');
@@ -179,7 +181,7 @@ const MainPage = () => {
       alert('Failed to mark as delivered. Please try again.');
     }
   };
-  
+
 
   const fetchRecentActivities = async () => {
     try {
@@ -278,11 +280,17 @@ const MainPage = () => {
 
   const isTableView = timeSpan === 14; // Use table view for 14 days
 
-  const handleNotificationClick = (purchaseId, amount) => {
-    setSelectedPurchaseId(purchaseId); // Set the selected purchase ID
-    setTotalAmountDue(amount); // Set the total amount due
-    setIsPaymentModalOpen(true); // Open the payment modal
+  const handleNotificationClick = (purchaseId, amount, clientId) => {
+    if (!purchaseId) {
+      console.error("purchaseId is undefined or null");
+      return;
+    }
+    setSelectedPurchaseId(purchaseId);
+    setTotalAmountDueDash(amount);
+    setClientId(clientId); // Ensure clientId is also being passed and set correctly
+    setIsPaymentModalOpen(true);
   };
+
 
 
   const handleViewImageClick = (imageUrl) => {
@@ -421,7 +429,7 @@ const MainPage = () => {
                             <button
                               className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                               onClick={() =>
-                                handleNotificationClick(notification.purchaseId, notification.amount)
+                                handleNotificationClick(notification.id, notification.amount, notification.clientId)
                               }
 
                             >
@@ -820,7 +828,8 @@ const MainPage = () => {
       {isPaymentModalOpen && (
         <AddPaymentModal
           purchaseId={selectedPurchaseId}
-          totalAmountDue={totalAmountDue}
+          clientId={clientId}
+          totalAmountDueDash={totalAmountDueDash}
           onClose={() => setIsPaymentModalOpen(false)}
           onSuccess={(message) => {
             setSuccessMessage(message);

@@ -48,7 +48,9 @@ def get_system_info():
         return jsonify({
             'id': system.id,
             'owner_id': system.owner_id,
-            'name': system.name
+            'name': system.name,
+            'paypal_client_id': system.paypal_client_id,
+            'paypal_secret': system.paypal_secret
         }), 200
 
     except Exception as e:
@@ -711,6 +713,24 @@ def forgot_password():
     except Exception as e:
         print(f"Error in forgot_password: {e}")
         return jsonify({'error': str(e)}), 500
+    
+
+@app.route('/api/update_paypal_credentials', methods=['POST' , 'PUT'])
+def update_paypal_credentials():
+    try:
+        data = request.get_json()
+        system_id = data['system_id']
+        paypal_client_id = data['paypal_client_id']
+        paypal_secret = data['paypal_secret']
+
+        # Save or update credentials
+        System.update_paypal_credentials(system_id, paypal_client_id, paypal_secret)
+
+        return jsonify({'message': 'PayPal credentials updated successfully'}), 200
+    except Exception as e:
+        print(f"Error updating PayPal credentials: {e}")
+        return jsonify({'error': 'Internal Server Error'}), 500
+
 
     
 

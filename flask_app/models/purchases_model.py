@@ -19,6 +19,7 @@ class Purchase:
         self.amount = data.get('amount')
         self.payment_status = data.get('payment_status')
         self.shipping_status = data.get('shipping_status')
+        self.paypal_link = data.get('paypal_link')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
         self.product_name = data.get('product_name')  # New field
@@ -43,6 +44,7 @@ class Purchase:
             'amount': self.amount,
             'payment_status': self.payment_status,
             'shipping_status': self.shipping_status,
+            'paypal_link': self.paypal_link,
             'created_at': str(self.created_at), 
             'updated_at': str(self.updated_at),
             'product_name': self.product_name,
@@ -61,9 +63,9 @@ class Purchase:
         """Create a new purchase record."""
         query = """
         INSERT INTO purchases (client_id, product_id, system_id, 
-        size, purchase_date, amount, payment_status, shipping_status, created_at, updated_at) 
+        size, purchase_date, amount, payment_status, shipping_status, paypal_link, created_at, updated_at) 
         VALUES (%(client_id)s, %(product_id)s, %(system_id)s, %(size)s, 
-        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, NOW(), NOW());
+        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, NOW(), NOW());
         """
         data['system_id'] = SessionHelper.get_system_id()
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
@@ -628,6 +630,29 @@ class Purchase:
             }
             for row in result
         ]
+
+
+    @classmethod
+    def update_paypal_link(cls, purchase_id, paypal_link):
+        query = """
+            UPDATE purchases
+            SET paypal_link = %(paypal_link)s
+            WHERE id = %(id)s AND system_id = %(system_id)s;
+        """
+        data = {
+            "id": purchase_id,
+            "system_id": SessionHelper.get_system_id(),
+            "paypal_link": paypal_link  # Ensure this key exists
+        }
+        try:
+            result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+            print(f"PayPal link updated for purchase_id {purchase_id}: {result}")
+        except Exception as e:
+            print(f"Error updating PayPal link in database: {e}")
+            raise
+
+
+
     
 
 

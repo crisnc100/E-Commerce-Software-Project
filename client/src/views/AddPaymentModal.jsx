@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../services/apiService';
 
-const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clientId, remainingBalance }) => {
+const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clientId, remainingBalance, totalAmountDueDash }) => {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Credit Card');
@@ -105,6 +105,17 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
         <h3 className="text-lg font-bold mb-4">Add Payment</h3>
 
+        {/* Display Total Amount Due Dash */}
+        {totalAmountDueDash && (
+          <div className="mb-4">
+            <p className="font-semibold">
+              Total Amount Due $
+              {totalAmountDueDash && !isNaN(totalAmountDueDash)
+                ? Number(totalAmountDueDash).toFixed(2)
+                : '0.00'}
+            </p>
+          </div>
+        )}
         {/* Display for Unpaid Orders */}
         {remainingBalance === null && (
           <div className="mb-4">

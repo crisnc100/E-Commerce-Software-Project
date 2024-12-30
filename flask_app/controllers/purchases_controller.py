@@ -7,6 +7,84 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 from flask_app.utils.session_helper import SessionHelper
+from paypalrestsdk import configure, Payment
+from flask_app.models.products_model import Product
+from flask_app.models.systems_model import System
+
+
+from paypalrestsdk import configure, Payment
+
+def generate_paypal_link(client_id, product_id, amount, system_id):
+    try:
+        # Fetch client and product info from your database
+        client = Client.get_by_id(client_id)
+        product = Product.get_by_id(product_id)
+        print(f"Client: {client}, Product: {product}")
+
+
+        # Fetch PayPal credentials for the system
+        system = System.get_system_by_id(system_id)
+        print(f"System PayPal Credentials: {system.paypal_client_id}, {system.paypal_secret}")
+
+        if not system or not system.paypal_client_id or not system.paypal_secret:
+            raise Exception("PayPal credentials are missing for this system.")
+
+        # Configure PayPal SDK with the system's credentials
+        configure({
+            "mode": "sandbox",  # Change to "live" for production
+            "client_id": system.paypal_client_id,
+            "client_secret": system.paypal_secret,
+        })
+
+        # Create PayPal payment payload
+        payment_payload = {
+            "intent": "sale",
+            "payer": {
+                "payment_method": "paypal"
+            },
+            "transactions": [
+                {
+                    "amount": {
+                        "total": f"{amount:.2f}",
+                        "currency": "USD"
+                    },
+                    "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
+                    "item_list": {
+                        "items": [
+                            {
+                                "name": product.name,
+                                "sku": f"product_{product_id}",
+                                "price": f"{amount:.2f}",
+                                "currency": "USD",
+                                "quantity": 1
+                            }
+                        ]
+                    }
+                }
+            ],
+            "redirect_urls": {
+                "return_url": "http://localhost:5173/payment-success",
+                "cancel_url": "http://localhost:5173/payment-cancel"
+            }
+        }
+        print(f"Payment Payload: {payment_payload}")
+
+
+        # Create the payment using PayPal SDK
+        payment = Payment(payment_payload)
+        if not payment.create():
+            raise Exception(f"PayPal API error: {payment.error}")
+
+        # Extract the approval link
+        approval_url = next(link.href for link in payment.links if link.rel == "approval_url")
+        print(f"Approval URL: {approval_url}")
+
+        return approval_url
+
+    except Exception as e:
+        print(f"Error generating PayPal link: {e}")
+        raise
+
 
 
 # CREATE Purchase
@@ -36,10 +114,34 @@ def create_purchase():
     # Save purchase
     try:
         purchase_id = Purchase.save(data)
-        return jsonify({"message": "Purchase created", "purchase_id": purchase_id}), 201
+
+        # Generate PayPal link
+        try:
+            paypal_link = generate_paypal_link(
+                client_id=data['client_id'],
+                product_id=data['product_id'],
+                amount=data['amount'],
+                system_id=SessionHelper.get_system_id()  # Pass system_id here
+
+            )
+
+            # Update purchase with PayPal link
+            Purchase.update_paypal_link(purchase_id, paypal_link)
+
+        except Exception as e:
+            print(f"Error generating PayPal link: {str(e)}")
+            return jsonify({"error": "Purchase created, but failed to generate PayPal link"}), 500
+
+        return jsonify({
+            "message": "Purchase created and PayPal link generated",
+            "purchase_id": purchase_id,
+            "paypal_link": paypal_link
+        }), 201
+
     except Exception as e:
         print(f"Error saving purchase: {str(e)}")
         return jsonify({"error": "Failed to save purchase"}), 500
+
 
 
 
@@ -224,6 +326,9 @@ def get_late_pending_deliveries():
     except Exception as e:
         print(f"Error fetching pending deliveries: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
+
+
+
 
 
 

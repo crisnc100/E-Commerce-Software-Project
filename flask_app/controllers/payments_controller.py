@@ -7,10 +7,13 @@ from flask_app.models.purchases_model import Purchase
 from decimal import Decimal, InvalidOperation
 
 
+
 # CREATE Payment
 @app.route('/api/create_payment', methods=['POST'])
 def create_payment():
     data = request.get_json()
+    print(f"Incoming payload: {data}")
+
 
     # Optional validation here (e.g., amount > 0)
     if not Payment.validate_payment(data):
@@ -19,6 +22,48 @@ def create_payment():
     # Save the payment
     payment_id = Payment.save(data)
     return jsonify({"message": "Payment created", "payment_id": payment_id}), 201
+
+@app.route('/api/paypal/webhook', methods=['POST'])
+def paypal_webhook():
+    """
+    Handle PayPal payment notifications.
+    """
+    try:
+        data = request.json
+
+        if data['event_type'] == 'PAYMENT.SALE.COMPLETED':
+            purchase_id = data['resource']['invoice_number']  # The purchase ID sent during link creation
+            amount_paid = float(data['resource']['amount']['total'])  # Amount client paid
+            payment_date = data['resource']['create_time']
+
+            # Retrieve the purchase from the database
+            purchase = Purchase.get_by_id(purchase_id)
+            if not purchase:
+                return jsonify({'error': 'Purchase not found'}), 404
+
+            total_amount_due = purchase['amount']  # Total amount for the purchase
+
+            # Ensure full payment was made
+            if amount_paid < total_amount_due:
+                return jsonify({'error': 'Partial payments are not allowed'}), 400
+
+            # Save the payment details in the `payments` table
+            Payment.save({
+                'purchase_id': purchase_id,
+                'amount_paid': amount_paid,
+                'payment_date': payment_date,
+                'payment_method': 'PayPal'
+            })
+
+            # Update the purchase payment status to 'Paid'
+            Purchase.update_payment_status(purchase_id, 'Paid')
+
+            return jsonify({'message': 'Payment processed successfully'}), 200
+
+    except Exception as e:
+        print(f"Error processing PayPal webhook: {e}")
+        return jsonify({'error': 'Internal Server Error'}), 500
+
 
 
 # READ All Payments
