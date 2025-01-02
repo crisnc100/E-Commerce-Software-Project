@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route } from 'react-router-dom';
 import Settings from './views/Settings';
 import AdminPage from './views/AdminPage';
 import Goodbye from './views/Goodbye';
@@ -49,7 +49,7 @@ function App() {
 
   return (
     <>
-      <BrowserRouter>
+      <HashRouter>
         <AutoLogout /> {/* This ensures the user is auto-logged out after inactivity */}
 
         <Routes>
@@ -89,7 +89,7 @@ function App() {
           </Route>
 
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </>
   );
 }

@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://localhost:5173"])  # Updated origins as per my setup with react
+CORS(app, supports_credentials=True, origins=["http://localhost", "http://127.0.0.1", "file://", "https://mariaortegas-project.onrender.com"])
+
 
 app.secret_key = os.getenv('SECRET_KEY')
 
