@@ -9,3 +9,11 @@ if __name__ == "__main__":
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         import flask_app.scheduler  # Import the scheduler module only once
     app.run(debug=True)
+
+
+@app.route('/')
+def home():
+    return "Welcome to the app!"
+@app.route('/healthz', methods=['GET'])
+def health_check():
+    return "OK", 200

@@ -49,6 +49,7 @@ def generate_paypal_link(client_id, product_id, amount, system_id):
                         "currency": "USD"
                     },
                     "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
+                    
                     "item_list": {
                         "items": [
                             {

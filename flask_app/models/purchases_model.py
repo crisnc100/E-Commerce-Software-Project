@@ -68,7 +68,23 @@ class Purchase:
         %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, NOW(), NOW());
         """
         data['system_id'] = SessionHelper.get_system_id()
+        data['paypal_link'] = None  # Default to NULL
+
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+    
+
+    @classmethod
+    def get_by_payment_id(cls, payment_id):
+        query = """
+            SELECT * FROM purchases
+            WHERE paypal_link LIKE %s
+            LIMIT 1
+        """
+        # Use a partial match since the PayPal link contains the token
+        data = (f"%{payment_id}%",)
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return result[0] if result else None
+
 
     @classmethod
     def get_by_id(cls, purchase_id):
@@ -650,6 +666,35 @@ class Purchase:
         except Exception as e:
             print(f"Error updating PayPal link in database: {e}")
             raise
+    
+
+    @classmethod
+    def find_by_paypal_link_and_system(cls, parent_payment_id, system_id):
+        query = """
+            SELECT * FROM purchases
+            WHERE paypal_link LIKE %(paypal_link)s AND system_id = %(system_id)s;
+        """
+        data = {
+            'paypal_link': f"%{parent_payment_id}%",
+            'system_id': system_id,
+        }
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return cls(result[0]) if result else None
+    
+
+    @classmethod
+    def get_system_id_from_parent_payment(cls, parent_payment_id):
+        query = """
+            SELECT system_id FROM purchases
+            WHERE paypal_link LIKE %(paypal_link)s;
+        """
+        data = {'paypal_link': f"%{parent_payment_id}%"}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        return result[0]['system_id'] if result else None
+
+
+
+
 
 
 
