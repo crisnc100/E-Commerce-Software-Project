@@ -212,7 +212,7 @@ const apiService = {
 
       , { withCredentials: true }),
   allPurchasesByProductId: (productId, page = 1) =>
-    axios.get(`${API_BASE_URL}/all_purchases_for_product/${productId}/page/${page}`
+    axios.get(`${API_BASE_URL}/api/all_purchases_for_product/${productId}/page/${page}`
 
       , { withCredentials: true }),
 
