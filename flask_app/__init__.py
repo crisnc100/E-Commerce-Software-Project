@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://localhost:5173", "file://"])
+CORS(app, supports_credentials=True, origins="*")  # or specify your origin
 
 
 app.secret_key = os.getenv('SECRET_KEY')
@@ -24,9 +24,9 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_COOKIE_NAME'] = 'admin_user_session'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=60)  # Adjust the time as needed
-app.config['SESSION_COOKIE_SECURE'] = False  # Use this if you're using HTTPS
+app.config['SESSION_COOKIE_SECURE'] = True  # Use this if you're using HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Control cross-site behavior
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Control cross-site behavior
 app.config['AWS_ACCESS_KEY_ID'] = os.getenv('AWS_ACCESS_KEY_ID')
 app.config['AWS_SECRET_ACCESS_KEY'] = os.getenv('AWS_SECRET_ACCESS_KEY')
 app.config['S3_BUCKET_NAME'] = os.getenv('S3_BUCKET_NAME')
