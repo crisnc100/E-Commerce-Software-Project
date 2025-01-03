@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["https://mariaortegas-project.onrender.com"])
+CORS(app, supports_credentials=True, origins=["http://localhost:5173", "file://"])
 
 
 app.secret_key = os.getenv('SECRET_KEY')
