@@ -10,3 +10,10 @@ if __name__ == "__main__":
         import flask_app.scheduler  # Import the scheduler module only once
     app.run(debug=True)
 
+
+@app.route('/')
+def home():
+    return "Welcome to the app!"
+@app.route('/healthz', methods=['GET'])
+def health_check():
+    return "OK", 200
