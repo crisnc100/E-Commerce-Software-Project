@@ -6,9 +6,9 @@ class MySQLConnection:
     def __init__(self, db):
         # change the user and password as needed
         connection = pymysql.connect(
-            host=os.getenv('DB_HOST', 'localhost'),  # Default to 'localhost' if not set
-            user=os.getenv('DB_USER', 'root'),  # Default to 'root' if not set
-            password=os.getenv('DB_PASSWORD', 'root'),  # Default to 'root' if not set
+            host=os.getenv('DB_HOST'),  # Default to 'localhost' if not set
+            user=os.getenv('DB_USER'),  # Default to 'root' if not set
+            password=os.getenv('DB_PASSWORD'),  # Default to 'root' if not set
             db=db,
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
