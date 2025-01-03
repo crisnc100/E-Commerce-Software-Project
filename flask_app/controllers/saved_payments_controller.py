@@ -3,7 +3,6 @@ from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.saved_payments_model import SavedPayment
-from decorators import login_required   # Import the decorator
 
 
 
@@ -37,7 +36,6 @@ def get_all_saved_payments():
 
 # READ Saved Payment by ID
 @app.route('/api/get_saved_payment/<int:saved_payment_id>', methods=['GET'])
-@login_required
 def get_saved_payment(saved_payment_id):
     saved_payment = SavedPayment.get_by_id(saved_payment_id)
     if not saved_payment:
@@ -47,7 +45,6 @@ def get_saved_payment(saved_payment_id):
 
 # UPDATE Saved Payment
 @app.route('/api/update_saved_payment/<int:saved_payment_id>', methods=['PUT'])
-@login_required
 def update_saved_payment(saved_payment_id):
     data = request.get_json()
     data['id'] = saved_payment_id
@@ -81,7 +78,6 @@ def delete_saved_payment(saved_payment_id):
 
 # GET Saved Payments by Client ID
 @app.route('/api/get_saved_payments_by_client/<int:client_id>', methods=['GET'])
-@login_required
 def get_saved_payments_by_client(client_id):
     saved_payments = SavedPayment.get_saved_payments_by_client(client_id)
     if not saved_payments:

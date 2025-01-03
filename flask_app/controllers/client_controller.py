@@ -2,7 +2,6 @@ from flask import redirect, request, session, jsonify
 from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
-from decorators import login_required   # Import the decorator
 
 
 @app.route('/api/add_client', methods=['POST'])
