@@ -14,7 +14,7 @@ from flask_app.models.systems_model import System
 
 from paypalrestsdk import configure, Payment
 
-def generate_paypal_link(client_id, product_id, amount, system_id):
+def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_val):
     try:
         # Fetch client and product info from your database
         client = Client.get_by_id(client_id)
@@ -38,36 +38,33 @@ def generate_paypal_link(client_id, product_id, amount, system_id):
 
         # Create PayPal payment payload
         payment_payload = {
-            "intent": "sale",
-            "payer": {
-                "payment_method": "paypal"
-            },
-            "transactions": [
-                {
-                    "amount": {
-                        "total": f"{amount:.2f}",
-                        "currency": "USD"
-                    },
-                    "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
-                    
-                    "item_list": {
-                        "items": [
-                            {
-                                "name": product.name,
-                                "sku": f"product_{product_id}",
-                                "price": f"{amount:.2f}",
-                                "currency": "USD",
-                                "quantity": 1
-                            }
-                        ]
+    "intent": "sale",
+    "payer": {"payment_method": "paypal"},
+    "transactions": [
+        {
+            "amount": {"total": f"{amount:.2f}", "currency": "USD"},
+            "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
+            "item_list": {
+                "items": [
+                    {
+                        "name": product.name,
+                        "sku": f"product_{product_id}",
+                        "price": f"{amount:.2f}",
+                        "currency": "USD",
+                        "quantity": 1
                     }
-                }
-            ],
-            "redirect_urls": {
-                "return_url": "http://localhost:5173/payment-success",
-                "cancel_url": "http://localhost:5173/payment-cancel"
-            }
+                ]
+            },
+            "invoice_number": str(purchase_id_val),  # NEW
+            "custom": str(system_id)            # or JSON if needed
         }
+    ],
+    "redirect_urls": {
+        "return_url": "http://localhost:5173/payment-success",
+        "cancel_url": "http://localhost:5173/payment-cancel"
+    }
+}
+
         print(f"Payment Payload: {payment_payload}")
 
 
@@ -122,7 +119,8 @@ def create_purchase():
                 client_id=data['client_id'],
                 product_id=data['product_id'],
                 amount=data['amount'],
-                system_id=SessionHelper.get_system_id()  # Pass system_id here
+                system_id=SessionHelper.get_system_id(),  # Pass system_id here
+                purchase_id_val=purchase_id
 
             )
 

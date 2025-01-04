@@ -26,68 +26,103 @@ def create_payment():
     payment_id = Payment.save(data)
     return jsonify({"message": "Payment created", "payment_id": payment_id}), 201
 
-@app.route('/api/paypal_webhook', methods=['POST'])
+@app.route("/api/paypal_webhook", methods=["POST"])
 def paypal_webhook():
-    # Parse the webhook payload
-    payload = request.get_json()
+    """
+    Receives PayPal webhook POST events. Verifies signature,
+    then updates purchases & payments in DB.
+    """
+    payload = request.get_json() or {}
     headers = request.headers
 
-    try:
-        # Verify the webhook authenticity
-        system_id = payload.get('resource', {}).get('custom', {}).get('system_id')  # Assuming system_id is passed in 'custom'
-        if not system_id:
-            return jsonify({"error": "Invalid webhook: missing system_id"}), 400
+    print("---- Incoming PayPal Webhook ----")
+    print("Payload:", payload)
+    print("Headers:", dict(headers))
 
-        system = System(system_id)  # Get PayPal credentials for the system
+    try:
+        # 1) Extract resource object
+        resource = payload.get("resource", {})
+
+        # 2) Grab the 'custom' field (we put system_id here as a string)
+        custom_str = resource.get("custom")
+        if not custom_str:
+            return jsonify({"error": "Invalid webhook: missing custom/system_id"}), 400
+
+        system_id = custom_str  # If you stored just system_id as a string
+
+        # 3) Load system to fetch correct PayPal creds
+        system_obj = System.get_system_by_id(system_id)
+        if not system_obj:
+            return jsonify({"error": f"Unknown system_id: {system_id}"}), 400
+
+        # 4) Reconfigure PayPal with this system's keys
         configure({
-            "mode": "sandbox",  # Use 'live' in production
-            "client_id": system.paypal_client_id,
-            "client_secret": system.paypal_secret,
+            "mode": "sandbox",  # "live" in production
+            "client_id": system_obj.paypal_client_id,
+            "client_secret": system_obj.paypal_secret,
         })
 
+        # 5) Verify the signature
         verified = WebhookEvent.verify(
-            transmission_id=headers['PayPal-Transmission-Id'],
-            timestamp=headers['PayPal-Transmission-Time'],
-            webhook_id="<YOUR_PAYPAL_WEBHOOK_ID>",
+            transmission_id=headers.get("PayPal-Transmission-Id", ""),
+            timestamp=headers.get("PayPal-Transmission-Time", ""),
+            webhook_id="960375412A707243J",  # <--- Replace with your actual Webhook ID from PayPal
             event_body=payload,
-            cert_url=headers['PayPal-Cert-Url'],
-            actual_sig=headers['PayPal-Transmission-Sig'],
-            auth_algo=headers['PayPal-Auth-Algo'],
+            cert_url=headers.get("PayPal-Cert-Url", ""),
+            actual_sig=headers.get("PayPal-Transmission-Sig", ""),
+            auth_algo=headers.get("PayPal-Auth-Algo", ""),
         )
         if not verified:
             return jsonify({"error": "Invalid webhook signature"}), 400
 
-        # Handle the event
-        event_type = payload['event_type']
-        resource = payload['resource']
+        # 6) Check event type
+        event_type = payload.get("event_type")
+        print("PayPal Webhook event_type:", event_type)
 
-        if event_type == 'PAYMENT.SALE.COMPLETED':
-            sale_id = resource['id']
-            purchase_id = resource['invoice_number']  # Use 'invoice_number' to link purchase
-            payer_id = resource['payer']['payer_info']['payer_id']
-            amount_paid = float(resource['amount']['total'])
+        if event_type == "PAYMENT.SALE.COMPLETED":
+            # a) The resource should contain 'invoice_number' = local purchase_id
+            purchase_id = resource.get("invoice_number")
+            if not purchase_id:
+                return jsonify({"error": "No invoice_number in resource"}), 400
 
-            # Update payment status in purchases table
-            Purchase.update_payment_status(purchase_id, 'Paid')
+            # b) Look up local purchase
+            purchase_data = Purchase.get_by_id(int(purchase_id))
+            if not purchase_data:
+                return jsonify({"error": f"Purchase {purchase_id} not found"}), 404
 
-            # Create a new entry in the payments table
+            # c) Get the local client_id from the purchase row
+            local_client_id = purchase_data.client_id
+
+            # d) Parse the amount paid
+            amount_obj = resource.get("amount", {})
+            amount_paid = float(amount_obj.get("total", "0.00"))
+
+            # e) Mark purchase as Paid
+            Purchase.update_payment_status(purchase_id, "Paid")
+
+            # f) Create a payment record in DB
             Payment.save({
-                "client_id": payer_id,
+                "client_id": local_client_id,
                 "purchase_id": purchase_id,
-                "payment_date": datetime.now().strftime('%Y-%m-%d'),
+                "payment_date": datetime.now().strftime("%Y-%m-%d"),
                 "amount_paid": amount_paid,
                 "payment_method": "PayPal",
             })
 
-        elif event_type == 'PAYMENT.SALE.PENDING':
-            # Handle pending payments if needed
-            pass
+            return jsonify({"status": "success"}), 200
 
-        return jsonify({"status": "success"}), 200
+        elif event_type == "PAYMENT.SALE.PENDING":
+            # Optionally handle pending payments
+            return jsonify({"status": "pending"}), 200
+
+        else:
+            # If you want to handle other events or ignore them:
+            return jsonify({"status": "ignored-event"}), 200
 
     except Exception as e:
-        print(f"Error handling webhook: {e}")
+        print("Error handling webhook:", e)
         return jsonify({"error": "Webhook processing failed"}), 500
+
 
 
 # READ All Payments
