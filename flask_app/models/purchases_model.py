@@ -71,6 +71,7 @@ class Purchase:
         """
         data['system_id'] = SessionHelper.get_system_id()
         data['paypal_link'] = None  # Default to NULL
+        data['paypal_payment_id'] = None
 
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
     
