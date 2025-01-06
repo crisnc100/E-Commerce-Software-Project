@@ -92,6 +92,9 @@ def execute_payment():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/payment-final", methods=["GET"])
+def payment_final():
+    return render_template("payment_final.html")
 
 
 

@@ -719,20 +719,15 @@ class Purchase:
 
     @classmethod
     def get_by_paypal_payment_id(cls, paypal_payment_id):
-        """
-        SELECT * FROM purchases WHERE paypal_payment_id=? AND system_id=?
-        Return a dict or a custom purchase object.
-        """
         query = """
             SELECT * 
             FROM purchases
             WHERE paypal_payment_id = %(paypal_payment_id)s;
         """
-        data = {
-            "paypal_payment_id": paypal_payment_id
-        }
+        data = {"paypal_payment_id": paypal_payment_id}
         results = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
-        return cls(results[0]) if results else None
+        return cls(**results[0]) if results else None
+
 
 
 
