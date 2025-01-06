@@ -3,6 +3,7 @@ from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.payments_model import PaymentModel
+from flask_app.utils.session_helper import SessionHelper
 from flask_app.models.purchases_model import Purchase
 from decimal import Decimal, InvalidOperation
 from paypalrestsdk import Payment, configure
@@ -30,13 +31,6 @@ def create_payment():
 
 @app.route("/execute-payment", methods=["GET"])
 def execute_payment():
-    """
-    GET /execute-payment?paymentId=PAY-123&payerId=XYZ
-    1) Find the purchase by purchase.paypal_payment_id
-    2) Configure with correct system's PayPal creds
-    3) Payment.find(paymentId), payment.execute({"payer_id": payerId})
-    4) Mark purchase as Paid, create payment record
-    """
     payment_id = request.args.get("paymentId")
     payer_id = request.args.get("payerId")
 
@@ -44,28 +38,31 @@ def execute_payment():
         return jsonify({"status": "error", "message": "Missing paymentId or payerId"}), 400
 
     try:
-        # 1) Find purchase row by that paymentId
+        # Fetch the purchase data
         purchase_data = Purchase.get_by_paypal_payment_id(payment_id)
-        print(f"Purchase Data: {purchase_data}")
-
         if not purchase_data:
             return jsonify({"status": "error", "message": f"No purchase found for paymentId={payment_id}"}), 404
-    
 
-        # 2) Get the system credentials
+        # Use the system_id from the purchase
         system_id = purchase_data.system_id
+        if not system_id:
+            return jsonify({"status": "error", "message": "System ID is missing in purchase data"}), 400
+
+        # Temporarily set system_id in the session
+        SessionHelper.set_system_id(system_id)
+
+        # Configure PayPal credentials
         system_obj = System.get_system_by_id(system_id)
         if not system_obj:
             return jsonify({"status": "error", "message": f"System {system_id} not found"}), 400
 
-        # 3) Configure with that system's credentials
         configure({
             "mode": "sandbox",
             "client_id": system_obj.paypal_client_id,
             "client_secret": system_obj.paypal_secret,
         })
 
-        # 4) Payment.find(...) + execute
+        # Find and execute the payment
         payment = Payment.find(payment_id)
         if not payment:
             return jsonify({"status": "error", "message": "Could not find PayPal payment"}), 404
@@ -74,11 +71,10 @@ def execute_payment():
             err = payment.error or "Execution failed"
             return jsonify({"status": "error", "message": str(err)}), 400
 
-        # Payment is captured
-        # Mark purchase as 'Paid'
+        # Mark purchase as Paid
         Purchase.update_payment_status(purchase_data.id, "Paid")
 
-        # Insert a row in 'payments' table if you want
+        # Insert a payment record
         tx = payment.transactions[0]
         amount_paid = tx["amount"]["total"]  # e.g. "100.00"
         PaymentModel.save({
@@ -93,6 +89,7 @@ def execute_payment():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/payment-final", methods=["GET"])
 def payment_final():
