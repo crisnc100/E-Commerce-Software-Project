@@ -67,7 +67,7 @@ class Purchase:
         INSERT INTO purchases (client_id, product_id, system_id, 
         size, purchase_date, amount, payment_status, shipping_status, paypal_link, paypal_payment_id, created_at, updated_at) 
         VALUES (%(client_id)s, %(product_id)s, %(system_id)s, %(size)s, 
-        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, %(paypal_payment_id)s, )NOW(), NOW());
+        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, %(paypal_payment_id)s, NOW(), NOW());
         """
         data['system_id'] = SessionHelper.get_system_id()
         data['paypal_link'] = None  # Default to NULL
