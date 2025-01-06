@@ -20,6 +20,7 @@ class Purchase:
         self.payment_status = data.get('payment_status')
         self.shipping_status = data.get('shipping_status')
         self.paypal_link = data.get('paypal_link')
+        self.paypal_payment_id = data.get('paypal_payment_id')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
         self.product_name = data.get('product_name')  # New field
@@ -45,6 +46,7 @@ class Purchase:
             'payment_status': self.payment_status,
             'shipping_status': self.shipping_status,
             'paypal_link': self.paypal_link,
+            'paypal_payment_id': self.paypal_payment_id,
             'created_at': str(self.created_at), 
             'updated_at': str(self.updated_at),
             'product_name': self.product_name,
@@ -63,9 +65,9 @@ class Purchase:
         """Create a new purchase record."""
         query = """
         INSERT INTO purchases (client_id, product_id, system_id, 
-        size, purchase_date, amount, payment_status, shipping_status, paypal_link, created_at, updated_at) 
+        size, purchase_date, amount, payment_status, shipping_status, paypal_link, paypal_payment_id, created_at, updated_at) 
         VALUES (%(client_id)s, %(product_id)s, %(system_id)s, %(size)s, 
-        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, NOW(), NOW());
+        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, %(paypal_payment_id)s, )NOW(), NOW());
         """
         data['system_id'] = SessionHelper.get_system_id()
         data['paypal_link'] = None  # Default to NULL
@@ -691,6 +693,49 @@ class Purchase:
         data = {'paypal_link': f"%{parent_payment_id}%"}
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
         return result[0]['system_id'] if result else None
+    
+    @classmethod
+    def update_paypal_payment_id(cls, purchase_id, paypal_payment_id):
+        """
+        Store the PayPal payment.id in `paypal_payment_id` column for this purchase.
+        """
+        query = """
+            UPDATE purchases
+            SET paypal_payment_id = %(paypal_payment_id)s,
+                updated_at = NOW()
+            WHERE id = %(id)s 
+              AND system_id = %(system_id)s;
+        """
+        data = {
+            "id": purchase_id,
+            "system_id": SessionHelper.get_system_id(),
+            "paypal_payment_id": paypal_payment_id
+        }
+        result = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
+        print(f"PayPal payment_id updated for purchase_id {purchase_id}: {result}")
+
+    
+
+    @classmethod
+    def get_by_paypal_payment_id(cls, paypal_payment_id):
+        """
+        SELECT * FROM purchases WHERE paypal_payment_id=? AND system_id=?
+        Return a dict or a custom purchase object.
+        """
+        query = """
+            SELECT * 
+            FROM purchases
+            WHERE paypal_payment_id = %(paypal_payment_id)s
+              AND system_id = %(system_id)s
+            LIMIT 1;
+        """
+        data = {
+            "paypal_payment_id": paypal_payment_id,
+            "system_id": SessionHelper.get_system_id()
+        }
+        results = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
+        return cls(results[0]) if results else None
+
 
 
 

@@ -30,6 +30,13 @@ def create_payment():
 
 @app.route("/execute-payment", methods=["GET"])
 def execute_payment():
+    """
+    GET /execute-payment?paymentId=PAY-123&payerId=XYZ
+    1) Find the purchase by purchase.paypal_payment_id
+    2) Configure with correct system's PayPal creds
+    3) Payment.find(paymentId), payment.execute({"payer_id": payerId})
+    4) Mark purchase as Paid, create payment record
+    """
     payment_id = request.args.get("paymentId")
     payer_id = request.args.get("payerId")
 
@@ -37,66 +44,44 @@ def execute_payment():
         return jsonify({"status": "error", "message": "Missing paymentId or payerId"}), 400
 
     try:
-        ##########################
-        system = System.get_system_by_id(system_id)
-        print(f"System PayPal Credentials: {system.paypal_client_id}, {system.paypal_secret}")
+        # 1) Find purchase row by that paymentId
+        purchase_data = Purchase.get_by_paypal_payment_id(payment_id)
+        if not purchase_data:
+            return jsonify({"status": "error", "message": f"No purchase found for paymentId={payment_id}"}), 404
+    
 
-        if not system or not system.paypal_client_id or not system.paypal_secret:
-            raise Exception("PayPal credentials are missing for this system.")
-
-        configure({
-            "mode": "sandbox",
-            "client_id": system.paypal_client_id,
-            "client_secret": system.paypal_secret,
-        })
-
-        # B) Find payment
-        payment = Payment.find(payment_id)
-        if not payment:
-            return jsonify({"status": "error", "message": "Could not find PayPal payment"}), 404
-
-        # C) parse invoice_number & custom
-        tx = payment.transactions[0]
-        invoice_number = tx.get("invoice_number")
-        custom_str = tx.get("custom")
-
-        if not invoice_number or not custom_str:
-            return jsonify({"status": "error", "message": "Missing invoice_number or custom"}), 400
-
-        purchase_id = int(invoice_number)
-        system_id = int(custom_str)
-
-        ##########################
-        # D) re-config with real system credentials
-        ##########################
+        # 2) Get the system credentials
+        system_id = purchase_data['system_id']
         system_obj = System.get_system_by_id(system_id)
         if not system_obj:
-            return jsonify({"status": "error", "message": f"Unknown system_id {system_id}"}), 400
+            return jsonify({"status": "error", "message": f"System {system_id} not found"}), 400
 
+        # 3) Configure with that system's credentials
         configure({
-            "mode": "sandbox",  # or 'live'
+            "mode": "sandbox",
             "client_id": system_obj.paypal_client_id,
             "client_secret": system_obj.paypal_secret,
         })
 
-        # E) Actually EXECUTE the payment 
-        execute_result = payment.execute({"payer_id": payer_id})
-        if not execute_result:
+        # 4) Payment.find(...) + execute
+        payment = Payment.find(payment_id)
+        if not payment:
+            return jsonify({"status": "error", "message": "Could not find PayPal payment"}), 404
+
+        if not payment.execute({"payer_id": payer_id}):
             err = payment.error or "Execution failed"
             return jsonify({"status": "error", "message": str(err)}), 400
 
-        # Payment is captured. 
-        # F) Update local DB
-        # 1) Mark purchase as Paid
-        Purchase.update_payment_status(purchase_id, "Paid")
+        # Payment is captured
+        # Mark purchase as 'Paid'
+        Purchase.update_payment_status(purchase_data.id, "Paid")
 
-        # 2) Insert new row in payments table
-        # parse the final amount
+        # Insert a row in 'payments' table if you want
+        tx = payment.transactions[0]
         amount_paid = tx["amount"]["total"]  # e.g. "100.00"
-        purchase_data = Purchase.get_by_id(purchase_id)  # to get client_id
         PaymentModel.save({
             "client_id": purchase_data.client_id,
-            "purchase_id": purchase_id,
+            "purchase_id": purchase_data.id,
             "payment_date": datetime.now().strftime("%Y-%m-%d"),
             "amount_paid": amount_paid,
             "payment_method": "PayPal"
@@ -106,11 +91,6 @@ def execute_payment():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/payment-final", methods=["GET"])
-def payment_final():
-    return render_template("payment_final.html")
 
 
 

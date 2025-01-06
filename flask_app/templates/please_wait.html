@@ -8,12 +8,12 @@
   <p>Do not close this tab. This will only take a moment.</p>
 
   <script>
-    // We'll call /execute-payment via AJAX
-    const params = new URLSearchParams(window.location.search);
-    const paymentId = params.get("paymentId");
-    const payerId = params.get("PayerID");
+    // We'll call /execute-payment via AJAX using the query params we got.
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentId = urlParams.get("paymentId");
+    const payerId = urlParams.get("PayerID");
 
-    fetch(`/execute-payment?paymentId=${paymentId}&payerId=${payerId}`)
+    fetch(`/execute-payment?paymentId=${encodeURIComponent(paymentId)}&payerId=${encodeURIComponent(payerId)}`)
       .then(res => res.json())
       .then(data => {
         if (data.status === "success") {

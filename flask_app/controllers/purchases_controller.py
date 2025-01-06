@@ -29,75 +29,68 @@ def payment_success():
     return render_template("please_wait.html", payment_id=payment_id, payer_id=payer_id)
 
 
-
 @app.route('/payment-cancel')
 def payment_cancel():
     return render_template('payment_cancel.html')
 
+
 def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_val):
     try:
-        # Fetch client and product info from your database
+        # (1) Fetch client, product
         client = Client.get_by_id(client_id)
         product = Product.get_by_id(product_id)
-        print(f"Client: {client}, Product: {product}")
 
-
-        # Fetch PayPal credentials for the system
+        # (2) Fetch system creds
         system = System.get_system_by_id(system_id)
-        print(f"System PayPal Credentials: {system.paypal_client_id}, {system.paypal_secret}")
-
         if not system or not system.paypal_client_id or not system.paypal_secret:
             raise Exception("PayPal credentials are missing for this system.")
 
-        # Configure PayPal SDK with the system's credentials
+        # (3) Configure
         configure({
-            "mode": "sandbox",  # Change to "live" for production
+            "mode": "sandbox",  # or "live"
             "client_id": system.paypal_client_id,
             "client_secret": system.paypal_secret,
         })
 
-        # Create PayPal payment payload
+        # (4) Build Payment Payload
         payment_payload = {
-        "intent": "sale",
-        "payer": {"payment_method": "paypal"},
-        "transactions": [
-            {
-                "amount": {"total": f"{amount:.2f}", "currency": "USD"},
-                "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
-                "item_list": {
-                    "items": [
-                        {
-                            "name": product.name,
-                            "sku": f"product_{product_id}",
-                            "price": f"{amount:.2f}",
-                            "currency": "USD",
-                            "quantity": 1
-                        }
-                    ]
-                },
-                "invoice_number": str(purchase_id_val),  # NEW
-                "custom": str(system_id)            # or JSON if needed
+            "intent": "sale",
+            "payer": {"payment_method": "paypal"},
+            "transactions": [
+                {
+                    "amount": {"total": f"{amount:.2f}", "currency": "USD"},
+                    "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
+                    "item_list": {
+                        "items": [
+                            {
+                                "name": product.name,
+                                "sku": f"product_{product_id}",
+                                "price": f"{amount:.2f}",
+                                "currency": "USD",
+                                "quantity": 1
+                            }
+                        ]
+                    },
+                    "invoice_number": str(purchase_id_val),
+                    "custom": str(system_id)
+                }
+            ],
+            "redirect_urls": {
+                "return_url": "https://mariaortegas-project.onrender.com/payment-success",
+                "cancel_url": "https://mariaortegas-project.onrender.com/payment-cancel"
             }
-        ],
-        "redirect_urls": {
-            "return_url": "https://mariaortegas-project.onrender.com/payment-success",
-            "cancel_url": "https://mariaortegas-project.onrender.com/payment-cancel"
         }
-    }
 
-        print(f"Payment Payload: {payment_payload}")
-
-
-        # Create the payment using PayPal SDK
+        # (5) Create Payment
         payment = Payment(payment_payload)
         if not payment.create():
             raise Exception(f"PayPal API error: {payment.error}")
 
-        # Extract the approval link
+        # (6) Extract approval URL
         approval_url = next(link.href for link in payment.links if link.rel == "approval_url")
-        print(f"Approval URL: {approval_url}")
 
-        return approval_url
+        # (7) Return approval_url plus the payment object if needed
+        return (approval_url, payment.id)
 
     except Exception as e:
         print(f"Error generating PayPal link: {e}")
@@ -105,14 +98,13 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
 
 
 
-# CREATE Purchase
 @app.route('/api/create_purchase', methods=['POST'])
 def create_purchase():
-    data = request.get_json()
+    data = request.get_json() or {}
 
     # Check for required fields
     required_fields = ['client_id', 'product_id', 'size', 'amount']
-    missing_fields = [field for field in required_fields if field not in data or not data[field]]
+    missing_fields = [f for f in required_fields if f not in data or not data[f]]
     if missing_fields:
         return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
 
@@ -124,42 +116,47 @@ def create_purchase():
     except ValueError:
         return jsonify({"error": "Invalid amount format"}), 400
 
-    # Add default values
+    # Default fields
     data['purchase_date'] = data.get('purchase_date', datetime.now().strftime('%Y-%m-%d'))
     data['payment_status'] = 'Pending'
     data['shipping_status'] = 'Pending'
+    # system_id from your session or data?
+    data['system_id'] = SessionHelper.get_system_id()
 
-    # Save purchase
+    # 1) Save purchase row
     try:
         purchase_id = Purchase.save(data)
+    except Exception as e:
+        print(f"Error saving purchase: {str(e)}")
+        return jsonify({"error": "Failed to save purchase"}), 500
 
-        # Generate PayPal link
-        try:
-            paypal_link = generate_paypal_link(
-                client_id=data['client_id'],
-                product_id=data['product_id'],
-                amount=data['amount'],
-                system_id=SessionHelper.get_system_id(),  # Pass system_id here
-                purchase_id_val=purchase_id
+    # 2) Generate PayPal link
+    try:
+        (paypal_approval_url, paypal_payment_id) = generate_paypal_link(
+            client_id=data['client_id'],
+            product_id=data['product_id'],
+            amount=data['amount'],
+            system_id=data['system_id'],  
+            purchase_id_val=purchase_id
+        )
 
-            )
+        # 3) Store that payment.id in DB
+        Purchase.update_paypal_payment_id(purchase_id, paypal_payment_id)
 
-            # Update purchase with PayPal link
-            Purchase.update_paypal_link(purchase_id, paypal_link)
-
-        except Exception as e:
-            print(f"Error generating PayPal link: {str(e)}")
-            return jsonify({"error": "Purchase created, but failed to generate PayPal link"}), 500
+        # 4) Also store the approval link in `paypal_link` if you want
+        Purchase.update_paypal_link(purchase_id, paypal_approval_url)
 
         return jsonify({
             "message": "Purchase created and PayPal link generated",
             "purchase_id": purchase_id,
-            "paypal_link": paypal_link
+            "paypal_link": paypal_approval_url,
+            "paypal_payment_id": paypal_payment_id
         }), 201
 
     except Exception as e:
-        print(f"Error saving purchase: {str(e)}")
-        return jsonify({"error": "Failed to save purchase"}), 500
+        print(f"Error generating PayPal link: {str(e)}")
+        return jsonify({"error": "Purchase created, but failed to generate PayPal link"}), 500
+
 
 
 
