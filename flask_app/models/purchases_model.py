@@ -726,13 +726,10 @@ class Purchase:
         query = """
             SELECT * 
             FROM purchases
-            WHERE paypal_payment_id = %(paypal_payment_id)s
-              AND system_id = %(system_id)s
-            LIMIT 1;
+            WHERE paypal_payment_id = %(paypal_payment_id)s;
         """
         data = {
-            "paypal_payment_id": paypal_payment_id,
-            "system_id": SessionHelper.get_system_id()
+            "paypal_payment_id": paypal_payment_id
         }
         results = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
         return cls(results[0]) if results else None
