@@ -1,4 +1,4 @@
-from flask import redirect, request, session, jsonify
+from flask import redirect, request, session, jsonify, render_template
 from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
@@ -13,6 +13,16 @@ from flask_app.models.systems_model import System
 
 
 from paypalrestsdk import configure, Payment
+
+
+@app.route('/payment-success')
+def payment_success():
+    return render_template('payment_success.html')
+
+
+@app.route('/payment-cancel')
+def payment_cancel():
+    return render_template('payment_cancel.html')
 
 def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_val):
     try:
@@ -60,8 +70,8 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
         }
     ],
     "redirect_urls": {
-        "return_url": "http://localhost:5173/payment-success",
-        "cancel_url": "http://localhost:5173/payment-cancel"
+        "return_url": "https://mariaortegas-project.onrender.com/payment-success",
+        "cancel_url": "https://mariaortegas-project.onrender.com/payment-cancel"
     }
 }
 
