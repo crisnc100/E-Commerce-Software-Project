@@ -726,7 +726,12 @@ class Purchase:
         """
         data = {"paypal_payment_id": paypal_payment_id}
         results = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
-        return cls(**results[0]) if results else None
+
+        # Debug logs to inspect what's being returned
+        print(f"Query Results for paypal_payment_id={paypal_payment_id}: {results}")
+
+        # Return None or a Purchase instance
+        return cls(results[0]) if results else None
 
 
 

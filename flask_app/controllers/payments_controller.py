@@ -46,12 +46,14 @@ def execute_payment():
     try:
         # 1) Find purchase row by that paymentId
         purchase_data = Purchase.get_by_paypal_payment_id(payment_id)
+        print(f"Purchase Data: {purchase_data}")
+
         if not purchase_data:
             return jsonify({"status": "error", "message": f"No purchase found for paymentId={payment_id}"}), 404
     
 
         # 2) Get the system credentials
-        system_id = purchase_data['system_id']
+        system_id = purchase_data.system_id
         system_obj = System.get_system_by_id(system_id)
         if not system_obj:
             return jsonify({"status": "error", "message": f"System {system_id} not found"}), 400
