@@ -3,7 +3,7 @@ from flask_app import app
 from flask_app.models.client_model import Client
 from flask_app.models.products_model import Product
 from flask_app.models.purchases_model import Purchase
-from flask_app.models.payments_model import Payment
+from flask_app.models.payments_model import PaymentModel
 from datetime import datetime, timedelta
 import pdfkit
 
@@ -25,7 +25,7 @@ def get_recent_activities():
 
         recent_purchases = Purchase.get_recent_purchases(since_date)
 
-        recent_payments = Payment.get_recent_payments(since_date)
+        recent_payments = PaymentModel.get_recent_payments(since_date)
 
         recent_shipping_updates = Purchase.get_recent_shipping_updates(since_date)
 

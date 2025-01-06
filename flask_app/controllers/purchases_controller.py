@@ -15,9 +15,19 @@ from flask_app.models.systems_model import System
 from paypalrestsdk import configure, Payment
 
 
-@app.route('/payment-success')
+@app.route("/payment-success", methods=["GET"])
 def payment_success():
-    return render_template('payment_success.html')
+    payment_id = request.args.get("paymentId")
+    payer_id = request.args.get("PayerID")
+
+    if not payment_id or not payer_id:
+        # If missing, show error or handle gracefully
+        return render_template("payment_error.html", message="Could not execute payment"), 400
+
+    # Render the "please wait" page 
+    # passing these values so the JS can call /execute-payment
+    return render_template("please_wait.html", payment_id=payment_id, payer_id=payer_id)
+
 
 
 @app.route('/payment-cancel')
@@ -48,32 +58,32 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
 
         # Create PayPal payment payload
         payment_payload = {
-    "intent": "sale",
-    "payer": {"payment_method": "paypal"},
-    "transactions": [
-        {
-            "amount": {"total": f"{amount:.2f}", "currency": "USD"},
-            "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
-            "item_list": {
-                "items": [
-                    {
-                        "name": product.name,
-                        "sku": f"product_{product_id}",
-                        "price": f"{amount:.2f}",
-                        "currency": "USD",
-                        "quantity": 1
-                    }
-                ]
-            },
-            "invoice_number": str(purchase_id_val),  # NEW
-            "custom": str(system_id)            # or JSON if needed
+        "intent": "sale",
+        "payer": {"payment_method": "paypal"},
+        "transactions": [
+            {
+                "amount": {"total": f"{amount:.2f}", "currency": "USD"},
+                "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
+                "item_list": {
+                    "items": [
+                        {
+                            "name": product.name,
+                            "sku": f"product_{product_id}",
+                            "price": f"{amount:.2f}",
+                            "currency": "USD",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                "invoice_number": str(purchase_id_val),  # NEW
+                "custom": str(system_id)            # or JSON if needed
+            }
+        ],
+        "redirect_urls": {
+            "return_url": "https://mariaortegas-project.onrender.com/payment-success",
+            "cancel_url": "https://mariaortegas-project.onrender.com/payment-cancel"
         }
-    ],
-    "redirect_urls": {
-        "return_url": "https://mariaortegas-project.onrender.com/payment-success",
-        "cancel_url": "https://mariaortegas-project.onrender.com/payment-cancel"
     }
-}
 
         print(f"Payment Payload: {payment_payload}")
 

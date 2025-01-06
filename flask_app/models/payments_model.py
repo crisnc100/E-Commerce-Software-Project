@@ -1,7 +1,7 @@
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.utils.session_helper import SessionHelper
 
-class Payment:
+class PaymentModel:
     def __init__(self, data):
         self.id = data.get('id')
         self.client_id = data.get('client_id')

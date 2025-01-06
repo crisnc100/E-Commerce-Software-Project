@@ -1,11 +1,11 @@
-from flask import redirect, request, session, jsonify
+from flask import redirect, request, session, jsonify, render_template
 from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
-from flask_app.models.payments_model import Payment
+from flask_app.models.payments_model import PaymentModel
 from flask_app.models.purchases_model import Purchase
 from decimal import Decimal, InvalidOperation
-from paypalrestsdk import WebhookEvent, configure
+from paypalrestsdk import Payment, configure
 from flask_app.models.systems_model import System
 from datetime import datetime
 
@@ -19,123 +19,114 @@ def create_payment():
 
 
     # Optional validation here (e.g., amount > 0)
-    if not Payment.validate_payment(data):
+    if not PaymentModel.validate_payment(data):
         return jsonify({"error": "Invalid payment data"}), 400
 
     # Save the payment
-    payment_id = Payment.save(data)
+    payment_id = PaymentModel.save(data)
     return jsonify({"message": "Payment created", "payment_id": payment_id}), 201
 
-@app.route("/api/paypal_webhook", methods=["POST"])
-def paypal_webhook():
-    """
-    Receives PayPal webhook POST events. Verifies signature,
-    then updates purchases & payments in DB.
-    """
-    payload = request.get_json() or {}
-    headers = request.headers
 
-    print("---- Incoming PayPal Webhook ----")
-    print("Payload:", payload)
-    print("Headers:", dict(headers))
+
+@app.route("/execute-payment", methods=["GET"])
+def execute_payment():
+    payment_id = request.args.get("paymentId")
+    payer_id = request.args.get("payerId")
+
+    if not payment_id or not payer_id:
+        return jsonify({"status": "error", "message": "Missing paymentId or payerId"}), 400
 
     try:
-        # 1) Extract resource object
-        resource = payload.get("resource", {})
+        ##########################
+        system = System.get_system_by_id(system_id)
+        print(f"System PayPal Credentials: {system.paypal_client_id}, {system.paypal_secret}")
 
-        # 2) Grab the 'custom' field (we put system_id here as a string)
-        custom_str = resource.get("custom")
-        if not custom_str:
-            return jsonify({"error": "Invalid webhook: missing custom/system_id"}), 400
+        if not system or not system.paypal_client_id or not system.paypal_secret:
+            raise Exception("PayPal credentials are missing for this system.")
 
-        system_id = custom_str  # If you stored just system_id as a string
+        configure({
+            "mode": "sandbox",
+            "client_id": system.paypal_client_id,
+            "client_secret": system.paypal_secret,
+        })
 
-        # 3) Load system to fetch correct PayPal creds
+        # B) Find payment
+        payment = Payment.find(payment_id)
+        if not payment:
+            return jsonify({"status": "error", "message": "Could not find PayPal payment"}), 404
+
+        # C) parse invoice_number & custom
+        tx = payment.transactions[0]
+        invoice_number = tx.get("invoice_number")
+        custom_str = tx.get("custom")
+
+        if not invoice_number or not custom_str:
+            return jsonify({"status": "error", "message": "Missing invoice_number or custom"}), 400
+
+        purchase_id = int(invoice_number)
+        system_id = int(custom_str)
+
+        ##########################
+        # D) re-config with real system credentials
+        ##########################
         system_obj = System.get_system_by_id(system_id)
         if not system_obj:
-            return jsonify({"error": f"Unknown system_id: {system_id}"}), 400
+            return jsonify({"status": "error", "message": f"Unknown system_id {system_id}"}), 400
 
-        # 4) Reconfigure PayPal with this system's keys
         configure({
-            "mode": "sandbox",  # "live" in production
+            "mode": "sandbox",  # or 'live'
             "client_id": system_obj.paypal_client_id,
             "client_secret": system_obj.paypal_secret,
         })
 
-        # 5) Verify the signature
-        verified = WebhookEvent.verify(
-            transmission_id=headers.get("PayPal-Transmission-Id", ""),
-            timestamp=headers.get("PayPal-Transmission-Time", ""),
-            webhook_id="960375412A707243J",  # <--- Replace with your actual Webhook ID from PayPal
-            event_body=payload,
-            cert_url=headers.get("PayPal-Cert-Url", ""),
-            actual_sig=headers.get("PayPal-Transmission-Sig", ""),
-            auth_algo=headers.get("PayPal-Auth-Algo", ""),
-        )
-        if not verified:
-            return jsonify({"error": "Invalid webhook signature"}), 400
+        # E) Actually EXECUTE the payment 
+        execute_result = payment.execute({"payer_id": payer_id})
+        if not execute_result:
+            err = payment.error or "Execution failed"
+            return jsonify({"status": "error", "message": str(err)}), 400
 
-        # 6) Check event type
-        event_type = payload.get("event_type")
-        print("PayPal Webhook event_type:", event_type)
+        # Payment is captured. 
+        # F) Update local DB
+        # 1) Mark purchase as Paid
+        Purchase.update_payment_status(purchase_id, "Paid")
 
-        if event_type == "PAYMENT.SALE.COMPLETED":
-            # a) The resource should contain 'invoice_number' = local purchase_id
-            purchase_id = resource.get("invoice_number")
-            if not purchase_id:
-                return jsonify({"error": "No invoice_number in resource"}), 400
+        # 2) Insert new row in payments table
+        # parse the final amount
+        amount_paid = tx["amount"]["total"]  # e.g. "100.00"
+        purchase_data = Purchase.get_by_id(purchase_id)  # to get client_id
+        PaymentModel.save({
+            "client_id": purchase_data.client_id,
+            "purchase_id": purchase_id,
+            "payment_date": datetime.now().strftime("%Y-%m-%d"),
+            "amount_paid": amount_paid,
+            "payment_method": "PayPal"
+        })
 
-            # b) Look up local purchase
-            purchase_data = Purchase.get_by_id(int(purchase_id))
-            if not purchase_data:
-                return jsonify({"error": f"Purchase {purchase_id} not found"}), 404
-
-            # c) Get the local client_id from the purchase row
-            local_client_id = purchase_data.client_id
-
-            # d) Parse the amount paid
-            amount_obj = resource.get("amount", {})
-            amount_paid = float(amount_obj.get("total", "0.00"))
-
-            # e) Mark purchase as Paid
-            Purchase.update_payment_status(purchase_id, "Paid")
-
-            # f) Create a payment record in DB
-            Payment.save({
-                "client_id": local_client_id,
-                "purchase_id": purchase_id,
-                "payment_date": datetime.now().strftime("%Y-%m-%d"),
-                "amount_paid": amount_paid,
-                "payment_method": "PayPal",
-            })
-
-            return jsonify({"status": "success"}), 200
-
-        elif event_type == "PAYMENT.SALE.PENDING":
-            # Optionally handle pending payments
-            return jsonify({"status": "pending"}), 200
-
-        else:
-            # If you want to handle other events or ignore them:
-            return jsonify({"status": "ignored-event"}), 200
+        return jsonify({"status": "success"}), 200
 
     except Exception as e:
-        print("Error handling webhook:", e)
-        return jsonify({"error": "Webhook processing failed"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/payment-final", methods=["GET"])
+def payment_final():
+    return render_template("payment_final.html")
+
+
 
 
 
 # READ All Payments
 @app.route('/api/get_all_payments', methods=['GET'])
 def get_all_payments():
-    payments = Payment.get_all()
+    payments = PaymentModel.get_all()
     return jsonify([payment.serialize() for payment in payments]), 200
 
 
 # READ Single Payment by ID
 @app.route('/api/get_payment/<int:payment_id>', methods=['GET'])
 def get_payment(payment_id):
-    payment = Payment.get_by_id(payment_id)
+    payment = PaymentModel.get_by_id(payment_id)
     if not payment:
         return jsonify({"error": "Payment not found"}), 404
     return jsonify(payment.serialize()), 200
@@ -157,7 +148,7 @@ def update_payment(payment_id):
                 return jsonify({"error": "Invalid payment amount."}), 400
 
         # Fetch the payment
-        payment = Payment.get_by_id(payment_id)
+        payment = PaymentModel.get_by_id(payment_id)
         if not payment:
             return jsonify({"error": "Payment not found"}), 404
 
@@ -178,7 +169,7 @@ def update_payment(payment_id):
         data['purchase_id'] = payment.purchase_id
 
         try:
-            Payment.update(data)
+            PaymentModel.update(data)
         except Exception as e:
             print(f"SQL Update Failed: {str(e)}")
             return jsonify({"error": "Database update failed"}), 500
@@ -208,12 +199,12 @@ def update_payment(payment_id):
 def delete_payment(payment_id):
     try:
         # Check if the payment exists
-        payment = Payment.get_by_id(payment_id)
+        payment = PaymentModel.get_by_id(payment_id)
         if not payment:
             return jsonify({"error": "Payment not found"}), 404
 
         # Delete the payment
-        Payment.delete(payment_id)
+        PaymentModel.delete(payment_id)
 
         # Check associated purchase
         purchase = Purchase.get_by_id(payment.purchase_id)
@@ -238,7 +229,7 @@ def delete_payment(payment_id):
 @app.route('/api/get_payments_by_client/<int:client_id>', methods=['GET'])
 def get_payments_by_client(client_id):
     try:
-        payments = Payment.get_payments_with_order_details_by_client(client_id)
+        payments = PaymentModel.get_payments_with_order_details_by_client(client_id)
         serialized_payments = [payment.serialize() for payment in payments]
         return jsonify(serialized_payments), 200
     except Exception as e:
@@ -250,7 +241,7 @@ def get_payments_by_client(client_id):
 # GET Payments by Purchase ID
 @app.route('/api/get_payments_by_purchase/<int:purchase_id>', methods=['GET'])
 def get_payments_by_purchase(purchase_id):
-    payments = Payment.get_payments_by_purchase(purchase_id)
+    payments = PaymentModel.get_payments_by_purchase(purchase_id)
     if not payments:
         return jsonify({"message": "No payments found for this purchase"}), 404
     return jsonify([payment.serialize() for payment in payments]), 200

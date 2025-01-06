@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Please Wait...</title>
+</head>
+<body>
+  <h1>Please wait while we finalize your payment...</h1>
+  <p>Do not close this tab. This will only take a moment.</p>
+
+  <script>
+    // We'll call /execute-payment via AJAX
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get("paymentId");
+    const payerId = params.get("PayerID");
+
+    fetch(`/execute-payment?paymentId=${paymentId}&payerId=${payerId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          // Payment executed. Go to final success page.
+          window.location.href = "/payment-final";
+        } else {
+          // Show an error message or redirect to error page
+          alert("Payment execution failed: " + data.message);
+          window.location.href = "/payment-error?msg=" + encodeURIComponent(data.message);
+        }
+      })
+      .catch(err => {
+        alert("Error calling /execute-payment: " + err);
+        window.location.href = "/payment-error?msg=" + encodeURIComponent(err);
+      });
+  </script>
+</body>
+</html>
