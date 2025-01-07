@@ -193,7 +193,7 @@ const Navbar = ({ role }) => {
     }
 
     // Format the date to the user's local time
-    return date.toLocaleString('en-US'); // Add time zone abbreviation
+    return date.toLocaleDateString('en-US'); // Add time zone abbreviation
   };
 
   const getStatusColor = (status) => {
