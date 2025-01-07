@@ -49,7 +49,7 @@ function App() {
 
   return (
     <>
-      <HashRouter>
+      <BrowserRouter>
         <AutoLogout /> {/* This ensures the user is auto-logged out after inactivity */}
 
         <Routes>
@@ -89,7 +89,7 @@ function App() {
           </Route>
 
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
     </>
   );
 }
