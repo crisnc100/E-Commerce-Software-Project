@@ -84,11 +84,6 @@ const ClientIDPage = () => {
         fetchClientData(); // Refresh data after modal closes
     };
 
-
-    const handleAddPaymentMethod = () => {
-        // Logic to open Add Payment Method modal
-    };
-
     const handleUpdateClient = () => {
         setIsEditing(true);
         setEditedClientInfo({ ...clientInfo }); // Copy current client data
@@ -446,12 +441,6 @@ const ClientIDPage = () => {
                     className="flex items-center bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
                 >
                     <FaPlus className="mr-2" /> Add Order
-                </button>
-                <button
-                    onClick={handleAddPaymentMethod}
-                    className="flex items-center bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded"
-                >
-                    <FaCreditCard className="mr-2" /> Add Payment Method
                 </button>
             </div>
 
