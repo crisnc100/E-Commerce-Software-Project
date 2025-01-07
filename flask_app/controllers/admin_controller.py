@@ -186,6 +186,8 @@ def add_user_manually():
         user = User.add_user_with_temp_password(user_data)
         print(f"User added successfully: {user}")  # Debugging: Log added user
 
+        login_url = f"https://ortega-shop.vercel.app/"
+
 
         # Prepare and send email
         # Send email
@@ -194,17 +196,17 @@ def add_user_manually():
             recipients=[user_data['email']]
         )
         msg.html = f"""
-        <p>Hi {user_data['first_name']},</p>
-        <p>You have been added to the system. Below are your temporary credentials:</p>
-        <ul>
-            <li><strong>Email:</strong> {user_data['email']}</li>
-            <li><strong>Temporary Password:</strong> {user['temp_password']}</li>
-        </ul>
-        <p>Please log in using these credentials and update your password within 48 hours.</p>
-        <p>Best regards,<br>{system_data.name} Team</p>
-        """
+            <p>Hi {user_data['first_name']},</p>
+            <p>You have been added to the system. Below are your temporary credentials:</p>
+            <ul>
+                <li><strong>Email:</strong> {user_data['email']}</li>
+                <li><strong>Temporary Password:</strong> {user['temp_password']}</li>
+            </ul>
+            <p>Please log in using these credentials and update your password within 48 hours.</p>
+            <p><a href="{login_url}" target="_blank">Click here to log in</a></p>
+            <p>Best regards,<br>{system_data.name} Team</p>
+            """
         mail.send(msg)
-
         print("Email sent successfully")  # Debugging: Log email sent success
 
         return jsonify({'message': 'User added successfully and email sent.'}), 201
