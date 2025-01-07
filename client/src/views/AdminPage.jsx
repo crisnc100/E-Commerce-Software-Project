@@ -137,7 +137,7 @@ const AdminPage = () => {
     }
   };
 
-  const formatDateSafely = (dateString, timeZone) => {
+  const formatDateSafely = (dateString, timeZone = 'UTC') => {
     const date = new Date(dateString);
     return isNaN(date)
       ? 'Unknown Date'
@@ -148,10 +148,10 @@ const AdminPage = () => {
         timeZoneName: 'short', // Adds the time zone abbreviation (e.g., EST)
       }).format(date);
   };
+  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'America/New_York')); // Outputs: 1/7/2025, 4:59 PM EST
+  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'UTC')); // Outputs: 1/7/2025, 9:59 PM UTC
+  console.log(formatDateSafely(null, 'America/New_York')); // Outputs: Unknown Date
 
-  // Example usage
-  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'America/New_York')); // Converts to EST
-  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'UTC')); // Converts to UTC
 
 
 
