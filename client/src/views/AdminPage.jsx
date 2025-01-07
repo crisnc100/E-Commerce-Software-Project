@@ -137,18 +137,22 @@ const AdminPage = () => {
     }
   };
 
-  const formatDateSafely = (dateString) => {
-    if (!dateString) return 'Unknown Date';
-
+  const formatDateSafely = (dateString, timeZone) => {
     const date = new Date(dateString);
-    const correctedDate = new Date(
-      date.getTime() + date.getTimezoneOffset() * 60000
-    );
-
-    return isNaN(correctedDate)
+    return isNaN(date)
       ? 'Unknown Date'
-      : correctedDate.toLocaleString(); // This includes both date and time
+      : new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone,
+        timeZoneName: 'short', // Adds the time zone abbreviation (e.g., EST)
+      }).format(date);
   };
+
+  // Example usage
+  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'America/New_York')); // Converts to EST
+  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'UTC')); // Converts to UTC
+
 
 
   if (loading) return <div>Loading...</div>;
