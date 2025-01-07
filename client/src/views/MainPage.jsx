@@ -302,11 +302,15 @@ const MainPage = () => {
     if (!dateString) return 'Unknown Date';
 
     const date = new Date(dateString);
-    const correctedDate = new Date(
-      date.getTime() + date.getTimezoneOffset() * 60000
-    );
 
-    return correctedDate.toLocaleString(); // Includes both date and time
+    // Ensure the date is valid
+    if (isNaN(date)) {
+      console.error(`Invalid date: ${dateString}`);
+      return 'Unknown Date';
+    }
+
+    // Format the date to the user's local time
+    return date.toLocaleString('en-US', { timeZoneName: 'short' }); // Add time zone abbreviation
   };
 
   // Toggle hide activities

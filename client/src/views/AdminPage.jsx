@@ -152,10 +152,6 @@ const AdminPage = () => {
     return date.toLocaleString('en-US', { timeZoneName: 'short' }); // Add time zone abbreviation
   };
 
-  // Example usage
-  console.log(formatDateSafely('2025-01-07T21:59:34Z')); // Shows user's local time
-  console.log(formatDateSafely(null)); // Outputs: "Unknown Date"
-
 
 
 
