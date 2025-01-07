@@ -7,9 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Node.js dependencies
 node_modules
-dist
-dist-ssr
+
+# Build directories
+/flask_app/dist
+/client/dist-ssr
 *.local
 
 # Editor directories and files
@@ -23,4 +26,5 @@ dist-ssr
 *.sln
 *.sw?
 
+# Vercel
 .vercel
