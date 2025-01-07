@@ -185,13 +185,15 @@ const Navbar = ({ role }) => {
     if (!dateString) return 'Unknown Date';
 
     const date = new Date(dateString);
-    const correctedDate = new Date(
-      date.getTime() + date.getTimezoneOffset() * 60000
-    );
 
-    return isNaN(correctedDate)
-      ? 'Unknown Date'
-      : correctedDate.toLocaleDateString();
+    // Ensure the date is valid
+    if (isNaN(date)) {
+      console.error(`Invalid date: ${dateString}`);
+      return 'Unknown Date';
+    }
+
+    // Format the date to the user's local time
+    return date.toLocaleString('en-US'); // Add time zone abbreviation
   };
 
   const getStatusColor = (status) => {

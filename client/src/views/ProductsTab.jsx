@@ -227,7 +227,7 @@ const ProductsTab = () => {
     }
 
     // Format the date to the user's local time
-    return date.toLocaleString('en-US', { timeZoneName: 'short' }); // Add time zone abbreviation
+    return date.toLocaleString('en-US'); // Add time zone abbreviation
   };
 
 
