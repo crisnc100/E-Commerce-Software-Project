@@ -137,20 +137,36 @@ const AdminPage = () => {
     }
   };
 
-  const formatDateSafely = (dateString, timeZone = 'UTC') => {
+  const formatDateSafely = (dateString, timeZone = 'America/New_York') => {
     const date = new Date(dateString);
-    return isNaN(date)
-      ? 'Unknown Date'
-      : new Intl.DateTimeFormat('en-US', {
+
+    // Return 'Unknown Date' for invalid date inputs
+    if (isNaN(date)) return 'Unknown Date';
+
+    try {
+      return new Intl.DateTimeFormat('en-US', {
         dateStyle: 'short',
         timeStyle: 'short',
         timeZone,
-        timeZoneName: 'short', // Adds the time zone abbreviation (e.g., EST)
+        timeZoneName: 'short', // Adds the abbreviation (e.g., EST)
       }).format(date);
+    } catch (error) {
+      console.error(`Error formatting date: ${error.message}. Falling back to EST.`);
+      // Fallback to default EST if there's an error with the timeZone
+      return new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: 'America/New_York',
+        timeZoneName: 'short',
+      }).format(date);
+    }
   };
-  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'America/New_York')); // Outputs: 1/7/2025, 4:59 PM EST
+
+  // Example usage:
+  console.log(formatDateSafely('2025-01-07T21:59:34Z')); // Outputs: 1/7/2025, 4:59 PM EST
   console.log(formatDateSafely('2025-01-07T21:59:34Z', 'UTC')); // Outputs: 1/7/2025, 9:59 PM UTC
-  console.log(formatDateSafely(null, 'America/New_York')); // Outputs: Unknown Date
+  console.log(formatDateSafely('2025-01-07T21:59:34Z', 'Invalid/Zone')); // Defaults to EST
+  console.log(formatDateSafely(null)); // Out
 
 
 
