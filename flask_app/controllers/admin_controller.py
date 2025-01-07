@@ -534,7 +534,7 @@ def delete_user_self(user_id):
         # 2) Mark session inactive & clear it
         session['session_active'] = False
         session.clear()
-
+        
         # 3) Send a "Your account was deleted" email
         msg = Message(
             subject=f"Confirmation of Account Deletion",
