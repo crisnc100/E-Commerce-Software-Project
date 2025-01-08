@@ -166,18 +166,22 @@ def regenerate_paypal_link(purchase_id):
         if not purchase:
             return jsonify({"error": "Purchase not found"}), 404
 
-     # Extract necessary details
+        # Extract necessary details from the purchase
         client_id = purchase['client_id']
         product_id = purchase['product_id']
         amount = purchase['amount']
-        system_id = purchase['system_id']
+
+        # Fetch system_id from the session
+        system_id = SessionHelper.get_system_id()
+        if not system_id:
+            return jsonify({"error": "System ID not found in session"}), 400
 
         # Regenerate PayPal link
         (paypal_approval_url, paypal_payment_id) = generate_paypal_link(
             client_id=client_id,
             product_id=product_id,
             amount=amount,
-            system_id=system_id,
+            system_id=system_id,  # Pass the correct system_id here
             purchase_id_val=purchase_id
         )
 
@@ -195,6 +199,7 @@ def regenerate_paypal_link(purchase_id):
     except Exception as e:
         print(f"Error regenerating PayPal link: {str(e)}")
         return jsonify({"error": "Failed to regenerate PayPal link"}), 500
+
 
 
 @app.route('/api/get_paypal_link/<int:purchase_id>', methods=['GET'])

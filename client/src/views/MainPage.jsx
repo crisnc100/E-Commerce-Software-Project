@@ -56,6 +56,8 @@ const MainPage = () => {
   const [category, setCategory] = useState('orders');
   const [topProducts, setTopProducts] = useState([]);
   const [isLoadingLink, setIsLoadingLink] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
 
 
   // Clock Update

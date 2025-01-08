@@ -33,6 +33,8 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
     const [pendingStatusChange, setPendingStatusChange] = useState(null);
     const [paypalLink, setPayPalLink] = useState('');
     const [isLoadingLink, setIsLoadingLink] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+
 
 
 
