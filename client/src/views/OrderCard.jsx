@@ -8,6 +8,7 @@ import {
     FaTrash,
     FaTimes,
     FaSave,
+    FaLink
 } from 'react-icons/fa';
 import PaymentItem from './PaymentItem';
 import apiService from '../services/apiService';
@@ -29,8 +30,9 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
     const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
     const [isAmountIncreaseConfirmOpen, setIsAmountIncreaseConfirmOpen] = useState(false);
     const [isAmountDecreaseConfirmOpen, setIsAmountDecreaseConfirmOpen] = useState(false);
-
     const [pendingStatusChange, setPendingStatusChange] = useState(null);
+    const [paypalLink, setPayPalLink] = useState('');
+    const [isLoadingLink, setIsLoadingLink] = useState(false);
 
 
 
@@ -175,6 +177,42 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
             .catch((error) => {
                 console.error('Error updating order:', error);
             });
+    };
+
+    const handleGetPayPalLink = async () => {
+        setIsLoadingLink(true);
+        setErrorMessage('');
+        setSuccessMessage('');
+
+        try {
+            // Fetch existing PayPal link
+            const response = await apiService.getPayPalLink(order.id);
+            const link = response.data.paypal_link;
+
+            setPayPalLink(link);
+            navigator.clipboard.writeText(link); // Copy link to clipboard
+            setSuccessMessage('PayPal link copied to clipboard!');
+        } catch (err) {
+            if (err.response && err.response.status === 404) {
+                // Generate a new PayPal link if no existing link is found
+                try {
+                    const generateResponse = await apiService.regeneratePayPalLink(order.id);
+                    const newLink = generateResponse.data.paypal_link;
+
+                    setPayPalLink(newLink);
+                    navigator.clipboard.writeText(newLink); // Copy new link to clipboard
+                    setSuccessMessage('New PayPal link generated and copied to clipboard!');
+                } catch (generateErr) {
+                    console.error('Error generating PayPal link:', generateErr);
+                    setErrorMessage('Failed to generate PayPal link. Please try again.');
+                }
+            } else {
+                console.error('Error fetching PayPal link:', err);
+                setErrorMessage('Failed to fetch PayPal link. Please try again.');
+            }
+        } finally {
+            setIsLoadingLink(false);
+        }
     };
 
 
@@ -377,6 +415,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                         )}
                     </div>
                 </div>
+
                 <div className="flex items-center space-x-2">
                     {order.payment_status !== 'Paid' && !isEditing && (
                         <button
@@ -384,6 +423,17 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                             className="flex items-center bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded"
                         >
                             <FaPlus className="mr-1" /> Add Payment
+                        </button>
+                    )}
+                    {/* Get PayPal Link Button */}
+                    {order.payment_status !== 'Paid' && (
+                        <button
+                            onClick={handleGetPayPalLink}
+                            className={`flex items-center ${isLoadingLink ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'
+                                } text-white py-1 px-3 rounded`}
+                            disabled={isLoadingLink}
+                        >
+                            {isLoadingLink ? 'Loading...' : <FaLink className="mr-1" />} PayPal Link
                         </button>
                     )}
                     {isEditing ? (
@@ -437,7 +487,9 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                         </>
                     )}
                 </div>
+
             </div>
+
 
             {/* Success Message */}
             {successMessage && (

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUpload, FiLock, FiUser, FiSettings } from 'react-icons/fi';
+import { FaLink } from 'react-icons/fa';
 import apiService from '../../services/apiService';
 import UploadProductModal from '../UploadProductModal';
 import { useCallback } from 'react';
@@ -30,6 +31,10 @@ const Navbar = ({ role }) => {
   const [selectedClientName, setSelectedClientName] = useState('');
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imageToShow, setImageToShow] = useState('');
+  const [isLoadingLink, setIsLoadingLink] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
 
 
   const handleLogout = async () => {
@@ -141,6 +146,45 @@ const Navbar = ({ role }) => {
     setIsDetailedViewOpen(true);
     await fetchDetailedResults(result.id, 1); // Start from the first page
   };
+
+  const handleGetPayPalLink = async (purchaseId) => {
+    setIsLoadingLink(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      // Attempt to fetch an existing PayPal link
+      const response = await apiService.getPayPalLink(purchaseId);
+      const link = response.data.paypal_link;
+
+      navigator.clipboard.writeText(link); // Copy link to clipboard
+      setSuccessMessage('PayPal link copied to clipboard!'); // Success message
+      setTimeout(() => setSuccessMessage(''), 3000); // Clear message after 3 seconds
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        // Generate a new PayPal link if none exists
+        try {
+          const generateResponse = await apiService.regeneratePayPalLink(purchaseId);
+          const newLink = generateResponse.data.paypal_link;
+
+          navigator.clipboard.writeText(newLink); // Copy new link to clipboard
+          setSuccessMessage('New PayPal link generated and copied to clipboard!');
+          setTimeout(() => setSuccessMessage(''), 3000); // Clear message after 3 seconds
+        } catch (generateErr) {
+          console.error('Error generating PayPal link:', generateErr);
+          setErrorMessage('Failed to generate PayPal link. Please try again.');
+          setTimeout(() => setErrorMessage(''), 3000); // Clear message after 3 seconds
+        }
+      } else {
+        console.error('Error fetching PayPal link:', err);
+        setErrorMessage('Failed to fetch PayPal link. Please try again.');
+        setTimeout(() => setErrorMessage(''), 3000); // Clear message after 3 seconds
+      }
+    } finally {
+      setIsLoadingLink(false);
+    }
+  };
+
 
 
 
@@ -345,6 +389,19 @@ const Navbar = ({ role }) => {
             onClick={(e) => e.stopPropagation()}
             ref={detailedViewRef}
           >
+            {/* Success Message */}
+            {successMessage && (
+              <div className="p-2 mb-4 bg-green-100 text-green-800 rounded shadow-md">
+                {successMessage}
+              </div>
+            )}
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="p-2 mb-4 bg-red-100 text-red-800 rounded shadow-md">
+                {errorMessage}
+              </div>
+            )}
+
             <h2 className="text-2xl font-bold mb-4 text-center">
               {searchType === 'product'
                 ? (selectedProductName ? `Clients Who Purchased: ${selectedProductName}` : 'Clients Who Purchased This Product')
@@ -400,6 +457,24 @@ const Navbar = ({ role }) => {
                                 {item.payment_status}
                               </span>
                             </p>
+                            {/* Get PayPal Link Button */}
+                            {(item.payment_status !== 'Paid') && (
+                                <button
+                                  className={`mt-2 px-3 py-1 flex items-center ${isLoadingLink
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                                    } text-white rounded transition-all`}
+                                  onClick={() => handleGetPayPalLink(item.id)}
+                                  disabled={isLoadingLink}
+                                >
+                                  {isLoadingLink ? (
+                                    <span className="loader mr-2"></span>
+                                  ) : (
+                                    <FaLink className="mr-1" />
+                                  )}
+                                  {isLoadingLink ? 'Loading...' : 'Get PayPal Link'}
+                                </button>
+                              )}
                           </div>
                         ) : (
                           <div
@@ -428,6 +503,24 @@ const Navbar = ({ role }) => {
                                   {item.payment_status}
                                 </span>
                               </p>
+                              {/* Get PayPal Link Button */}
+                              {(item.payment_status !== 'Paid') && (
+                                  <button
+                                    className={`mt-2 px-3 py-1 flex items-center ${isLoadingLink
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                      } text-white rounded transition-all`}
+                                    onClick={() => handleGetPayPalLink(item.id)}
+                                    disabled={isLoadingLink}
+                                  >
+                                    {isLoadingLink ? (
+                                      <span className="loader mr-2"></span>
+                                    ) : (
+                                      <FaLink className="mr-1" />
+                                    )}
+                                    {isLoadingLink ? 'Loading...' : 'Get PayPal Link'}
+                                  </button>
+                                )}
                             </div>
                           </div>
                         )}

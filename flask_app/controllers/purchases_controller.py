@@ -158,6 +158,62 @@ def create_purchase():
         return jsonify({"error": "Purchase created, but failed to generate PayPal link"}), 500
 
 
+@app.route('/api/regenerate_paypal_link/<int:purchase_id>', methods=['PUT', 'POST'])
+def regenerate_paypal_link(purchase_id):
+    try:
+        # Fetch purchase details
+        purchase = Purchase.get_by_id(purchase_id)
+        if not purchase:
+            return jsonify({"error": "Purchase not found"}), 404
+
+     # Extract necessary details
+        client_id = purchase['client_id']
+        product_id = purchase['product_id']
+        amount = purchase['amount']
+        system_id = purchase['system_id']
+
+        # Regenerate PayPal link
+        (paypal_approval_url, paypal_payment_id) = generate_paypal_link(
+            client_id=client_id,
+            product_id=product_id,
+            amount=amount,
+            system_id=system_id,
+            purchase_id_val=purchase_id
+        )
+
+        # Update database with new PayPal details
+        Purchase.update_paypal_payment_id(purchase_id, paypal_payment_id)
+        Purchase.update_paypal_link(purchase_id, paypal_approval_url)
+
+        return jsonify({
+            "message": "New PayPal link generated",
+            "purchase_id": purchase_id,
+            "paypal_link": paypal_approval_url,
+            "paypal_payment_id": paypal_payment_id
+        }), 200
+
+    except Exception as e:
+        print(f"Error regenerating PayPal link: {str(e)}")
+        return jsonify({"error": "Failed to regenerate PayPal link"}), 500
+
+
+@app.route('/api/get_paypal_link/<int:purchase_id>', methods=['GET'])
+def get_paypal_link(purchase_id):
+    try:
+        # Fetch PayPal link from database
+        paypal_data = Purchase.get_paypal_link(purchase_id)
+        if not paypal_data or not paypal_data['paypal_link']:
+            return jsonify({"error": "No PayPal link found for the specified purchase"}), 404
+
+        return jsonify({
+            "paypal_link": paypal_data['paypal_link']
+        }), 200
+
+    except Exception as e:
+        print(f"Error retrieving PayPal link: {str(e)}")
+        return jsonify({"error": "Failed to retrieve PayPal link"}), 500
+
+
 
 
 

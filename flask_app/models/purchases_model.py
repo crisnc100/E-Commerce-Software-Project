@@ -670,19 +670,21 @@ class Purchase:
             print(f"Error updating PayPal link in database: {e}")
             raise
     
-
+    
     @classmethod
-    def find_by_paypal_link_and_system(cls, parent_payment_id, system_id):
+    def get_paypal_link(cls, purchase_id):
         query = """
-            SELECT * FROM purchases
-            WHERE paypal_link LIKE %(paypal_link)s AND system_id = %(system_id)s;
+            SELECT paypal_link
+            FROM purchases
+            WHERE id = %(id)s AND system_id = %(system_id)s;
         """
         data = {
-            'paypal_link': f"%{parent_payment_id}%",
-            'system_id': system_id,
+            "id": purchase_id,
+            "system_id": SessionHelper.get_system_id()
         }
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        return cls(result[0]) if result else None
+        result = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
+        return result[0] if result else None
+
     
 
     @classmethod

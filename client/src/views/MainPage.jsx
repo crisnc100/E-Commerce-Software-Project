@@ -13,7 +13,8 @@ import {
   FaChartLine,
   FaDollarSign,
   FaEquals,
-  FaMedal
+  FaMedal,
+  FaLink
 } from 'react-icons/fa';
 import ReactTypingEffect from 'react-typing-effect';
 import AddClientModal from './AddClientModal';
@@ -54,6 +55,8 @@ const MainPage = () => {
 
   const [category, setCategory] = useState('orders');
   const [topProducts, setTopProducts] = useState([]);
+  const [isLoadingLink, setIsLoadingLink] = useState(false);
+
 
   // Clock Update
   useEffect(() => {
@@ -119,6 +122,45 @@ const MainPage = () => {
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  const handleGetPayPalLink = async (purchaseId) => {
+    setIsLoadingLink(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      // Attempt to fetch an existing PayPal link
+      const response = await apiService.getPayPalLink(purchaseId);
+      const link = response.data.paypal_link;
+
+      navigator.clipboard.writeText(link); // Copy link to clipboard
+      setSuccessMessage('PayPal link copied to clipboard!'); // Success message
+      setTimeout(() => setSuccessMessage(''), 3000); // Clear after 3 seconds
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        // Generate a new PayPal link if none exists
+        try {
+          const generateResponse = await apiService.regeneratePayPalLink(purchaseId);
+          const newLink = generateResponse.data.paypal_link;
+
+          navigator.clipboard.writeText(newLink); // Copy new link to clipboard
+          setSuccessMessage('New PayPal link generated and copied to clipboard!');
+          setTimeout(() => setSuccessMessage(''), 3000); // Clear after 3 seconds
+        } catch (generateErr) {
+          console.error('Error generating PayPal link:', generateErr);
+          setErrorMessage('Failed to generate PayPal link. Please try again.');
+          setTimeout(() => setErrorMessage(''), 3000); // Clear after 3 seconds
+        }
+      } else {
+        console.error('Error fetching PayPal link:', err);
+        setErrorMessage('Failed to fetch PayPal link. Please try again.');
+        setTimeout(() => setErrorMessage(''), 3000); // Clear after 3 seconds
+      }
+    } finally {
+      setIsLoadingLink(false);
+    }
+  };
+
 
   useEffect(() => {
     const fetchTopProducts = async () => {
@@ -430,15 +472,32 @@ const MainPage = () => {
 
                         <div className="flex space-x-2 mt-2">
                           {notification.type === 'overdue' && (
-                            <button
-                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                              onClick={() =>
-                                handleNotificationClick(notification.id, notification.amount, notification.clientId)
-                              }
+                            <>
+                              {/* Add Payment Button */}
+                              <button
+                                className="px-3 py-1 bg-teal-600 text-white rounded hover:bg-teal-700"
+                                onClick={() =>
+                                  handleNotificationClick(notification.id, notification.amount, notification.clientId)
+                                }
+                              >
+                                Add Payment
+                              </button>
 
-                            >
-                              Add Payment
-                            </button>
+                              {/* Get PayPal Link Button */}
+                              <button
+                                className={`px-3 py-1 flex items-center ${isLoadingLink ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                                  } text-white rounded transition-all`}
+                                onClick={() => handleGetPayPalLink(notification.id)}
+                                disabled={isLoadingLink}
+                              >
+                                {isLoadingLink ? (
+                                  <span className="loader mr-2"></span> // Optional: Add a small loader animation here
+                                ) : (
+                                  <FaLink className="mr-1" />
+                                )}
+                                {isLoadingLink ? 'Loading...' : 'Get PayPal Link'}
+                              </button>
+                            </>
                           )}
 
                           {notification.type === 'pending' && (
@@ -811,63 +870,71 @@ const MainPage = () => {
       </div>
 
       {/* Modals */}
-      {isClientModalOpen && (
-        <AddClientModal
-          onClose={() => setIsClientModalOpen(false)}
-          onSuccess={(message) => {
-            setSuccessMessage(message);
-            setTimeout(() => setSuccessMessage(''), 3000);
-          }}
-        />
-      )}
-      {isPurchaseModalOpen && (
-        <AddPurchaseModal
-          onClose={() => setIsPurchaseModalOpen(false)}
-          onSuccess={(message) => {
-            setSuccessMessage(message);
-            setTimeout(() => setSuccessMessage(''), 3000);
-          }}
-        />
-      )}
-      {isPaymentModalOpen && (
-        <AddPaymentModal
-          purchaseId={selectedPurchaseId}
-          clientId={clientId}
-          totalAmountDueDash={totalAmountDueDash}
-          onClose={() => setIsPaymentModalOpen(false)}
-          onSuccess={(message) => {
-            setSuccessMessage(message);
-            setTimeout(() => setSuccessMessage(''), 3000);
-            fetchNotifications(); // Refresh notifications after payment
-          }}
-        />
-      )}
-      {isImageModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          {/* Background Overlay */}
-          <div
-            className="absolute inset-0 bg-black opacity-50"
-            onClick={() => setIsImageModalOpen(false)}
-          ></div>
-          {/* Modal Content */}
-          <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs w-11/12">
-            {/* Image */}
-            <img
-              src={selectedProductImage}
-              alt="Product"
-              className="w-full h-auto rounded-md max-h-[500px] object-contain"
-            />
-            {/* Close Button */}
-            <button
+      {
+        isClientModalOpen && (
+          <AddClientModal
+            onClose={() => setIsClientModalOpen(false)}
+            onSuccess={(message) => {
+              setSuccessMessage(message);
+              setTimeout(() => setSuccessMessage(''), 3000);
+            }}
+          />
+        )
+      }
+      {
+        isPurchaseModalOpen && (
+          <AddPurchaseModal
+            onClose={() => setIsPurchaseModalOpen(false)}
+            onSuccess={(message) => {
+              setSuccessMessage(message);
+              setTimeout(() => setSuccessMessage(''), 3000);
+            }}
+          />
+        )
+      }
+      {
+        isPaymentModalOpen && (
+          <AddPaymentModal
+            purchaseId={selectedPurchaseId}
+            clientId={clientId}
+            totalAmountDueDash={totalAmountDueDash}
+            onClose={() => setIsPaymentModalOpen(false)}
+            onSuccess={(message) => {
+              setSuccessMessage(message);
+              setTimeout(() => setSuccessMessage(''), 3000);
+              fetchNotifications(); // Refresh notifications after payment
+            }}
+          />
+        )
+      }
+      {
+        isImageModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            {/* Background Overlay */}
+            <div
+              className="absolute inset-0 bg-black opacity-50"
               onClick={() => setIsImageModalOpen(false)}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Close
-            </button>
+            ></div>
+            {/* Modal Content */}
+            <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs w-11/12">
+              {/* Image */}
+              <img
+                src={selectedProductImage}
+                alt="Product"
+                className="w-full h-auto rounded-md max-h-[500px] object-contain"
+              />
+              {/* Close Button */}
+              <button
+                onClick={() => setIsImageModalOpen(false)}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Close
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 
