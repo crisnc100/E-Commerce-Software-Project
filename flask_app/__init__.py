@@ -8,8 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins="https://ortega-shop.vercel.app")  # or specify your origin
-
+CORS(app, supports_credentials=True, origins=[
+    "https://ortega-shop.vercel.app",  # Production origin
+    "http://localhost:5173"           # Localhost origin for development
+])
 
 app.secret_key = os.getenv('SECRET_KEY')
 
