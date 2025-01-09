@@ -32,6 +32,8 @@ const Navbar = ({ role }) => {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imageToShow, setImageToShow] = useState('');
   const [isLoadingLink, setIsLoadingLink] = useState(null);
+  const [loadingLinks, setLoadingLinks] = useState({});
+
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -148,7 +150,7 @@ const Navbar = ({ role }) => {
   };
 
   const handleGetPayPalLink = async (purchaseId) => {
-    setIsLoadingLink(purchaseId); // Set the loading state for the specific item
+    setLoadingLinks((prev) => ({ ...prev, [purchaseId]: true })); // Set the loading state for the specific button
     setErrorMessage('');
     setSuccessMessage('');
 
@@ -158,17 +160,28 @@ const Navbar = ({ role }) => {
       const { paypal_link } = response.data;
 
       // Copy the link to clipboard
-      navigator.clipboard.writeText(paypal_link);
+      if (navigator.clipboard && navigator.clipboard.write) {
+        const clipboardItem = new ClipboardItem({
+          'text/plain': new Promise((resolve) => resolve(new Blob([paypal_link], { type: 'text/plain' }))),
+        });
+        await navigator.clipboard.write([clipboardItem]);
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(paypal_link);
+      } else {
+        throw new Error('Clipboard API not supported.');
+      }
+
       setSuccessMessage('PayPal link created and copied to clipboard!');
-      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err) {
       console.error('Error regenerating PayPal link:', err);
       setErrorMessage('Failed to regenerate PayPal link. Please try again.');
-      setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
+      setTimeout(() => setErrorMessage(''), 3000);
     } finally {
-      setIsLoadingLink(null);
+      setLoadingLinks((prev) => ({ ...prev, [purchaseId]: false })); // Reset the loading state for the specific button
     }
   };
+
 
 
 
@@ -446,19 +459,17 @@ const Navbar = ({ role }) => {
                             {/* Get PayPal Link Button */}
                             {(item.payment_status !== 'Paid') && (
                               <button
-                                className={`mt-2 px-3 py-1 flex items-center ${isLoadingLink
-                                  ? 'bg-gray-400 cursor-not-allowed'
-                                  : 'bg-blue-600 hover:bg-blue-700'
+                                className={`mt-2 px-3 py-1 flex items-center ${loadingLinks[item.purchase_id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                                   } text-white rounded transition-all`}
                                 onClick={() => handleGetPayPalLink(item.purchase_id)}
-                                disabled={isLoadingLink}
+                                disabled={loadingLinks[item.purchase_id]} // Disable only the clicked button
                               >
-                                {isLoadingLink ? (
-                                  <span className="loader mr-2"></span>
+                                {loadingLinks[item.purchase_id] ? (
+                                  <span className="loader mr-2"></span> // Optional: Add a small loader animation here
                                 ) : (
                                   <FaLink className="mr-1" />
                                 )}
-                                {isLoadingLink ? 'Loading...' : 'Get PayPal Link'}
+                                {loadingLinks[item.purchase_id] ? 'Loading...' : 'Get PayPal Link'}
                               </button>
                             )}
                           </div>
@@ -492,19 +503,17 @@ const Navbar = ({ role }) => {
                               {/* Get PayPal Link Button */}
                               {(item.payment_status !== 'Paid') && (
                                 <button
-                                  className={`mt-2 px-3 py-1 flex items-center ${isLoadingLink
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-700'
+                                  className={`mt-2 px-3 py-1 flex items-center ${loadingLinks[item.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                                     } text-white rounded transition-all`}
                                   onClick={() => handleGetPayPalLink(item.id)}
-                                  disabled={isLoadingLink}
+                                  disabled={loadingLinks[item.id]} // Disable only the clicked button
                                 >
-                                  {isLoadingLink ? (
-                                    <span className="loader mr-2"></span>
+                                  {loadingLinks[item.id] ? (
+                                    <span className="loader mr-2"></span> // Optional: Add a small loader animation here
                                   ) : (
                                     <FaLink className="mr-1" />
                                   )}
-                                  {isLoadingLink ? 'Loading...' : 'Get PayPal Link'}
+                                  {loadingLinks[item.id] ? 'Loading...' : 'Get PayPal Link'}
                                 </button>
                               )}
                             </div>

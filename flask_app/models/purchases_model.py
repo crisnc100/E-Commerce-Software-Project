@@ -415,8 +415,8 @@ class Purchase:
         JOIN clients c ON purchases.client_id = c.id
         WHERE purchases.updated_at >= %s 
         AND purchases.system_id = %s
+        AND purchases.updated_at != purchases.created_at -- Exclude records where updated_at equals created_at
         AND purchases.shipping_status IS NOT NULL
-        AND purchases.shipping_status != purchases.previous_shipping_status  -- Only true changes
         ORDER BY purchases.updated_at DESC;
         """
         data = (since_date, SessionHelper.get_system_id())
@@ -424,6 +424,7 @@ class Purchase:
         if isinstance(result, tuple):
             result = list(result)
         return result
+
 
 
     

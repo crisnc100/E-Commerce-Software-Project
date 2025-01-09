@@ -193,7 +193,17 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
 
             // Update state and copy the link to clipboard
             setPayPalLink(paypal_link);
-            navigator.clipboard.writeText(paypal_link);
+            if (navigator.clipboard && navigator.clipboard.write) {
+                const clipboardItem = new ClipboardItem({
+                  'text/plain': new Promise((resolve) => resolve(new Blob([paypal_link], { type: 'text/plain' }))),
+                });
+                await navigator.clipboard.write([clipboardItem]); // Copy using ClipboardItem
+              } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                // Fallback for older browsers
+                await navigator.clipboard.writeText(paypal_link);
+              } else {
+                throw new Error('Clipboard API not supported.');
+              }
             setSuccessMessage('PayPal link created and copied to clipboard!');
             setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
         } catch (err) {
