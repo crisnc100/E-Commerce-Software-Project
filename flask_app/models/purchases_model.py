@@ -442,11 +442,12 @@ class Purchase:
         SELECT shipping_status
         FROM purchases
         WHERE id = %s
-        ORDER BY updated_at ASC
-        LIMIT 1
+        ORDER BY updated_at DESC
+        LIMIT 1 OFFSET 1
         """
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, (purchase_id,))
         return result[0] if result else {}
+
 
 
     @classmethod

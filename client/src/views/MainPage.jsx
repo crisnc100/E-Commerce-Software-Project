@@ -55,9 +55,9 @@ const MainPage = () => {
 
   const [category, setCategory] = useState('orders');
   const [topProducts, setTopProducts] = useState([]);
-  const [isLoadingLink, setIsLoadingLink] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
   const [loadingLinks, setLoadingLinks] = useState({});
+  const [errorMessage, setErrorMessage] = useState('');
+  const [debugLog, setDebugLog] = useState([]); // To store logs
 
 
 
@@ -150,15 +150,24 @@ const MainPage = () => {
       }
 
       setSuccessMessage(`PayPal link created and copied to clipboard!`);
-      setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 3 seconds
     } catch (err) {
       console.error(`Error generating PayPal link for notification ${notificationId}:`, err);
-      setErrorMessage(`Failed to generate PayPal link for notification ${notificationId}. Please try again.`);
-      setTimeout(() => setErrorMessage(''), 4000); // Clear error message after 3 seconds
+
+      // Update error messages for UI
+      const errorMsg = `Failed to generate PayPal link for notification ${notificationId}. Error: ${err.message}`;
+      setErrorMessage(errorMsg);
+
+      // Update debug log
+      setDebugLog((prevLogs) => [...prevLogs, errorMsg]);
+
+      // Clear error message after 4 seconds
+      setTimeout(() => setErrorMessage(''), 15000);
     } finally {
       setLoadingLinks((prev) => ({ ...prev, [notificationId]: false })); // Reset loading state for the specific notification
     }
   };
+
 
 
 
@@ -401,6 +410,27 @@ const MainPage = () => {
               {successMessage}
             </div>
           )}
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="mt-4 p-2 bg-red-100 text-red-800 rounded">
+              <p>{errorMessage}</p>
+            </div>
+          )}
+
+          {/* Debug Logs */}
+          <div className="mt-4 p-4 bg-gray-100 rounded">
+            <h2 className="text-lg font-bold mb-2">Debug Logs</h2>
+            {debugLog.length > 0 ? (
+              <ul className="list-disc pl-4">
+                {debugLog.map((log, index) => (
+                  <li key={index} className="text-sm text-gray-600">{log}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">No debug logs yet.</p>
+            )}
+          </div>
+
 
           {/* Clock Section */}
           <div className="bg-gray-800 text-white p-5 rounded-lg shadow-md">
