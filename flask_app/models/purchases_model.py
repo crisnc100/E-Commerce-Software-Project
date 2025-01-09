@@ -427,11 +427,27 @@ class Purchase:
         # Filter out false positives
         filtered_results = []
         for row in result:
+            # Fetch the previous shipping status
             previous_data = cls.get_previous_shipping_status(row['id'])
-            if row['shipping_status'] != previous_data['shipping_status']:
+            print(f"Purchase ID: {row['id']}, Current: {row['shipping_status']}, Previous: {previous_data.get('shipping_status')}")
+            # Compare current and previous shipping statuses
+            if previous_data.get('shipping_status') and row['shipping_status'] != previous_data['shipping_status']:
                 filtered_results.append(row)
         
         return filtered_results
+
+    @classmethod
+    def get_previous_shipping_status(cls, purchase_id):
+        query = """
+        SELECT shipping_status
+        FROM purchases
+        WHERE id = %s
+        ORDER BY updated_at ASC
+        LIMIT 1
+        """
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, (purchase_id,))
+        return result[0] if result else {}
+
 
     @classmethod
     def get_previous_shipping_status(cls, purchase_id):
