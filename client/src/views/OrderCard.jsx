@@ -194,12 +194,12 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
             // Update state and copy the link to clipboard
             setPayPalLink(paypal_link);
             navigator.clipboard.writeText(paypal_link);
-            setSuccessMessage('PayPal link regenerated and copied to clipboard!');
+            setSuccessMessage('PayPal link created and copied to clipboard!');
             setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
         } catch (err) {
             console.error('Error regenerating PayPal link:', err);
             setErrorMessage('Failed to regenerate PayPal link. Please try again.');
-            setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
+            setTimeout(() => setErrorMessage(''), 4000); // Clear error message after 3 seconds
         } finally {
             setIsLoadingLink(false);
         }

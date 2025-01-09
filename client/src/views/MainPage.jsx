@@ -137,12 +137,12 @@ const MainPage = () => {
       const { paypal_link } = response.data;
 
       navigator.clipboard.writeText(paypal_link); // Copy link to clipboard
-      setSuccessMessage(`PayPal link for notification ${notificationId} copied to clipboard!`);
+      setSuccessMessage(`PayPal link created and copied to clipboard!`);
       setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
     } catch (err) {
       console.error(`Error generating PayPal link for notification ${notificationId}:`, err);
       setErrorMessage(`Failed to generate PayPal link for notification ${notificationId}. Please try again.`);
-      setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
+      setTimeout(() => setErrorMessage(''), 4000); // Clear error message after 3 seconds
     } finally {
       setLoadingLinks((prev) => ({ ...prev, [notificationId]: false })); // Reset loading state for the specific notification
     }

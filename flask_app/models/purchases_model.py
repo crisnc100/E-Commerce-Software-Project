@@ -166,7 +166,7 @@ class Purchase:
         limit = 4
         offset = (page - 1) * limit
         query = """
-        SELECT clients.id AS client_id, clients.first_name, clients.last_name,
+        SELECT clients.id AS client_id, clients.first_name, clients.last_name, purchases.id AS purchase_id,
             purchases.size, purchases.purchase_date, purchases.amount, purchases.payment_status
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id

@@ -159,8 +159,8 @@ const Navbar = ({ role }) => {
 
       // Copy the link to clipboard
       navigator.clipboard.writeText(paypal_link);
-      setSuccessMessage('PayPal link regenerated and copied to clipboard!');
-      setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
+      setSuccessMessage('PayPal link created and copied to clipboard!');
+      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 3 seconds
     } catch (err) {
       console.error('Error regenerating PayPal link:', err);
       setErrorMessage('Failed to regenerate PayPal link. Please try again.');
