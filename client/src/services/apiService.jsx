@@ -162,7 +162,7 @@ const apiService = {
     axios.post(
       `${API_BASE_URL}/api/regenerate_paypal_link/${purchaseId}`, null, {
       withCredentials: true,
-        }),
+    }),
   getPayPalLink: (purchaseId) =>
     axios.get(`${API_BASE_URL}/api/get_paypal_link/${purchaseId}`, {
       withCredentials: true,
@@ -213,6 +213,12 @@ const apiService = {
   getPaymentsByClientId: (clientId) => axios.get(`${API_BASE_URL}/api/get_payments_by_client/${clientId}`, { withCredentials: true }
 
   ),
+  getPaginatedPayments: (page = 1, limit = 12, method = 'PayPal') => {
+    return axios.get(`${API_BASE_URL}/api/get_paginated_payments`, {
+      params: { page, limit, method },
+      withCredentials: true,
+    });
+  },
   deletePayment: (paymentId) => {
     return axios.delete(`${API_BASE_URL}/api/delete_payment/${paymentId}`, { withCredentials: true });
   },

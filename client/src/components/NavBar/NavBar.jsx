@@ -31,7 +31,7 @@ const Navbar = ({ role }) => {
   const [selectedClientName, setSelectedClientName] = useState('');
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imageToShow, setImageToShow] = useState('');
-  const [isLoadingLink, setIsLoadingLink] = useState(false);
+  const [isLoadingLink, setIsLoadingLink] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -148,7 +148,7 @@ const Navbar = ({ role }) => {
   };
 
   const handleGetPayPalLink = async (purchaseId) => {
-    setIsLoadingLink(true);
+    setIsLoadingLink(purchaseId); // Set the loading state for the specific item
     setErrorMessage('');
     setSuccessMessage('');
 
@@ -166,7 +166,7 @@ const Navbar = ({ role }) => {
       setErrorMessage('Failed to regenerate PayPal link. Please try again.');
       setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
     } finally {
-      setIsLoadingLink(false);
+      setIsLoadingLink(null);
     }
   };
 
@@ -450,7 +450,7 @@ const Navbar = ({ role }) => {
                                   ? 'bg-gray-400 cursor-not-allowed'
                                   : 'bg-blue-600 hover:bg-blue-700'
                                   } text-white rounded transition-all`}
-                                onClick={() => handleGetPayPalLink(item.id)}
+                                onClick={() => handleGetPayPalLink(item.purchase_id)}
                                 disabled={isLoadingLink}
                               >
                                 {isLoadingLink ? (

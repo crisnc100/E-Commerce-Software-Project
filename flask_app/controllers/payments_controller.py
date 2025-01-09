@@ -114,6 +114,29 @@ def get_payment(payment_id):
     return jsonify(payment.serialize()), 200
 
 
+@app.route('/api/get_paginated_payments', methods=['GET'])
+def get_paginated_payments():
+    try:
+        # Extract query parameters
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 12))
+        method = request.args.get('method', 'PayPal')  # Default to 'PayPal'
+
+        # Fetch payments
+        payments_data = PaymentModel.get_paginated_payments(page=page, limit=limit, method=method)
+
+        return jsonify({
+            "items": payments_data['items'],
+            "total": payments_data['total'],
+            "current_page": page,
+            "per_page": limit
+        }), 200
+    except Exception as e:
+        print(f"Error fetching paginated payments: {str(e)}")
+        return jsonify({"error": "Failed to fetch payments"}), 500
+
+
+
 # UPDATE Payment
 
 

@@ -213,3 +213,63 @@ class PaymentModel:
             result = list(result)
         return result
 
+
+    @classmethod
+    def get_paginated_payments(cls, page=1, limit=12, method='PayPal'):
+        """
+        Fetch paginated payments with client, purchase, and product details.
+        :param page: Current page number.
+        :param limit: Number of payments to fetch per page.
+        :param method: Payment method filter ('PayPal' or 'all').
+        :return: Dictionary with 'items' and 'total'.
+        """
+        offset = (page - 1) * limit
+
+        # Base query
+        query = """
+        SELECT payments.id AS payment_id, payments.amount_paid, payments.payment_date, payments.payment_method,
+               clients.id AS client_id, clients.first_name, clients.last_name,
+               products.id AS product_id, products.name AS product_name, products.screenshot_photo
+        FROM payments
+        JOIN clients ON payments.client_id = clients.id
+        JOIN purchases ON payments.purchase_id = purchases.id
+        JOIN products ON purchases.product_id = products.id
+        WHERE clients.system_id = %(system_id)s
+        """
+
+        # Add payment method filter if not "all"
+        if method != 'all':
+            query += " AND payments.payment_method = %(payment_method)s"
+
+        # Sorting and pagination
+        query += " ORDER BY payments.created_at DESC LIMIT %(limit)s OFFSET %(offset)s;"
+
+        # Parameters for the query
+        params = {
+            'system_id': SessionHelper.get_system_id(),
+            'payment_method': method,
+            'limit': limit,
+            'offset': offset
+        }
+
+        # Execute query
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
+
+        # Count query for total
+        count_query = """
+        SELECT COUNT(*) AS total
+        FROM payments
+        JOIN clients ON payments.client_id = clients.id
+        JOIN purchases ON payments.purchase_id = purchases.id
+        WHERE clients.system_id = %(system_id)s
+        """
+        if method != 'all':
+            count_query += " AND payments.payment_method = %(payment_method)s"
+
+        count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, params)
+        total = count_result[0]['total'] if count_result else 0
+
+        return {'items': results, 'total': total}
+
+
+
