@@ -129,39 +129,25 @@ const MainPage = () => {
     setIsLoadingLink(true);
     setErrorMessage('');
     setSuccessMessage('');
-
+  
     try {
-      // Attempt to fetch an existing PayPal link
-      const response = await apiService.getPayPalLink(purchaseId);
-      const link = response.data.paypal_link;
-
-      navigator.clipboard.writeText(link); // Copy link to clipboard
-      setSuccessMessage('PayPal link copied to clipboard!'); // Success message
-      setTimeout(() => setSuccessMessage(''), 3000); // Clear after 3 seconds
+      // Regenerate or generate a new PayPal link
+      const response = await apiService.regeneratePayPalLink(purchaseId);
+      const { paypal_link } = response.data;
+  
+      // Copy the link to clipboard
+      navigator.clipboard.writeText(paypal_link);
+      setSuccessMessage('PayPal link regenerated and copied to clipboard!');
+      setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
     } catch (err) {
-      if (err.response && err.response.status === 404) {
-        // Generate a new PayPal link if none exists
-        try {
-          const generateResponse = await apiService.regeneratePayPalLink(purchaseId);
-          const newLink = generateResponse.data.paypal_link;
-
-          navigator.clipboard.writeText(newLink); // Copy new link to clipboard
-          setSuccessMessage('New PayPal link generated and copied to clipboard!');
-          setTimeout(() => setSuccessMessage(''), 3000); // Clear after 3 seconds
-        } catch (generateErr) {
-          console.error('Error generating PayPal link:', generateErr);
-          setErrorMessage('Failed to generate PayPal link. Please try again.');
-          setTimeout(() => setErrorMessage(''), 3000); // Clear after 3 seconds
-        }
-      } else {
-        console.error('Error fetching PayPal link:', err);
-        setErrorMessage('Failed to fetch PayPal link. Please try again.');
-        setTimeout(() => setErrorMessage(''), 3000); // Clear after 3 seconds
-      }
+      console.error('Error regenerating PayPal link:', err);
+      setErrorMessage('Failed to regenerate PayPal link. Please try again.');
+      setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
     } finally {
       setIsLoadingLink(false);
     }
   };
+  
 
 
   useEffect(() => {

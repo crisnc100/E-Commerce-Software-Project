@@ -165,6 +165,7 @@ def regenerate_paypal_link(purchase_id):
         purchase = Purchase.get_by_id(purchase_id)
         if not purchase:
             return jsonify({"error": "Purchase not found"}), 404
+        print(f"Session data before accessing system_id: {session}")
 
         # Extract necessary details from the purchase
         client_id = purchase['client_id']
@@ -172,9 +173,9 @@ def regenerate_paypal_link(purchase_id):
         amount = purchase['amount']
 
         # Fetch system_id from the session
-        system_id = SessionHelper.get_system_id()
+        system_id = session.get('system_id') or purchase['system_id']
         if not system_id:
-            return jsonify({"error": "System ID not found in session"}), 400
+            return jsonify({"error": "System ID not found in session or purchase record"}), 400
 
         # Regenerate PayPal link
         (paypal_approval_url, paypal_payment_id) = generate_paypal_link(
