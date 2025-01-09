@@ -351,7 +351,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                     className="text-lg font-bold border-b"
                                     disabled
                                 />
-                                <p className="text-sm font-bold text-gray-600">
+                                <p className="text-base font-bold text-gray-600">
                                     {formatDateSafely(order.purchase_date)}
                                 </p>
                                 <input
@@ -363,7 +363,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                             amount: e.target.value,
                                         })
                                     }
-                                    className="text-sm border-b bg-yellow-100"
+                                    className="text-base border-b bg-yellow-100"
                                 />
                                 <select
                                     value={editedOrder.payment_status}
@@ -373,7 +373,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                             payment_status: e.target.value,
                                         })
                                     }
-                                    className="text-sm border-b bg-yellow-100"
+                                    className="text-base border-b bg-yellow-100"
                                 >
                                     <option value="Paid">Paid</option>
                                     <option value="Partial">Partial</option>
@@ -386,13 +386,13 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                 <h3 className="text-lg font-bold">
                                     {order.product_name}
                                 </h3>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-base text-gray-600">
                                     {formatDateSafely(order.purchase_date)}
                                 </p>
-                                <p className="text-sm">
+                                <p className="text-base">
                                     <strong>Amount:</strong> ${order.amount}
                                 </p>
-                                <p className="text-sm">
+                                <p className="text-base">
                                     <strong>Payment Status:</strong>{' '}
                                     <span
                                         className={`

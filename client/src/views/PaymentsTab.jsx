@@ -17,7 +17,14 @@ const PaymentsTab = () => {
     try {
       const response = await apiService.getPaginatedPayments(page, 12, method);
       const { items, total } = response.data;
-      setPayments((prevPayments) => [...prevPayments, ...items]);
+      console.log('Fetched Payments:', items);
+
+      setPayments((prevPayments) => {
+        const existingIds = prevPayments.map((p) => p.payment_id);
+        const newPayments = items.filter((payment) => !existingIds.includes(payment.payment_id));
+        return [...prevPayments, ...newPayments];
+      });
+
       setTotalPayments(total);
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -47,6 +54,21 @@ const PaymentsTab = () => {
     setIsModalOpen(true);
   };
 
+  const formatDateSafely = (dateString) => {
+    if (!dateString) return 'Unknown Date';
+
+    const date = new Date(dateString);
+
+    // Ensure the date is valid
+    if (isNaN(date)) {
+      console.error(`Invalid date: ${dateString}`);
+      return 'Unknown Date';
+    }
+
+    // Format the date to the user's local time
+    return date.toLocaleDateString('en-US', { timeZoneName: 'short' }); // Add time zone abbreviation
+  };
+
   useEffect(() => {
     fetchPayments(page, filterMethod);
   }, []);
@@ -54,13 +76,13 @@ const PaymentsTab = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Payments</h1>
+        <h1 className="text-2xl font-bold">Recent Payments</h1>
         <div className="flex space-x-2">
           <button
             className={`px-4 py-2 rounded ${filterMethod === 'PayPal' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'} transition`}
             onClick={() => handleFilterChange('PayPal')}
           >
-            PayPal
+            PayPal Payments
           </button>
           <button
             className={`px-4 py-2 rounded ${filterMethod === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'} transition`}
@@ -83,14 +105,19 @@ const PaymentsTab = () => {
                 />
               )}
               <div className="flex-1">
-                <h2 className="font-bold text-lg">{`${payment.first_name} ${payment.last_name}`}</h2>
-                <p className="text-sm text-gray-600">{`Amount Paid: $${parseFloat(payment.amount_paid).toFixed(2)}`}</p>
-                <p className="text-sm text-gray-500">{`Payment Date: ${payment.payment_date}`}</p>
+                <h2 className="font-bold text-xl">{`${payment.first_name} ${payment.last_name}`}</h2>
+                <p className="text-base text-gray-600">
+                  Paid <span className="font-bold">${parseFloat(payment.amount_paid).toFixed(2)}</span> for{' '}
+                  <span className="font-semibold">{payment.product_name}</span>
+                </p>
+                <p className="text-base text-gray-500">
+                  Transaction Date: <span className="font-medium">{formatDateSafely(payment.payment_date)}</span>
+                </p>
                 <button
                   className="text-blue-600 hover:underline mt-2 flex items-center"
                   onClick={() => handleViewProduct(payment)}
                 >
-                  <FaEye className="mr-1" /> View Product
+                  <FaEye className="mr-1" /> View Product Details
                 </button>
               </div>
             </div>
@@ -123,9 +150,9 @@ const PaymentsTab = () => {
           {/* Modal Content */}
           <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs w-11/12">
             {/* Product Image */}
-            {selectedProduct.product_screenshot_photo && (
+            {selectedProduct.screenshot_photo && (
               <img
-                src={selectedProduct.product_screenshot_photo}
+                src={selectedProduct.screenshot_photo}
                 alt={selectedProduct.product_name}
                 className="w-full h-auto rounded-md max-h-[500px] object-contain mb-4"
               />
@@ -134,11 +161,11 @@ const PaymentsTab = () => {
             {/* Product Details */}
             <div className="text-center">
               <h2 className="text-lg font-bold">{selectedProduct.product_name}</h2>
-              <p className="text-sm text-gray-600 mt-2">
-                Amount Paid: ${parseFloat(selectedProduct.amount_paid).toFixed(2)}
+              <p className="text-base text-gray-600 mt-2">
+                Paid <span className="font-bold">${parseFloat(selectedProduct.amount_paid).toFixed(2)}</span>
               </p>
-              <p className="text-sm text-gray-600">
-                Payment Date: {selectedProduct.payment_date}
+              <p className="text-base text-gray-600">
+                Transaction Date: <span className="font-medium">{formatDateSafely(selectedProduct.payment_date)}</span>
               </p>
             </div>
 
@@ -152,7 +179,6 @@ const PaymentsTab = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

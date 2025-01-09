@@ -257,7 +257,7 @@ const ClientIDPage = () => {
                                         first_name: e.target.value,
                                     })
                                 }
-                                className="text-xl font-bold border-b border-gray-300 mb-2 bg-yellow-100"
+                                className="text-2xl font-bold border-b border-gray-300 mb-2 bg-yellow-100"
                                 placeholder="First Name"
                             />
                             {errors?.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
@@ -272,7 +272,7 @@ const ClientIDPage = () => {
                                         last_name: e.target.value,
                                     })
                                 }
-                                className="text-xl font-bold border-b border-gray-300 mb-2 bg-yellow-100"
+                                className="text-2xl font-bold border-b border-gray-300 mb-2 bg-yellow-100"
                                 placeholder="Last Name"
                             />
                             {errors?.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
@@ -363,7 +363,7 @@ const ClientIDPage = () => {
                     ) : (
                         <>
                             {/* Display First and Last Name */}
-                            <h1 className="text-2xl font-bold">
+                            <h1 className="text-3xl font-bold">
                                 {clientInfo
                                     ? `${clientInfo.first_name} ${clientInfo.last_name}`
                                     : 'Client Details'}
@@ -396,7 +396,7 @@ const ClientIDPage = () => {
                     )}
                 </div>
                 <div className="mb-4">
-                    <h2 className="text-xl font-semibold">Total Sales:</h2>
+                    <h2 className="text-2xl font-semibold">Total Sales:</h2>
                     <p className="text-2xl font-bold">${totalSales.toFixed(2)}</p>
                 </div>
                 <div className="flex space-x-2">
