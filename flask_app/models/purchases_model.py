@@ -407,23 +407,42 @@ class Purchase:
     def get_recent_shipping_updates(cls, since_date):
         query = """
         SELECT 
-            'Update Shipping' AS action,
-            CONCAT('Shipping status changed to ', purchases.shipping_status, ' for ', p.name, ' by ', c.first_name, ' ', c.last_name) AS details,
-            purchases.updated_at AS created_at
+            purchases.id,
+            purchases.shipping_status,
+            purchases.updated_at,
+            p.name AS product_name,
+            c.first_name,
+            c.last_name
         FROM purchases
         JOIN products p ON purchases.product_id = p.id
         JOIN clients c ON purchases.client_id = c.id
         WHERE purchases.updated_at >= %s 
-        AND purchases.system_id = %s
-        AND purchases.updated_at != purchases.created_at -- Exclude records where updated_at equals created_at
-        AND purchases.shipping_status IS NOT NULL
+            AND purchases.system_id = %s
+            AND purchases.shipping_status IS NOT NULL
         ORDER BY purchases.updated_at DESC;
         """
         data = (since_date, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        if isinstance(result, tuple):
-            result = list(result)
-        return result
+        
+        # Filter out false positives
+        filtered_results = []
+        for row in result:
+            previous_data = cls.get_previous_shipping_status(row['id'])
+            if row['shipping_status'] != previous_data['shipping_status']:
+                filtered_results.append(row)
+        
+        return filtered_results
+
+    @classmethod
+    def get_previous_shipping_status(cls, purchase_id):
+        query = """
+        SELECT shipping_status
+        FROM purchases
+        WHERE id = %s
+        """
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, (purchase_id,))
+        return result[0] if result else {}
+
 
 
 
