@@ -76,18 +76,6 @@ class Purchase:
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
     
 
-    @classmethod
-    def get_by_payment_id(cls, payment_id):
-        query = """
-            SELECT * FROM purchases
-            WHERE paypal_link LIKE %s
-            LIMIT 1
-        """
-        # Use a partial match since the PayPal link contains the token
-        data = (f"%{payment_id}%",)
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        return result[0] if result else None
-
 
     @classmethod
     def get_by_id(cls, purchase_id):

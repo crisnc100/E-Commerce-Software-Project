@@ -160,10 +160,9 @@ const apiService = {
 
   regeneratePayPalLink: (purchaseId) =>
     axios.post(
-      `${API_BASE_URL}/api/regenerate_paypal_link/${purchaseId}`, {
+      `${API_BASE_URL}/api/regenerate_paypal_link/${purchaseId}`, null, {
       withCredentials: true,
-      headers: { "Content-Type": "application/json" },
-    }),
+        }),
   getPayPalLink: (purchaseId) =>
     axios.get(`${API_BASE_URL}/api/get_paypal_link/${purchaseId}`, {
       withCredentials: true,

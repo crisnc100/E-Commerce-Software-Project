@@ -57,6 +57,8 @@ const MainPage = () => {
   const [topProducts, setTopProducts] = useState([]);
   const [isLoadingLink, setIsLoadingLink] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [loadingLinks, setLoadingLinks] = useState({});
+
 
 
 
@@ -125,29 +127,28 @@ const MainPage = () => {
     fetchNotifications();
   }, []);
 
-  const handleGetPayPalLink = async (purchaseId) => {
-    setIsLoadingLink(true);
+  const handleGetPayPalLink = async (notificationId) => {
+    setLoadingLinks((prev) => ({ ...prev, [notificationId]: true })); // Set loading for the specific notification
     setErrorMessage('');
     setSuccessMessage('');
-  
+
     try {
-      // Regenerate or generate a new PayPal link
-      const response = await apiService.regeneratePayPalLink(purchaseId);
+      const response = await apiService.regeneratePayPalLink(notificationId);
       const { paypal_link } = response.data;
-  
-      // Copy the link to clipboard
-      navigator.clipboard.writeText(paypal_link);
-      setSuccessMessage('PayPal link regenerated and copied to clipboard!');
+
+      navigator.clipboard.writeText(paypal_link); // Copy link to clipboard
+      setSuccessMessage(`PayPal link for notification ${notificationId} copied to clipboard!`);
       setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
     } catch (err) {
-      console.error('Error regenerating PayPal link:', err);
-      setErrorMessage('Failed to regenerate PayPal link. Please try again.');
+      console.error(`Error generating PayPal link for notification ${notificationId}:`, err);
+      setErrorMessage(`Failed to generate PayPal link for notification ${notificationId}. Please try again.`);
       setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
     } finally {
-      setIsLoadingLink(false);
+      setLoadingLinks((prev) => ({ ...prev, [notificationId]: false })); // Reset loading state for the specific notification
     }
   };
-  
+
+
 
 
   useEffect(() => {
@@ -473,18 +474,19 @@ const MainPage = () => {
 
                               {/* Get PayPal Link Button */}
                               <button
-                                className={`px-3 py-1 flex items-center ${isLoadingLink ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                                className={`px-3 py-1 flex items-center ${loadingLinks[notification.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                                   } text-white rounded transition-all`}
                                 onClick={() => handleGetPayPalLink(notification.id)}
-                                disabled={isLoadingLink}
+                                disabled={loadingLinks[notification.id]} // Disable only the clicked button
                               >
-                                {isLoadingLink ? (
+                                {loadingLinks[notification.id] ? (
                                   <span className="loader mr-2"></span> // Optional: Add a small loader animation here
                                 ) : (
                                   <FaLink className="mr-1" />
                                 )}
-                                {isLoadingLink ? 'Loading...' : 'Get PayPal Link'}
+                                {loadingLinks[notification.id] ? 'Loading...' : 'Get PayPal Link'}
                               </button>
+
                             </>
                           )}
 
