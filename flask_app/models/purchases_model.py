@@ -23,6 +23,7 @@ class Purchase:
         self.paypal_payment_id = data.get('paypal_payment_id')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
+        self.shipping_updated_at = data.get('shipping_updated_at')
         self.product_name = data.get('product_name')  # New field
         self.product_description = data.get('product_description')  # New field
         self.product_screenshot_photo = data.get('product_screenshot_photo')
@@ -49,6 +50,7 @@ class Purchase:
             'paypal_payment_id': self.paypal_payment_id,
             'created_at': str(self.created_at), 
             'updated_at': str(self.updated_at),
+            'shipping_updated_at': str(self.shipping_updated_at),
             'product_name': self.product_name,
             'product_description': self.product_description,
             'product_screenshot_photo': self.product_screenshot_photo,
@@ -65,9 +67,10 @@ class Purchase:
         """Create a new purchase record."""
         query = """
         INSERT INTO purchases (client_id, product_id, system_id, 
-        size, purchase_date, amount, payment_status, shipping_status, paypal_link, paypal_payment_id, created_at, updated_at) 
+        size, purchase_date, amount, payment_status, shipping_status, paypal_link, paypal_payment_id, created_at, 
+        updated_at, shipping_updated_at) 
         VALUES (%(client_id)s, %(product_id)s, %(system_id)s, %(size)s, 
-        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, %(paypal_payment_id)s, NOW(), NOW());
+        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, %(paypal_payment_id)s, NOW(), NOW(), NOW());
         """
         data['system_id'] = SessionHelper.get_system_id()
         data['paypal_link'] = None  # Default to NULL
@@ -270,7 +273,7 @@ class Purchase:
     def update_shipping_status(cls, purchase_id, new_status):
         query = """
         UPDATE purchases 
-        SET shipping_status = %(shipping_status)s, updated_at = NOW() 
+        SET shipping_status = %(shipping_status)s, shipping_updated_at = NOW() 
         WHERE id = %(id)s AND system_id = %(system_id)s;
         """
         data = {'id': purchase_id, 'system_id': SessionHelper.get_system_id(), 'shipping_status': new_status}
@@ -408,20 +411,26 @@ class Purchase:
         query = """
         SELECT 
             'Update Shipping' AS action,
-            CONCAT('Shipping status changed to ', purchases.shipping_status, ' for ', p.name, ' by ', c.first_name, ' ', c.last_name) AS details,
-            purchases.updated_at AS created_at
+            CONCAT('Shipping status changed to ', purchases.shipping_status, 
+                ' for ', p.name, ' by ', c.first_name, ' ', c.last_name) AS details,
+            purchases.shipping_updated_at AS created_at
         FROM purchases
         JOIN products p ON purchases.product_id = p.id
         JOIN clients c ON purchases.client_id = c.id
-        WHERE purchases.updated_at >= %s AND purchases.system_id = %s
+        WHERE purchases.shipping_updated_at >= %s 
+        AND purchases.system_id = %s
         AND purchases.shipping_status IS NOT NULL
-        ORDER BY purchases.updated_at DESC;
+        ORDER BY purchases.shipping_updated_at DESC;
         """
         data = (since_date, SessionHelper.get_system_id())
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        if isinstance(result, tuple):
-            result = list(result)
-        return result
+        try:
+            result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+            if isinstance(result, tuple):
+                result = list(result)
+            return result
+        except Exception as e:
+            logging.error(f"Error fetching recent shipping updates: {e}")
+            return []
 
     
     @classmethod

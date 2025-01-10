@@ -544,7 +544,7 @@ const Navbar = ({ role }) => {
                                       ) : (
                                         <FaMagic className="mr-1" />
                                       )}
-                                      {loadingLinks[item.id] ? 'Loading...' : 'Generate PayPal Link'}
+                                      {loadingLinks[item.id] ? 'Generating...' : 'Generate PayPal Link'}
                                     </button>
                                   ) : (
                                     // Copy Button with Subtle Checkmark

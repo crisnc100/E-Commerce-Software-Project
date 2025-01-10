@@ -454,7 +454,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                     className="flex items-center bg-gray-400 text-white py-1 px-3 rounded cursor-not-allowed"
                                     disabled
                                 >
-                                    Loading...
+                                    Generating...
                                 </button>
                             ) : (
                                 // Generate or Copy Link Button

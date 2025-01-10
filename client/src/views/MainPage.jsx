@@ -513,7 +513,7 @@ const MainPage = () => {
                                   ) : (
                                     <FaMagic className="mr-1" />
                                   )}
-                                  {loadingLinks[notification.id] ? 'Loading...' : 'Generate PayPal Link'}
+                                  {loadingLinks[notification.id] ? 'Generating...' : 'Generate PayPal Link'}
                                 </button>
                               ) : (
                                 // Copy Button with Subtle Checkmark
