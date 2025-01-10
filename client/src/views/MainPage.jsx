@@ -12,9 +12,11 @@ import {
   FaChevronDown,
   FaChartLine,
   FaDollarSign,
-  FaEquals,
   FaMedal,
-  FaLink
+  FaCheckCircle,
+  FaCopy,
+  FaMagic,
+  FaCheck
 } from 'react-icons/fa';
 import ReactTypingEffect from 'react-typing-effect';
 import AddClientModal from './AddClientModal';
@@ -55,9 +57,10 @@ const MainPage = () => {
 
   const [category, setCategory] = useState('orders');
   const [topProducts, setTopProducts] = useState([]);
-  const [loadingLinks, setLoadingLinks] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
-  const [debugLog, setDebugLog] = useState([]); // To store logs
+  const [loadingLinks, setLoadingLinks] = useState({});
+  const [generatedLinks, setGeneratedLinks] = useState({});
+
 
 
 
@@ -127,63 +130,51 @@ const MainPage = () => {
     fetchNotifications();
   }, []);
 
-  const handleGetPayPalLink = async (notificationId) => {
+  const handleGeneratePayPalLink = async (notificationId) => {
     setLoadingLinks((prev) => ({ ...prev, [notificationId]: true })); // Set loading for the specific notification
     setErrorMessage('');
     setSuccessMessage('');
+    setGeneratedLinks((prev) => ({ ...prev, [notificationId]: null })); // Clear existing link
 
     try {
       const response = await apiService.regeneratePayPalLink(notificationId);
       const { paypal_link } = response.data;
 
-      let copied = false;
-
-      // Attempt modern Clipboard API first
-      try {
-        if (navigator.clipboard && navigator.clipboard.write) {
-          const clipboardItem = new ClipboardItem({
-            'text/plain': new Promise((resolve) =>
-              resolve(new Blob([paypal_link], { type: 'text/plain' }))
-            ),
-          });
-          await navigator.clipboard.write([clipboardItem]);
-          copied = true;
-        } else if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(paypal_link);
-          copied = true;
-        }
-      } catch (modernError) {
-        console.warn('Modern clipboard API failed, trying fallback', modernError);
-      }
-
-      // Use fallback if modern API did not succeed
-      if (!copied) {
-        fallbackCopyTextToClipboard(paypal_link);
-      }
-
-      setSuccessMessage(`PayPal link created and copied to clipboard!`);
-      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 4 seconds
+      setGeneratedLinks((prev) => ({ ...prev, [notificationId]: paypal_link })); // Store generated link
+      setTimeout(() => {
+        setGeneratedLinks((prev) => {
+          const updatedLinks = { ...prev };
+          delete updatedLinks[notificationId];
+          return updatedLinks;
+        });
+      }, 30000); // 30 seconds
+      setSuccessMessage('PayPal link generated successfully! Please copy it using the button.');
+      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 3 seconds
     } catch (err) {
       console.error(`Error generating PayPal link for notification ${notificationId}:`, err);
-
-      // Update error messages for UI
-      const errorMsg = `Failed to generate or copy PayPal link for notification ${notificationId}. Error: ${err.message}`;
-      setErrorMessage(errorMsg);
-
-      // Update debug log
-      setDebugLog((prevLogs) => [...prevLogs, errorMsg]);
-
-      // Clear error message after 15 seconds
-      setTimeout(() => setErrorMessage(''), 15000);
+      setErrorMessage('Failed to generate PayPal link. Please try again.');
+      setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
     } finally {
       setLoadingLinks((prev) => ({ ...prev, [notificationId]: false })); // Reset loading state for the specific notification
     }
   };
 
-
-
-
-
+  const handleCopyToClipboard = async (paypalLink) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(paypalLink);
+        setSuccessMessage('PayPal link copied to clipboard!');
+      } else {
+        throw new Error('Clipboard API not supported.');
+      }
+    } catch (err) {
+      console.error('Error copying PayPal link:', err);
+      setErrorMessage('Failed to copy PayPal link. Please try again.');
+    } finally {
+      setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
+      setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
+    }
+  };
 
 
   useEffect(() => {
@@ -422,28 +413,8 @@ const MainPage = () => {
             <div className="bg-green-100 text-green-700 p-2 mb-4 rounded-md">
               {successMessage}
             </div>
-          )}
-          {/* Error Message */}
-          {errorMessage && (
-            <div className="mt-4 p-2 bg-red-100 text-red-800 rounded">
-              <p>{errorMessage}</p>
-            </div>
-          )}
 
-          {/* Debug Logs */}
-          <div className="mt-4 p-4 bg-gray-100 rounded">
-            <h2 className="text-lg font-bold mb-2">Debug Logs</h2>
-            {debugLog.length > 0 ? (
-              <ul className="list-disc pl-4">
-                {debugLog.map((log, index) => (
-                  <li key={index} className="text-sm text-gray-600">{log}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No debug logs yet.</p>
-            )}
-          </div>
-
+          )}
 
           {/* Clock Section */}
           <div className="bg-gray-800 text-white p-5 rounded-lg shadow-md">
@@ -452,6 +423,7 @@ const MainPage = () => {
               {currentTime}
             </p>
           </div>
+
         </div>
 
 
@@ -528,21 +500,34 @@ const MainPage = () => {
                                 Add Payment
                               </button>
 
-                              {/* Get PayPal Link Button */}
-                              <button
-                                className={`px-3 py-1 flex items-center ${loadingLinks[notification.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                                  } text-white rounded transition-all`}
-                                onClick={() => handleGetPayPalLink(notification.id)}
-                                disabled={loadingLinks[notification.id]} // Disable only the clicked button
-                              >
-                                {loadingLinks[notification.id] ? (
-                                  <span className="loader mr-2"></span> // Optional: Add a small loader animation here
-                                ) : (
-                                  <FaLink className="mr-1" />
-                                )}
-                                {loadingLinks[notification.id] ? 'Loading...' : 'Get PayPal Link'}
-                              </button>
-
+                              {/* Generate/Copy PayPal Link Buttons */}
+                              {!generatedLinks[notification.id] ? (
+                                // Generate Button
+                                <button
+                                  className={`px-3 py-1 flex items-center ${loadingLinks[notification.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-all`}
+                                  onClick={() => handleGeneratePayPalLink(notification.id)}
+                                  disabled={loadingLinks[notification.id]}
+                                >
+                                  {loadingLinks[notification.id] ? (
+                                    <span className="loader mr-2"></span>
+                                  ) : (
+                                    <FaMagic className="mr-1" />
+                                  )}
+                                  {loadingLinks[notification.id] ? 'Loading...' : 'Generate PayPal Link'}
+                                </button>
+                              ) : (
+                                // Copy Button with Subtle Checkmark
+                                <div className="flex items-center space-x-2">
+                                  <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" /> {/* Subtle Checkmark */}
+                                  <button
+                                    className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
+                                    onClick={() => handleCopyToClipboard(generatedLinks[notification.id], notification.id)}
+                                  >
+                                    <FaCopy className="mr-1" />
+                                    Copy Link
+                                  </button>
+                                </div>
+                              )}
                             </>
                           )}
 

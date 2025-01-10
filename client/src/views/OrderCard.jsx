@@ -8,7 +8,10 @@ import {
     FaTrash,
     FaTimes,
     FaSave,
-    FaLink
+    FaLink,
+    FaCheck,
+    FaMagic,
+    FaCopy
 } from 'react-icons/fa';
 import PaymentItem from './PaymentItem';
 import apiService from '../services/apiService';
@@ -181,39 +184,55 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
             });
     };
 
-    const handleGetPayPalLink = async () => {
-        setIsLoadingLink(true);
+    const handleGetPayPalLink = () => {
+        setIsLoadingLink(true); // Indicate loading state
         setErrorMessage('');
         setSuccessMessage('');
+        setPayPalLink(null); // Clear any existing link
 
+        apiService
+            .regeneratePayPalLink(order.id)
+            .then((response) => {
+                const { paypal_link } = response.data;
+
+                setPayPalLink(paypal_link); // Set the generated link
+                setSuccessMessage('PayPal link generated successfully! Click "Copy Link" to copy it.');
+
+                // Clear the PayPal link after 30 seconds
+                setTimeout(() => {
+                    setPayPalLink(null);
+                }, 30000); // 30 seconds
+
+                setTimeout(() => setSuccessMessage(''), 5000); // Clear success message after 4 seconds
+            })
+            .catch((err) => {
+                console.error(`Error generating PayPal link for order ${order.id}:`, err);
+                setErrorMessage('Failed to generate PayPal link. Please try again.');
+                setTimeout(() => setErrorMessage(''), 4000); // Clear error message after 4 seconds
+            })
+            .finally(() => {
+                setIsLoadingLink(false); // Reset loading state
+            });
+    };
+
+
+    const handleCopyToClipboard = async () => {
         try {
-            // Regenerate or generate a new PayPal link
-            const response = await apiService.regeneratePayPalLink(order.id);
-            const { paypal_link } = response.data;
-
-            // Update state and copy the link to clipboard
-            setPayPalLink(paypal_link);
-            if (navigator.clipboard && navigator.clipboard.write) {
-                const clipboardItem = new ClipboardItem({
-                  'text/plain': new Promise((resolve) => resolve(new Blob([paypal_link], { type: 'text/plain' }))),
-                });
-                await navigator.clipboard.write([clipboardItem]); // Copy using ClipboardItem
-              } else if (navigator.clipboard && navigator.clipboard.writeText) {
-                // Fallback for older browsers
-                await navigator.clipboard.writeText(paypal_link);
-              } else {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(paypalLink);
+                setSuccessMessage('PayPal link copied to clipboard!');
+                setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
+            } else {
                 throw new Error('Clipboard API not supported.');
-              }
-            setSuccessMessage('PayPal link created and copied to clipboard!');
-            setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
+            }
         } catch (err) {
-            console.error('Error regenerating PayPal link:', err);
-            setErrorMessage('Failed to regenerate PayPal link. Please try again.');
+            console.error('Error copying PayPal link:', err);
+            setErrorMessage('Failed to copy PayPal link. Please try again.');
             setTimeout(() => setErrorMessage(''), 4000); // Clear error message after 3 seconds
-        } finally {
-            setIsLoadingLink(false);
         }
     };
+
+
 
 
 
@@ -427,15 +446,42 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                         </button>
                     )}
                     {/* Get PayPal Link Button */}
-                    {order.payment_status !== 'Paid' && (
-                        <button
-                            onClick={handleGetPayPalLink}
-                            className={`flex items-center ${isLoadingLink ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'
-                                } text-white py-1 px-3 rounded`}
-                            disabled={isLoadingLink}
-                        >
-                            {isLoadingLink ? 'Loading...' : <FaLink className="mr-1" />} PayPal Link
-                        </button>
+                    {order.payment_status !== 'Paid' && !isEditing && (
+                        <div>
+                            {isLoadingLink ? (
+                                // Loading State
+                                <button
+                                    className="flex items-center bg-gray-400 text-white py-1 px-3 rounded cursor-not-allowed"
+                                    disabled
+                                >
+                                    Loading...
+                                </button>
+                            ) : (
+                                // Generate or Copy Link Button
+                                !paypalLink ? (
+                                    // Generate Button
+                                    <button
+                                        onClick={handleGetPayPalLink}
+                                        className="flex items-center bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded"
+                                    >
+                                        <FaMagic className="mr-1" /> Generate PayPal Link
+                                    </button>
+                                ) : (
+                                    // Copy Button with Checkmark
+                                    <div className="flex items-center space-x-2">
+                                        <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" />
+                                        <button
+                                            onClick={handleCopyToClipboard}
+                                            className="px-3 py-1 flex items-center bg-blue-600 hover:bg-blue-700 text-white rounded transition-all"
+                                        >
+                                            <FaCopy className="mr-1" />
+                                            Copy Link
+                                        </button>
+                                    </div>
+                                )
+                            )}
+                        </div>
+
                     )}
                     {isEditing ? (
                         <>

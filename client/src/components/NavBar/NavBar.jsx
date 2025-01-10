@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUpload, FiLock, FiUser, FiSettings } from 'react-icons/fi';
-import { FaLink } from 'react-icons/fa';
+import { FaCheck, FaMagic, FaCopy } from 'react-icons/fa';
 import apiService from '../../services/apiService';
 import UploadProductModal from '../UploadProductModal';
 import { useCallback } from 'react';
@@ -31,9 +31,9 @@ const Navbar = ({ role }) => {
   const [selectedClientName, setSelectedClientName] = useState('');
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imageToShow, setImageToShow] = useState('');
-  const [isLoadingLink, setIsLoadingLink] = useState(null);
   const [loadingLinks, setLoadingLinks] = useState({});
-
+  const [paypalLink, setPayPalLink] = useState('');
+  const [generatedLinks, setGeneratedLinks] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -149,39 +149,51 @@ const Navbar = ({ role }) => {
     await fetchDetailedResults(result.id, 1); // Start from the first page
   };
 
-  const handleGetPayPalLink = async (purchaseId) => {
-    setLoadingLinks((prev) => ({ ...prev, [purchaseId]: true })); // Set the loading state for the specific button
+  const handleGeneratePayPalLink = async (purchaseId) => {
+    setLoadingLinks((prev) => ({ ...prev, [purchaseId]: true })); // Set loading for the specific notification
     setErrorMessage('');
     setSuccessMessage('');
+    setGeneratedLinks((prev) => ({ ...prev, [purchaseId]: null })); // Clear existing link
 
     try {
-      // Regenerate or generate a new PayPal link
       const response = await apiService.regeneratePayPalLink(purchaseId);
       const { paypal_link } = response.data;
 
-      // Copy the link to clipboard
-      if (navigator.clipboard && navigator.clipboard.write) {
-        const clipboardItem = new ClipboardItem({
-          'text/plain': new Promise((resolve) => resolve(new Blob([paypal_link], { type: 'text/plain' }))),
+      setGeneratedLinks((prev) => ({ ...prev, [purchaseId]: paypal_link })); // Store generated link
+      setTimeout(() => {
+        setGeneratedLinks((prev) => {
+          const updatedLinks = { ...prev };
+          delete updatedLinks[purchaseId];
+          return updatedLinks;
         });
-        await navigator.clipboard.write([clipboardItem]);
-      } else if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(paypal_link);
-      } else {
-        throw new Error('Clipboard API not supported.');
-      }
-
-      setSuccessMessage('PayPal link created and copied to clipboard!');
-      setTimeout(() => setSuccessMessage(''), 4000);
+      }, 30000); // 30 seconds
+      setSuccessMessage('PayPal link generated successfully! Please copy it using the button.');
+      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 3 seconds
     } catch (err) {
-      console.error('Error regenerating PayPal link:', err);
-      setErrorMessage('Failed to regenerate PayPal link. Please try again.');
-      setTimeout(() => setErrorMessage(''), 3000);
+      console.error(`Error generating PayPal link for notification ${purchaseId}:`, err);
+      setErrorMessage('Failed to generate PayPal link. Please try again.');
+      setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
     } finally {
-      setLoadingLinks((prev) => ({ ...prev, [purchaseId]: false })); // Reset the loading state for the specific button
+      setLoadingLinks((prev) => ({ ...prev, [purchaseId]: false })); // Reset loading state for the specific notification
     }
   };
 
+  const handleCopyToClipboard = async (paypalLink) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(paypalLink);
+        setSuccessMessage('PayPal link copied to clipboard!');
+      } else {
+        throw new Error('Clipboard API not supported.');
+      }
+    } catch (err) {
+      console.error('Error copying PayPal link:', err);
+      setErrorMessage('Failed to copy PayPal link. Please try again.');
+    } finally {
+      setTimeout(() => setSuccessMessage(''), 3000); // Clear success message after 3 seconds
+      setTimeout(() => setErrorMessage(''), 3000); // Clear error message after 3 seconds
+    }
+  };
 
 
 
@@ -458,19 +470,35 @@ const Navbar = ({ role }) => {
                             </p>
                             {/* Get PayPal Link Button */}
                             {(item.payment_status !== 'Paid') && (
-                              <button
-                                className={`mt-2 px-3 py-1 flex items-center ${loadingLinks[item.purchase_id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                                  } text-white rounded transition-all`}
-                                onClick={() => handleGetPayPalLink(item.purchase_id)}
-                                disabled={loadingLinks[item.purchase_id]} // Disable only the clicked button
-                              >
-                                {loadingLinks[item.purchase_id] ? (
-                                  <span className="loader mr-2"></span> // Optional: Add a small loader animation here
+                              <div>
+                                {!generatedLinks[item.purchase_id] ? (
+                                  // Generate Button
+                                  <button
+                                    className={`px-3 py-1 flex items-center ${loadingLinks[item.purchase_id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-all`}
+                                    onClick={() => handleGeneratePayPalLink(item.purchase_id)}
+                                    disabled={loadingLinks[item.purchase_id]}
+                                  >
+                                    {loadingLinks[item.purchase_id] ? (
+                                      <span className="loader mr-2"></span>
+                                    ) : (
+                                      <FaMagic className="mr-1" />
+                                    )}
+                                    {loadingLinks[item.purchase_id] ? 'Loading...' : 'Generate PayPal Link'}
+                                  </button>
                                 ) : (
-                                  <FaLink className="mr-1" />
+                                  // Copy Button with Subtle Checkmark
+                                  <div className="flex items-center space-x-2">
+                                    <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" /> {/* Subtle Checkmark */}
+                                    <button
+                                      className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
+                                      onClick={() => handleCopyToClipboard(generatedLinks[item.purchase_id], item.purchase_id)}
+                                    >
+                                      <FaCopy className="mr-1" />
+                                      Copy Link
+                                    </button>
+                                  </div>
                                 )}
-                                {loadingLinks[item.purchase_id] ? 'Loading...' : 'Get PayPal Link'}
-                              </button>
+                              </div>
                             )}
                           </div>
                         ) : (
@@ -500,21 +528,38 @@ const Navbar = ({ role }) => {
                                   {item.payment_status}
                                 </span>
                               </p>
+                              {/* Generate/Copy PayPal Link Buttons */}
                               {/* Get PayPal Link Button */}
                               {(item.payment_status !== 'Paid') && (
-                                <button
-                                  className={`mt-2 px-3 py-1 flex items-center ${loadingLinks[item.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                                    } text-white rounded transition-all`}
-                                  onClick={() => handleGetPayPalLink(item.id)}
-                                  disabled={loadingLinks[item.id]} // Disable only the clicked button
-                                >
-                                  {loadingLinks[item.id] ? (
-                                    <span className="loader mr-2"></span> // Optional: Add a small loader animation here
+                                <div>
+                                  {!generatedLinks[item.id] ? (
+                                    // Generate Button
+                                    <button
+                                      className={`px-3 py-1 flex items-center ${loadingLinks[item.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-all`}
+                                      onClick={() => handleGeneratePayPalLink(item.id)}
+                                      disabled={loadingLinks[item.id]}
+                                    >
+                                      {loadingLinks[item.id] ? (
+                                        <span className="loader mr-2"></span>
+                                      ) : (
+                                        <FaMagic className="mr-1" />
+                                      )}
+                                      {loadingLinks[item.id] ? 'Loading...' : 'Generate PayPal Link'}
+                                    </button>
                                   ) : (
-                                    <FaLink className="mr-1" />
+                                    // Copy Button with Subtle Checkmark
+                                    <div className="flex items-center space-x-2">
+                                      <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" /> {/* Subtle Checkmark */}
+                                      <button
+                                        className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
+                                        onClick={() => handleCopyToClipboard(generatedLinks[item.id], item.id)}
+                                      >
+                                        <FaCopy className="mr-1" />
+                                        Copy Link
+                                      </button>
+                                    </div>
                                   )}
-                                  {loadingLinks[item.id] ? 'Loading...' : 'Get PayPal Link'}
-                                </button>
+                                </div>
                               )}
                             </div>
                           </div>
