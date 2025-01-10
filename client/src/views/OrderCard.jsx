@@ -77,6 +77,14 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
         const originalAmount = parseFloat(order.amount);
         const newAmount = parseFloat(editedOrder.amount);
 
+
+        if (
+            (originalPaymentStatus === 'Pending' && newPaymentStatus === 'Overdue') ||
+            (originalPaymentStatus === 'Overdue' && newPaymentStatus === 'Pending')
+        ) {
+            proceedWithUpdate({ ...editedOrder });
+            return;
+        }
         // Prevent changing to 'Pending' or 'Overdue' if payments exist
         if (
             (newPaymentStatus === 'Pending' || newPaymentStatus === 'Overdue') &&
@@ -146,25 +154,28 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
 
         const originalAmount = parseFloat(order.amount);
         const newAmount = parseFloat(updatedOrder.amount);
+        const currentPaymentStatus = updatedOrder.payment_status;
 
         // Check if the amount has decreased
         const amountDecreased = newAmount < originalAmount;
 
         // Update payment status based on whether amount decreased
-        if (amountDecreased && totalPayments > newAmount) {
-            updatedOrder.payment_status = 'Paid';
-        } else if (totalPayments >= newAmount) {
-            updatedOrder.payment_status = 'Paid';
-        } else if (totalPayments > 0) {
-            updatedOrder.payment_status = 'Partial';
-        } else {
-            updatedOrder.payment_status = 'Pending';
+        if (currentPaymentStatus !== 'Overdue' && currentPaymentStatus !== 'Pending') {
+            if (amountDecreased && totalPayments > newAmount) {
+                updatedOrder.payment_status = 'Paid';
+            } else if (totalPayments >= newAmount) {
+                updatedOrder.payment_status = 'Paid';
+            } else if (totalPayments > 0) {
+                updatedOrder.payment_status = 'Partial';
+            } else {
+                updatedOrder.payment_status = 'Pending';
+            }
         }
 
         // Prepare data to send
         const dataToSend = {
             amount: updatedOrder.amount,
-            payment_status: updatedOrder.payment_status,
+            payment_status: updatedOrder.payment_status, // Use the preserved or updated status
             size: updatedOrder.size,
             purchase_date: order.purchase_date,
             shipping_status: updatedOrder.shipping_status,
@@ -490,14 +501,14 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                 className="text-gray-600 hover:text-gray-800"
                                 title="Save"
                             >
-                                <FaSave />
+                                <FaSave size={18} />
                             </button>
                             <button
                                 onClick={handleCancelEdit}
                                 className="text-gray-600 hover:text-gray-800"
                                 title="Cancel"
                             >
-                                <FaTimes />
+                                <FaTimes size={20} />
                             </button>
                         </>
                     ) : (
@@ -508,7 +519,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                 className="text-gray-600 hover:text-gray-800"
                                 title="Edit Order"
                             >
-                                <FaEdit />
+                                <FaEdit size={20} />
                             </button>
                             {/* Delete Order Button */}
                             <button
@@ -519,16 +530,16 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                 className="text-gray-600 hover:text-gray-800"
                                 title="Delete Order"
                             >
-                                <FaTrash />
+                                <FaTrash size={18} />
                             </button>
                             <button
                                 onClick={toggleExpand}
                                 className="text-gray-600 hover:text-gray-800"
                             >
                                 {isExpanded ? (
-                                    <FaAngleUp size={24} />
+                                    <FaAngleUp size={25} />
                                 ) : (
-                                    <FaAngleDown size={24} />
+                                    <FaAngleDown size={25} />
                                 )}
                             </button>
                         </>
@@ -588,7 +599,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                             </p>
                             <p className="flex items-center">
                                 <strong>Shipping Status:</strong>{' '}
-                                <span> {order.shipping_status}</span>
+                                <span className='ml-1'> {order.shipping_status}</span>
                             </p>
                             {/* Update Shipping Status Button */}
                             <button

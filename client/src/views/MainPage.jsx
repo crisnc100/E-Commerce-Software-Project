@@ -593,7 +593,7 @@ const MainPage = () => {
           className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 flex items-center space-x-2 rounded-lg shadow"
         >
           <FaUserPlus />
-          <span>Add New Customer</span>
+          <span>Add New Client</span>
         </button>
         <button
           onClick={() => setIsPurchaseModalOpen(true)}

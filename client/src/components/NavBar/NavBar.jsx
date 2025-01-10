@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUpload, FiLock, FiUser, FiSettings } from 'react-icons/fi';
-import { FaCheck, FaMagic, FaCopy } from 'react-icons/fa';
+import { FaCheck, FaMagic, FaCopy, FaBars } from 'react-icons/fa';
 import apiService from '../../services/apiService';
 import UploadProductModal from '../UploadProductModal';
 import { useCallback } from 'react';
@@ -11,7 +11,7 @@ import { Modal } from 'react-responsive-modal';
 
 
 
-const Navbar = ({ role }) => {
+const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -268,13 +268,15 @@ const Navbar = ({ role }) => {
 
 
   return (
-    <nav className="bg-gray-800 p-4 flex justify-between items-center">
-      <div className="flex-1 mx-4 relative" ref={searchDropdownRef}>
+    <nav className="bg-gray-800 p-3 md:p-4 flex justify-between items-center">
+      <FaBars onClick={() => setSidebarToggle(!sidebarToggle)}
+          className='text-white cursor-pointer' size={26} />
+      <div className="w-full md:flex-1 mx-2 md:mx-4 relative mb-2 md:mb-0" ref={searchDropdownRef}>
         <div className="flex space-x-2">
           <select
             value={searchType}
             onChange={(e) => setSearchType(e.target.value)}
-            className="p-2 rounded-lg bg-gray-700 text-white focus:outline-none"
+            className="p-1 md:p-2 rounded-lg bg-gray-700 text-white focus:outline-none text-sm md:text-base"
           >
             <option value="product">Product</option>
             <option value="client">Client</option>
@@ -284,7 +286,7 @@ const Navbar = ({ role }) => {
             placeholder={`Search ${searchType}s...`}
             value={searchTerm}
             onChange={handleSearchChange}
-            className="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-1 md:p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
           />
         </div>
 
@@ -333,27 +335,30 @@ const Navbar = ({ role }) => {
         )}
       </div>
 
-      <div className="flex items-center space-x-4">
+      <div className="w-full md:w-auto flex items-center space-x-2 md:space-x-4 mt-2 md:mt-0">
         <button
           onClick={() => setIsUploadModalOpen(true)}
-          className="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg"
+          className="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
         >
-          <FiUpload className="mr-2" /> Upload Product
+          <FiUpload className="mr-1" size={16} /> 
+          <span className="hidden md:inline">Upload Product</span>
         </button>
 
         <button
           onClick={handleLogout}
-          className="flex items-center bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg"
+          className="flex items-center bg-red-600 hover:bg-red-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
         >
-          <FiLock className="mr-2" /> Lock Software
+          <FiLock className="mr-1" size={16} /> 
+          <span className="hidden md:inline">Lock Software</span>
         </button>
 
         <div className="relative profile-menu">
           <button
             onClick={toggleProfileMenu}
-            className="flex items-center bg-gray-700 text-white py-2 px-4 rounded-lg focus:outline-none"
+            className="flex items-center bg-gray-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg focus:outline-none text-sm md:text-base"
           >
-            <FiUser className="mr-2" /> Profile
+            <FiUser className="mr-1" size={16} /> 
+            <span className="hidden md:inline">Profile</span>
           </button>
           {isProfileMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg flex flex-col">
