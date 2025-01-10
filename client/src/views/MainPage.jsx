@@ -136,37 +136,50 @@ const MainPage = () => {
       const response = await apiService.regeneratePayPalLink(notificationId);
       const { paypal_link } = response.data;
 
-      // Cross-browser clipboard handling
-      if (navigator.clipboard && navigator.clipboard.write) {
-        const clipboardItem = new ClipboardItem({
-          'text/plain': new Promise((resolve) => resolve(new Blob([paypal_link], { type: 'text/plain' }))),
-        });
-        await navigator.clipboard.write([clipboardItem]); // Copy using ClipboardItem
-      } else if (navigator.clipboard && navigator.clipboard.writeText) {
-        // Fallback for older browsers
-        await navigator.clipboard.writeText(paypal_link);
-      } else {
-        throw new Error('Clipboard API not supported.');
+      let copied = false;
+
+      // Attempt modern Clipboard API first
+      try {
+        if (navigator.clipboard && navigator.clipboard.write) {
+          const clipboardItem = new ClipboardItem({
+            'text/plain': new Promise((resolve) =>
+              resolve(new Blob([paypal_link], { type: 'text/plain' }))
+            ),
+          });
+          await navigator.clipboard.write([clipboardItem]);
+          copied = true;
+        } else if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(paypal_link);
+          copied = true;
+        }
+      } catch (modernError) {
+        console.warn('Modern clipboard API failed, trying fallback', modernError);
+      }
+
+      // Use fallback if modern API did not succeed
+      if (!copied) {
+        fallbackCopyTextToClipboard(paypal_link);
       }
 
       setSuccessMessage(`PayPal link created and copied to clipboard!`);
-      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(''), 4000); // Clear success message after 4 seconds
     } catch (err) {
       console.error(`Error generating PayPal link for notification ${notificationId}:`, err);
 
       // Update error messages for UI
-      const errorMsg = `Failed to generate PayPal link for notification ${notificationId}. Error: ${err.message}`;
+      const errorMsg = `Failed to generate or copy PayPal link for notification ${notificationId}. Error: ${err.message}`;
       setErrorMessage(errorMsg);
 
       // Update debug log
       setDebugLog((prevLogs) => [...prevLogs, errorMsg]);
 
-      // Clear error message after 4 seconds
+      // Clear error message after 15 seconds
       setTimeout(() => setErrorMessage(''), 15000);
     } finally {
       setLoadingLinks((prev) => ({ ...prev, [notificationId]: false })); // Reset loading state for the specific notification
     }
   };
+
 
 
 
