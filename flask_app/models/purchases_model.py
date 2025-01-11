@@ -537,8 +537,8 @@ class Purchase:
         where_clause = ""
         data = None
         if year:
-            where_clause = "WHERE YEAR(purchases.purchase_date) = %s"
-            data = (year,)
+            where_clause = "WHERE YEAR(purchases.purchase_date) = %s AND purchases.system_id = %s"
+            data = (year, SessionHelper.get_system_id())
 
         # Replace placeholder in query
         query = query.format(where_clause)
@@ -554,46 +554,6 @@ class Purchase:
             }
             for row in result
         ] if result else []
-
-
-
-
-    @classmethod
-    def get_top_products(cls, year, month, category):
-        query = """
-        SELECT product_id, product_name, product_screenshot_photo, total_orders, total_sales, rnk FROM (
-            SELECT 
-                product_id,
-                product_name,
-                product_screenshot_photo,
-                total_orders,
-                total_sales,
-                RANK() OVER (
-                    ORDER BY 
-                        (CASE WHEN %s = 'orders' THEN total_orders ELSE 0 END) DESC,
-                        (CASE WHEN %s = 'sales' THEN total_sales ELSE 0 END) DESC
-                ) AS rnk
-            FROM (
-                SELECT 
-                    products.id AS product_id,
-                    products.name AS product_name,
-                    products.screenshot_photo AS product_screenshot_photo,
-                    COUNT(purchases.id) AS total_orders,
-                    COALESCE(SUM(purchases.amount), 0) AS total_sales
-                FROM purchases
-                JOIN products ON purchases.product_id = products.id
-                WHERE YEAR(purchases.purchase_date) = %s
-                AND MONTH(purchases.purchase_date) = %s
-                GROUP BY products.id, products.name, products.screenshot_photo
-            ) AS ProductMetrics
-        ) AS RankedMetrics
-        WHERE rnk <= 3;
-        """
-
-        data = (category, category, year, month)
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-
-
 
 
     @classmethod

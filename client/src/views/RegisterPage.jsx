@@ -188,7 +188,7 @@ const RegisterPage = () => {
         )}
 
         <footer className="mt-6 text-gray-500 text-sm text-center">
-          &copy; {new Date().getFullYear()} Your Company. All rights reserved.
+          &copy; {new Date().getFullYear()} Ecommerce Systems. All rights reserved.
         </footer>
       </div>
     </div>
