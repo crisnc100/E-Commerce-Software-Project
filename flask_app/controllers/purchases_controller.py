@@ -44,12 +44,15 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
         system = System.get_system_by_id(system_id)
         if not system or not system.paypal_client_id or not system.paypal_secret:
             raise Exception("PayPal credentials are missing for this system.")
+        
+        paypal_client_id = System.decrypt_data(system.paypal_client_id)
+        paypal_secret = System.decrypt_data(system.paypal_secret)
 
         # (3) Configure
         configure({
             "mode": "sandbox",  # or "live"
-            "client_id": system.paypal_client_id,
-            "client_secret": system.paypal_secret,
+            "client_id": paypal_client_id,
+            "client_secret": paypal_secret,
         })
 
         # (4) Build Payment Payload

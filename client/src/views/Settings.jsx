@@ -236,6 +236,22 @@ const Settings = () => {
 
 
     const handleSavePayPalCredentials = async () => {
+        // Clear any existing messages
+        setSuccessMessage('');
+        setErrorMessage('');
+
+        // Frontend validation
+        if (!paypalClientId || paypalClientId.length < 40) {
+            setErrorMessage('Invalid PayPal Client ID. It should be at least 40 characters long.');
+            setTimeout(() => setErrorMessage(''), 3000);
+            return;
+        }
+        if (!paypalSecret || paypalSecret.length < 40) {
+            setErrorMessage('Invalid PayPal Secret. It should be at least 40 characters long.');
+            setTimeout(() => setErrorMessage(''), 3000);
+            return;
+        }
+
         setIsSaving(true); // Start saving state
         try {
             const data = {
@@ -244,7 +260,9 @@ const Settings = () => {
                 paypal_secret: paypalSecret,
             };
 
+            // Send credentials to the backend
             await apiService.updatePaypalCredentials(data);
+
             setSuccessMessage('PayPal credentials updated successfully.');
             setTimeout(() => setSuccessMessage(''), 3000);
             handleClosePayPalModal(); // Close modal after saving
@@ -515,29 +533,29 @@ const Settings = () => {
             ) : (
                 // Non-Owner View
                 // Non-Owner View
-<section className="mb-8">
-    <h3 className="text-xl font-semibold mb-4">Payment Integration</h3>
-    <div
-        className={`flex items-center p-4 rounded ${isConnected
-            ? 'bg-green-100 border border-green-300 text-green-700'
-            : 'bg-red-100 border border-red-300 text-red-700'
-            }`}
-    >
-        <div className="mr-3">
-            {isConnected ? <FiCheckCircle size={24} /> : <FiXCircle size={24} />}
-        </div>
-        <div>
-            {isConnected ? (
-                <>
-                    <span>PayPal Account Connected</span>
-                    <p className="text-sm text-gray-600">You can now use PayPal for payment links.</p>
-                </>
-            ) : (
-                <span>PayPal Not Connected. Please contact the system owner.</span>
-            )}
-        </div>
-    </div>
-</section>
+                <section className="mb-8">
+                    <h3 className="text-xl font-semibold mb-4">Payment Integration</h3>
+                    <div
+                        className={`flex items-center p-4 rounded ${isConnected
+                            ? 'bg-green-100 border border-green-300 text-green-700'
+                            : 'bg-red-100 border border-red-300 text-red-700'
+                            }`}
+                    >
+                        <div className="mr-3">
+                            {isConnected ? <FiCheckCircle size={24} /> : <FiXCircle size={24} />}
+                        </div>
+                        <div>
+                            {isConnected ? (
+                                <>
+                                    <span>PayPal Account Connected</span>
+                                    <p className="text-sm text-gray-600">You can now use PayPal for payment links.</p>
+                                </>
+                            ) : (
+                                <span>PayPal Not Connected. Please contact the system owner.</span>
+                            )}
+                        </div>
+                    </div>
+                </section>
 
             )}
 

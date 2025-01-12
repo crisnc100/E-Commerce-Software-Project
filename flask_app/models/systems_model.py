@@ -1,4 +1,14 @@
 from flask_app.config.mysqlconnection import connectToMySQL
+from cryptography.fernet import Fernet
+import requests
+
+import os
+PAYPAL_ENCRYPTION_KEY = os.environ.get('PAYPAL_ENCRYPTION_KEY')
+if not PAYPAL_ENCRYPTION_KEY:
+    raise ValueError("Encryption key is missing. Please set PAYPAL_ENCRYPTION_KEY in the environment.")
+cipher = Fernet(PAYPAL_ENCRYPTION_KEY.encode())
+
+
 
 class System:
     def __init__(self, data):
@@ -59,8 +69,72 @@ class System:
     
 
 
+    @staticmethod
+    def validate_paypal_credentials_format(client_id, secret):
+        """
+        Validates the basic format of PayPal client ID and secret.
+        """
+        if not client_id or not secret:
+            raise ValueError("PayPal client ID and secret cannot be empty.")
+        
+        if len(client_id) < 40 or len(secret) < 40:
+            raise ValueError("PayPal credentials appear to be invalid in length.")
+        
+        return True
+
+    @staticmethod
+    def encrypt_data(data):
+        """
+        Encrypts data using Fernet encryption.
+        """
+        return cipher.encrypt(data.encode())
+
+    @staticmethod
+    def decrypt_data(encrypted_data):
+        """
+        Decrypts data using Fernet encryption.
+        """
+        return cipher.decrypt(encrypted_data).decode()
+
+
+    @staticmethod
+    def validate_with_paypal_api(client_id, secret):
+        """
+        Validates PayPal credentials by attempting to obtain an OAuth token.
+        """
+        validation_url = "https://api-m.sandbox.paypal.com/v1/oauth2/token"
+        headers = {
+            "Accept": "application/json",
+            "Accept-Language": "en_US"
+        }
+        try:
+            response = requests.post(
+                validation_url,
+                headers=headers,
+                auth=(client_id, secret),
+                data={"grant_type": "client_credentials"}
+            )
+            if response.status_code != 200:
+                raise ValueError(
+                    f"Invalid PayPal credentials: {response.json().get('error_description', 'Unknown error')}"
+                )
+        except requests.RequestException as e:
+            raise ValueError(f"Network error during PayPal validation: {str(e)}")
+
+
     @classmethod
     def update_paypal_credentials(cls, system_id, paypal_client_id, paypal_secret):
+        # Step 1: Validate the format
+        cls.validate_paypal_credentials_format(paypal_client_id, paypal_secret)
+
+        # Step 2: Validate with PayPal API
+        cls.validate_with_paypal_api(paypal_client_id, paypal_secret)
+
+        # Step 3: Encrypt the credentials
+        encrypted_client_id = cls.encrypt_data(paypal_client_id)
+        encrypted_secret = cls.encrypt_data(paypal_secret)
+
+        # Step 4: Update the database
         query = """
         UPDATE systems
         SET paypal_client_id = %(paypal_client_id)s, paypal_secret = %(paypal_secret)s
@@ -68,10 +142,30 @@ class System:
         """
         data = {
             'system_id': system_id,
-            'paypal_client_id': paypal_client_id,
-            'paypal_secret': paypal_secret
+            'paypal_client_id': encrypted_client_id,
+            'paypal_secret': encrypted_secret
         }
         connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+    @classmethod
+    def has_paypal_credentials(cls, system_id):
+        """
+        Check if the system has PayPal credentials stored.
+        """
+        query = """
+        SELECT paypal_client_id, paypal_secret
+        FROM systems
+        WHERE id = %(system_id)s
+        """
+        data = {'system_id': system_id}
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+        if not result:
+            return False  # System not found
+
+        # Check if both client_id and secret are present
+        record = result[0]
+        return record['paypal_client_id'] and record['paypal_secret']
 
     
 

@@ -180,7 +180,6 @@ def add_user_manually():
         }
 
         # Debugging: Log user data before adding
-        print(f"User data to add: {user_data}")
 
         # Add user with temporary password
         user = User.add_user_with_temp_password(user_data)
@@ -732,6 +731,17 @@ def update_paypal_credentials():
     except Exception as e:
         print(f"Error updating PayPal credentials: {e}")
         return jsonify({'error': 'Internal Server Error'}), 500
+
+@app.route('/api/has_paypal_credentials/<int:system_id>', methods=['GET'])
+def has_paypal_credentials(system_id):
+    try:
+        # Check if credentials exist for the system
+        credentials_exist = System.has_paypal_credentials(system_id)
+        return jsonify({'has_paypal_credentials': credentials_exist}), 200
+    except Exception as e:
+        print(f"Error checking PayPal credentials for system ID {system_id}: {e}")
+        return jsonify({'error': 'Internal Server Error'}), 500
+
 
 
     
