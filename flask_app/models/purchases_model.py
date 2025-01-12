@@ -20,7 +20,7 @@ class Purchase:
         self.payment_status = data.get('payment_status')
         self.shipping_status = data.get('shipping_status')
         self.paypal_link = data.get('paypal_link')
-        self.paypal_payment_id = data.get('paypal_payment_id')
+        self.paypal_order_id = data.get('paypal_order_id')
         self.created_at = data.get('created_at')
         self.updated_at = data.get('updated_at')
         self.shipping_updated_at = data.get('shipping_updated_at')
@@ -47,7 +47,7 @@ class Purchase:
             'payment_status': self.payment_status,
             'shipping_status': self.shipping_status,
             'paypal_link': self.paypal_link,
-            'paypal_payment_id': self.paypal_payment_id,
+            'paypal_order_id': self.paypal_order_id,
             'created_at': str(self.created_at), 
             'updated_at': str(self.updated_at),
             'shipping_updated_at': str(self.shipping_updated_at),
@@ -67,14 +67,14 @@ class Purchase:
         """Create a new purchase record."""
         query = """
         INSERT INTO purchases (client_id, product_id, system_id, 
-        size, purchase_date, amount, payment_status, shipping_status, paypal_link, paypal_payment_id, created_at, 
+        size, purchase_date, amount, payment_status, shipping_status, paypal_link, paypal_order_id, created_at, 
         updated_at, shipping_updated_at) 
         VALUES (%(client_id)s, %(product_id)s, %(system_id)s, %(size)s, 
-        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, %(paypal_payment_id)s, NOW(), NOW(), NOW());
+        %(purchase_date)s, %(amount)s, %(payment_status)s, %(shipping_status)s, %(paypal_link)s, %(paypal_order_id)s, NOW(), NOW(), NOW());
         """
         data['system_id'] = SessionHelper.get_system_id()
         data['paypal_link'] = None  # Default to NULL
-        data['paypal_payment_id'] = None
+        data['paypal_order_id'] = None
 
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
     
@@ -655,13 +655,13 @@ class Purchase:
         return result[0]['system_id'] if result else None
     
     @classmethod
-    def update_paypal_payment_id(cls, purchase_id, paypal_payment_id):
+    def update_paypal_order_id(cls, purchase_id, paypal_order_id):
         """
-        Store the PayPal payment.id in `paypal_payment_id` column for this purchase.
+        Store the PayPal payment.id in `paypal_order_id` column for this purchase.
         """
         query = """
             UPDATE purchases
-            SET paypal_payment_id = %(paypal_payment_id)s,
+            SET paypal_order_id = %(paypal_order_id)s,
                 updated_at = NOW()
             WHERE id = %(id)s 
               AND system_id = %(system_id)s;
@@ -669,7 +669,7 @@ class Purchase:
         data = {
             "id": purchase_id,
             "system_id": SessionHelper.get_system_id(),
-            "paypal_payment_id": paypal_payment_id
+            "paypal_order_id": paypal_order_id
         }
         result = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
         print(f"PayPal payment_id updated for purchase_id {purchase_id}: {result}")
@@ -677,17 +677,17 @@ class Purchase:
     
 
     @classmethod
-    def get_by_paypal_payment_id(cls, paypal_payment_id):
+    def get_by_paypal_order_id(cls, paypal_order_id):
         query = """
             SELECT * 
             FROM purchases
-            WHERE paypal_payment_id = %(paypal_payment_id)s;
+            WHERE paypal_order_id = %(paypal_order_id)s;
         """
-        data = {"paypal_payment_id": paypal_payment_id}
+        data = {"paypal_order_id": paypal_order_id}
         results = connectToMySQL("maria_ortegas_project_schema").query_db(query, data)
 
         # Debug logs to inspect what's being returned
-        print(f"Query Results for paypal_payment_id={paypal_payment_id}: {results}")
+        print(f"Query Results for paypal_order_id={paypal_order_id}: {results}")
 
         # Return None or a Purchase instance
         return cls(results[0]) if results else None

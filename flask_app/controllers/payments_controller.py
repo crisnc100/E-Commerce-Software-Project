@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation
 from paypalrestsdk import Payment, configure
 from flask_app.models.systems_model import System
 from datetime import datetime
+import requests
 
 
 
@@ -31,17 +32,16 @@ def create_payment():
 
 @app.route("/execute-payment", methods=["GET"])
 def execute_payment():
-    payment_id = request.args.get("paymentId")
-    payer_id = request.args.get("payerId")
+    order_id = request.args.get("orderId")  # Use "orderId" instead of "paymentId"
 
-    if not payment_id or not payer_id:
-        return jsonify({"status": "error", "message": "Missing paymentId or payerId"}), 400
+    if not order_id:
+        return jsonify({"status": "error", "message": "Missing order ID"}), 400
 
     try:
         # Fetch the purchase data
-        purchase_data = Purchase.get_by_paypal_payment_id(payment_id)
+        purchase_data = Purchase.get_by_paypal_order_id(order_id)
         if not purchase_data:
-            return jsonify({"status": "error", "message": f"No purchase found for paymentId={payment_id}"}), 404
+            return jsonify({"status": "error", "message": f"No purchase found for order ID={order_id}"}), 404
 
         # Use the system_id from the purchase
         system_id = purchase_data.system_id
@@ -51,38 +51,49 @@ def execute_payment():
         # Temporarily set system_id in the session
         SessionHelper.set_system_id(system_id)
 
-        # Configure PayPal credentials
+        # Fetch system credentials
         system_obj = System.get_system_by_id(system_id)
         if not system_obj:
             return jsonify({"status": "error", "message": f"System {system_id} not found"}), 400
+
         try:
             decrypted_client_id = System.decrypt_data(system_obj.paypal_client_id)
             decrypted_secret = System.decrypt_data(system_obj.paypal_secret)
         except Exception as decrypt_error:
             return jsonify({"status": "error", "message": f"Failed to decrypt PayPal credentials: {str(decrypt_error)}"}), 500
 
+        # Get access token
+        token_response = requests.post(
+            'https://api-m.paypal.com/v1/oauth2/token',
+            auth=(decrypted_client_id, decrypted_secret),
+            headers={'Accept': 'application/json'},
+            data={'grant_type': 'client_credentials'}
+        )
+        if token_response.status_code != 200:
+            raise Exception(f"Failed to get PayPal access token: {token_response.json()}")
 
-        configure({
-            "mode": "live",
-            "client_id": decrypted_client_id,
-            "client_secret": decrypted_secret,
-        })
+        access_token = token_response.json().get('access_token')
+        if not access_token:
+            raise Exception("Access token not found in PayPal response.")
 
-        # Find and execute the payment
-        payment = Payment.find(payment_id)
-        if not payment:
-            return jsonify({"status": "error", "message": "Could not find PayPal payment"}), 404
+        # Capture the order
+        capture_response = requests.post(
+            f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture',
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
+        )
+        if capture_response.status_code != 201:
+            raise Exception(f"Failed to capture PayPal order: {capture_response.json()}")
 
-        if not payment.execute({"payer_id": payer_id}):
-            err = payment.error or "Execution failed"
-            return jsonify({"status": "error", "message": str(err)}), 400
+        capture_data = capture_response.json()
+        amount_paid = capture_data['purchase_units'][0]['payments']['captures'][0]['amount']['value']
 
         # Mark purchase as Paid
         Purchase.update_payment_status(purchase_data.id, "Paid")
 
         # Insert a payment record
-        tx = payment.transactions[0]
-        amount_paid = tx["amount"]["total"]  # e.g. "100.00"
         PaymentModel.save({
             "client_id": purchase_data.client_id,
             "purchase_id": purchase_data.id,
@@ -95,6 +106,7 @@ def execute_payment():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 @app.route("/payment-final", methods=["GET"])

@@ -6,6 +6,7 @@ from flask_app.models.purchases_model import Purchase
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
+import requests
 from flask_app.utils.session_helper import SessionHelper
 from paypalrestsdk import configure, Payment
 from flask_app.models.products_model import Product
@@ -36,68 +37,82 @@ def payment_cancel():
 
 def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_val):
     try:
-        # (1) Fetch client, product
+        # (1) Fetch client, product, and system info
         client = Client.get_by_id(client_id)
         product = Product.get_by_id(product_id)
-
-        # (2) Fetch system creds
         system = System.get_system_by_id(system_id)
         if not system or not system.paypal_client_id or not system.paypal_secret:
             raise Exception("PayPal credentials are missing for this system.")
-        
+
         paypal_client_id = System.decrypt_data(system.paypal_client_id)
         paypal_secret = System.decrypt_data(system.paypal_secret)
 
-        # (3) Configure
-        configure({
-            "mode": "live",  # or "live"
-            "client_id": paypal_client_id,
-            "client_secret": paypal_secret,
-        })
+        # (2) Get access token from PayPal
+        token_response = requests.post(
+            'https://api-m.paypal.com/v1/oauth2/token',
+            auth=(paypal_client_id, paypal_secret),
+            headers={'Accept': 'application/json'},
+            data={'grant_type': 'client_credentials'}
+        )
+        if token_response.status_code != 200:
+            raise Exception(f"Failed to get PayPal access token: {token_response.json()}")
 
-        # (4) Build Payment Payload
-        payment_payload = {
-            "intent": "sale",
-            "payer": {"payment_method": "paypal"},
-            "transactions": [
-                {
-                    "amount": {"total": f"{amount:.2f}", "currency": "USD"},
-                    "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
-                    "item_list": {
-                        "items": [
-                            {
-                                "name": product.name,
-                                "sku": f"product_{product_id}",
-                                "price": f"{amount:.2f}",
-                                "currency": "USD",
-                                "quantity": 1
-                            }
-                        ]
-                    },
-                    "invoice_number": str(purchase_id_val),
-                    "custom": str(system_id)
-                }
-            ],
-            "redirect_urls": {
+        access_token = token_response.json().get('access_token')
+        if not access_token:
+            raise Exception("Access token not found in PayPal response.")
+
+        # (3) Create PayPal order
+        order_payload = {
+            "intent": "CAPTURE",
+            "application_context": {
+                "brand_name": "Sophie and Mollies",
+                "landing_page": "BILLING",
+                "user_action": "PAY_NOW",
                 "return_url": "https://mariaortegas-project.onrender.com/payment-success",
                 "cancel_url": "https://mariaortegas-project.onrender.com/payment-cancel"
-            }
+            },
+            "purchase_units": [
+                {
+                    "amount": {
+                        "currency_code": "USD",
+                        "value": f"{amount:.2f}"
+                    },
+                    "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
+                    "invoice_id": str(purchase_id_val)
+                }
+            ]
         }
 
-        # (5) Create Payment
-        payment = Payment(payment_payload)
-        if not payment.create():
-            raise Exception(f"PayPal API error: {payment.error}")
+        order_response = requests.post(
+            'https://api-m.paypal.com/v2/checkout/orders',
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            },
+            json=order_payload
+        )
+        if order_response.status_code != 201:
+            raise Exception(f"Failed to create PayPal order: {order_response.json()}")
 
-        # (6) Extract approval URL
-        approval_url = next(link.href for link in payment.links if link.rel == "approval_url")
+        order_data = order_response.json()
 
-        # (7) Return approval_url plus the payment object if needed
-        return (approval_url, payment.id)
+        # (4) Extract approval URL and Order ID
+        approval_url = next(
+            (link['href'] for link in order_data.get('links', []) if link['rel'] == 'approve'),
+            None
+        )
+        order_id = order_data.get('id')
+
+        if not approval_url or not order_id:
+            raise Exception("Approval URL or Order ID not found in PayPal response.")
+
+        # (5) Return approval URL and Order ID
+        return approval_url, order_id
 
     except Exception as e:
         print(f"Error generating PayPal link: {e}")
         raise
+
 
 
 
@@ -157,7 +172,7 @@ def regenerate_paypal_link(purchase_id):
         system_id = purchase.system_id
 
         # Regenerate PayPal link
-        (paypal_approval_url, paypal_payment_id) = generate_paypal_link(
+        (paypal_approval_url, paypal_order_id) = generate_paypal_link(
             client_id=client_id,
             product_id=product_id,
             amount=amount,
@@ -166,14 +181,14 @@ def regenerate_paypal_link(purchase_id):
         )
 
         # Update database with new PayPal details
-        Purchase.update_paypal_payment_id(purchase_id, paypal_payment_id)
+        Purchase.update_paypal_order_id(purchase_id, paypal_order_id)
         Purchase.update_paypal_link(purchase_id, paypal_approval_url)
 
         return jsonify({
             "message": "New PayPal link generated",
             "purchase_id": purchase_id,
             "paypal_link": paypal_approval_url,
-            "paypal_payment_id": paypal_payment_id
+            "paypal_order_id": paypal_order_id
         }), 200
 
     except Exception as e:

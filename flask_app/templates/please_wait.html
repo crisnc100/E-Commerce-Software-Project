@@ -8,27 +8,32 @@
   <p>Do not close this tab. This will only take a moment.</p>
 
   <script>
-    // We'll call /execute-payment via AJAX using the query params we got.
+    // Extract orderId from query parameters
     const urlParams = new URLSearchParams(window.location.search);
-    const paymentId = urlParams.get("paymentId");
-    const payerId = urlParams.get("PayerID");
+    const orderId = urlParams.get("token"); // "token" corresponds to the PayPal order ID in the URL
 
-    fetch(`/execute-payment?paymentId=${encodeURIComponent(paymentId)}&payerId=${encodeURIComponent(payerId)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === "success") {
-          // Payment executed. Go to final success page.
-          window.location.href = "/payment-final";
-        } else {
-          // Show an error message or redirect to error page
-          alert("Payment execution failed: " + data.message);
-          window.location.href = "/payment-error?msg=" + encodeURIComponent(data.message);
-        }
-      })
-      .catch(err => {
-        alert("Error calling /execute-payment: " + err);
-        window.location.href = "/payment-error?msg=" + encodeURIComponent(err);
-      });
+    if (!orderId) {
+      alert("Missing order ID in the URL.");
+      window.location.href = "/payment-error?msg=Missing%20order%20ID";
+    } else {
+      // Call /execute-payment via AJAX
+      fetch(`/execute-payment?orderId=${encodeURIComponent(orderId)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === "success") {
+            // Redirect to the final success page
+            window.location.href = "/payment-final";
+          } else {
+            // Show an error message or redirect to the error page
+            alert("Payment execution failed: " + data.message);
+            window.location.href = "/payment-error?msg=" + encodeURIComponent(data.message);
+          }
+        })
+        .catch(err => {
+          alert("Error calling /execute-payment: " + err);
+          window.location.href = "/payment-error?msg=" + encodeURIComponent(err);
+        });
+    }
   </script>
 </body>
 </html>
