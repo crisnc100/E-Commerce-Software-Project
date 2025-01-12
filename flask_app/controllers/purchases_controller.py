@@ -18,16 +18,16 @@ from paypalrestsdk import configure, Payment
 
 @app.route("/payment-success", methods=["GET"])
 def payment_success():
-    payment_id = request.args.get("paymentId")
-    payer_id = request.args.get("PayerID")
+    order_id = request.args.get("token")  # Use "token" for the PayPal order ID
 
-    if not payment_id or not payer_id:
+    if not order_id:
         # If missing, show error or handle gracefully
-        return render_template("payment_error.html", message="Could not execute payment"), 400
+        return render_template("payment_error.html", message="Missing PayPal order ID"), 400
 
     # Render the "please wait" page 
-    # passing these values so the JS can call /execute-payment
-    return render_template("please_wait.html", payment_id=payment_id, payer_id=payer_id)
+    # passing the order ID so the JavaScript can call /execute-payment
+    return render_template("please_wait.html", order_id=order_id)
+
 
 
 @app.route('/payment-cancel')
