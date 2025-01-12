@@ -2,8 +2,12 @@ from flask_app.config.mysqlconnection import connectToMySQL
 from cryptography.fernet import Fernet
 import requests
 
+from dotenv import load_dotenv
 import os
-PAYPAL_ENCRYPTION_KEY = os.environ.get('PAYPAL_ENCRYPTION_KEY')
+
+load_dotenv()  # Load environment variables from .env file
+PAYPAL_ENCRYPTION_KEY = os.getenv('PAYPAL_ENCRYPTION_KEY')
+
 if not PAYPAL_ENCRYPTION_KEY:
     raise ValueError("Encryption key is missing. Please set PAYPAL_ENCRYPTION_KEY in the environment.")
 cipher = Fernet(PAYPAL_ENCRYPTION_KEY.encode())
