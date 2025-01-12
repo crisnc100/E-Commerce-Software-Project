@@ -67,6 +67,7 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
             "application_context": {
                 "brand_name": "Sophie and Mollies",
                 "landing_page": "BILLING",
+                "shipping_preference": "NO_SHIPPING",
                 "user_action": "PAY_NOW",
                 "return_url": "https://mariaortegas-project.onrender.com/payment-success",
                 "cancel_url": "https://mariaortegas-project.onrender.com/payment-cancel"
