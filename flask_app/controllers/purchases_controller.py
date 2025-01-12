@@ -50,7 +50,7 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
 
         # (3) Configure
         configure({
-            "mode": "sandbox",  # or "live"
+            "mode": "live",  # or "live"
             "client_id": paypal_client_id,
             "client_secret": paypal_secret,
         })

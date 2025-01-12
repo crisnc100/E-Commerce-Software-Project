@@ -63,7 +63,7 @@ def execute_payment():
 
 
         configure({
-            "mode": "sandbox",
+            "mode": "live",
             "client_id": decrypted_client_id,
             "client_secret": decrypted_secret,
         })
