@@ -54,8 +54,6 @@ const apiService = {
     axios.put(`${API_BASE_URL}/api/update_paypal_credentials`, data, {
       withCredentials: true,
     }),
-    hasPaypalCredentials: (systemId) =>
-      axios.get(`${API_BASE_URL}/api/has_paypal_credentials/${systemId}`, { withCredentials: true }),
 
   updateTempPasscode: (newPasscode) =>
     axios.post(

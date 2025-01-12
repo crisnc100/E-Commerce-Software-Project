@@ -32,7 +32,9 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [imageToShow, setImageToShow] = useState('');
   const [loadingLinks, setLoadingLinks] = useState({});
-  const [paypalLink, setPayPalLink] = useState('');
+  const [hasCredentials, setHasCredentials] = useState(false); // Track PayPal credentials
+  const [systemInfo, setSystemInfo] = useState(null); // Track full system info
+
   const [generatedLinks, setGeneratedLinks] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -148,6 +150,25 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
     setIsDetailedViewOpen(true);
     await fetchDetailedResults(result.id, 1); // Start from the first page
   };
+
+  useEffect(() => {
+    const fetchSystemInfo = async () => {
+      try {
+        const response = await apiService.getSystemInfo();
+        const system = response.data;
+
+        setSystemInfo(system); // Store full system info
+        // Check if credentials exist
+        const credentialsExist = !!(system.paypal_client_id && system.paypal_secret);
+        setHasCredentials(credentialsExist);
+      } catch (error) {
+        console.error("Failed to fetch system info:", error);
+        setHasCredentials(false); // Default to false on error
+      }
+    };
+
+    fetchSystemInfo();
+  }, []);
 
   const handleGeneratePayPalLink = async (purchaseId) => {
     setLoadingLinks((prev) => ({ ...prev, [purchaseId]: true })); // Set loading for the specific notification
@@ -270,7 +291,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
   return (
     <nav className="bg-gray-800 p-3 md:p-4 flex justify-between items-center">
       <FaBars onClick={() => setSidebarToggle(!sidebarToggle)}
-          className='text-white cursor-pointer' size={26} />
+        className='text-white cursor-pointer' size={26} />
       <div className="w-full md:flex-1 mx-2 md:mx-4 relative mb-2 md:mb-0" ref={searchDropdownRef}>
         <div className="flex space-x-2">
           <select
@@ -340,7 +361,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
           onClick={() => setIsUploadModalOpen(true)}
           className="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
         >
-          <FiUpload className="mr-1" size={16} /> 
+          <FiUpload className="mr-1" size={16} />
           <span className="hidden md:inline">Upload Product</span>
         </button>
 
@@ -348,7 +369,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
           onClick={handleLogout}
           className="flex items-center bg-red-600 hover:bg-red-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
         >
-          <FiLock className="mr-1" size={16} /> 
+          <FiLock className="mr-1" size={16} />
           <span className="hidden md:inline">Lock Software</span>
         </button>
 
@@ -357,7 +378,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
             onClick={toggleProfileMenu}
             className="flex items-center bg-gray-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg focus:outline-none text-sm md:text-base"
           >
-            <FiUser className="mr-1" size={16} /> 
+            <FiUser className="mr-1" size={16} />
             <span className="hidden md:inline">Profile</span>
           </button>
           {isProfileMenuOpen && (
@@ -474,7 +495,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                               </span>
                             </p>
                             {/* Get PayPal Link Button */}
-                            {(item.payment_status !== 'Paid') && (
+                            {hasCredentials && item.payment_status !== 'Paid' && (
                               <div>
                                 {!generatedLinks[item.purchase_id] ? (
                                   // Generate Button
@@ -535,7 +556,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                               </p>
                               {/* Generate/Copy PayPal Link Buttons */}
                               {/* Get PayPal Link Button */}
-                              {(item.payment_status !== 'Paid') && (
+                              {hasCredentials && item.payment_status !== 'Paid' && (
                                 <div>
                                   {!generatedLinks[item.id] ? (
                                     // Generate Button

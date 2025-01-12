@@ -37,6 +37,9 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
     const [paypalLink, setPayPalLink] = useState('');
     const [isLoadingLink, setIsLoadingLink] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [hasCredentials, setHasCredentials] = useState(false); // Track PayPal credentials
+    const [systemInfo, setSystemInfo] = useState(null); // Track full system info
+    
 
 
 
@@ -57,6 +60,25 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
     const toggleExpand = () => {
         setIsExpanded(!isExpanded);
     };
+
+    useEffect(() => {
+        const fetchSystemInfo = async () => {
+          try {
+            const response = await apiService.getSystemInfo();
+            const system = response.data;
+    
+            setSystemInfo(system); // Store full system info
+            // Check if credentials exist
+            const credentialsExist = !!(system.paypal_client_id && system.paypal_secret);
+            setHasCredentials(credentialsExist);
+          } catch (error) {
+            console.error("Failed to fetch system info:", error);
+            setHasCredentials(false); // Default to false on error
+          }
+        };
+    
+        fetchSystemInfo();
+      }, []);
 
     const handleAddPaymentClick = () => {
         setShowAddPaymentModal(true);
@@ -457,7 +479,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                         </button>
                     )}
                     {/* Get PayPal Link Button */}
-                    {order.payment_status !== 'Paid' && !isEditing && (
+                    {hasCredentials && order.payment_status !== 'Paid' && !isEditing && (
                         <div>
                             {isLoadingLink ? (
                                 // Loading State

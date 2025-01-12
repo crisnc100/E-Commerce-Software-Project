@@ -60,6 +60,8 @@ const MainPage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [loadingLinks, setLoadingLinks] = useState({});
   const [generatedLinks, setGeneratedLinks] = useState({});
+  const [hasCredentials, setHasCredentials] = useState(false); // Track PayPal credentials
+  const [systemInfo, setSystemInfo] = useState(null); // Track full system info
 
 
 
@@ -79,6 +81,24 @@ const MainPage = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchSystemInfo = async () => {
+      try {
+        const response = await apiService.getSystemInfo();
+        const system = response.data;
+
+        setSystemInfo(system); // Store full system info
+        // Check if credentials exist
+        const credentialsExist = !!(system.paypal_client_id && system.paypal_secret);
+        setHasCredentials(credentialsExist);
+      } catch (error) {
+        console.error("Failed to fetch system info:", error);
+        setHasCredentials(false); // Default to false on error
+      }
+    };
+
+    fetchSystemInfo();
+  }, []);
 
 
   // Fetch Overdue Purchases and set as Notifications
@@ -501,32 +521,36 @@ const MainPage = () => {
                               </button>
 
                               {/* Generate/Copy PayPal Link Buttons */}
-                              {!generatedLinks[notification.id] ? (
-                                // Generate Button
-                                <button
-                                  className={`px-3 py-1 flex items-center ${loadingLinks[notification.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-all`}
-                                  onClick={() => handleGeneratePayPalLink(notification.id)}
-                                  disabled={loadingLinks[notification.id]}
-                                >
-                                  {loadingLinks[notification.id] ? (
-                                    <span className="loader mr-2"></span>
+                              {hasCredentials && (
+                                <>
+                                  {!generatedLinks[notification.id] ? (
+                                    // Generate Button
+                                    <button
+                                      className={`px-3 py-1 flex items-center ${loadingLinks[notification.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-all`}
+                                      onClick={() => handleGeneratePayPalLink(notification.id)}
+                                      disabled={loadingLinks[notification.id]}
+                                    >
+                                      {loadingLinks[notification.id] ? (
+                                        <span className="loader mr-2"></span>
+                                      ) : (
+                                        <FaMagic className="mr-1" />
+                                      )}
+                                      {loadingLinks[notification.id] ? 'Generating...' : 'Generate PayPal Link'}
+                                    </button>
                                   ) : (
-                                    <FaMagic className="mr-1" />
+                                    // Copy Button with Subtle Checkmark
+                                    <div className="flex items-center space-x-2">
+                                      <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" /> {/* Subtle Checkmark */}
+                                      <button
+                                        className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
+                                        onClick={() => handleCopyToClipboard(generatedLinks[notification.id], notification.id)}
+                                      >
+                                        <FaCopy className="mr-1" />
+                                        Copy Link
+                                      </button>
+                                    </div>
                                   )}
-                                  {loadingLinks[notification.id] ? 'Generating...' : 'Generate PayPal Link'}
-                                </button>
-                              ) : (
-                                // Copy Button with Subtle Checkmark
-                                <div className="flex items-center space-x-2">
-                                  <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" /> {/* Subtle Checkmark */}
-                                  <button
-                                    className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
-                                    onClick={() => handleCopyToClipboard(generatedLinks[notification.id], notification.id)}
-                                  >
-                                    <FaCopy className="mr-1" />
-                                    Copy Link
-                                  </button>
-                                </div>
+                                </>
                               )}
                             </>
                           )}
