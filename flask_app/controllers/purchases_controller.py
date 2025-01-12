@@ -123,42 +123,20 @@ def create_purchase():
     data['purchase_date'] = data.get('purchase_date', datetime.now().strftime('%Y-%m-%d'))
     data['payment_status'] = 'Pending'
     data['shipping_status'] = 'Pending'
-    # system_id from your session or data?
+    # Retrieve system_id from the session or data
     data['system_id'] = SessionHelper.get_system_id()
 
-    # 1) Save purchase row
+    # Save purchase row
     try:
         purchase_id = Purchase.save(data)
+        return jsonify({
+            "message": "Purchase created successfully",
+            "purchase_id": purchase_id,
+        }), 201
     except Exception as e:
         print(f"Error saving purchase: {str(e)}")
         return jsonify({"error": "Failed to save purchase"}), 500
 
-    # 2) Generate PayPal link
-    try:
-        (paypal_approval_url, paypal_payment_id) = generate_paypal_link(
-            client_id=data['client_id'],
-            product_id=data['product_id'],
-            amount=data['amount'],
-            system_id=data['system_id'],  
-            purchase_id_val=purchase_id
-        )
-
-        # 3) Store that payment.id in DB
-        Purchase.update_paypal_payment_id(purchase_id, paypal_payment_id)
-
-        # 4) Also store the approval link in `paypal_link` if you want
-        Purchase.update_paypal_link(purchase_id, paypal_approval_url)
-
-        return jsonify({
-            "message": "Purchase created and PayPal link generated",
-            "purchase_id": purchase_id,
-            "paypal_link": paypal_approval_url,
-            "paypal_payment_id": paypal_payment_id
-        }), 201
-
-    except Exception as e:
-        print(f"Error generating PayPal link: {str(e)}")
-        return jsonify({"error": "Purchase created, but failed to generate PayPal link"}), 500
 
 
 @app.route('/api/regenerate_paypal_link/<int:purchase_id>', methods=['PUT', 'POST'])
