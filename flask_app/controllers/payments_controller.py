@@ -55,11 +55,17 @@ def execute_payment():
         system_obj = System.get_system_by_id(system_id)
         if not system_obj:
             return jsonify({"status": "error", "message": f"System {system_id} not found"}), 400
+        try:
+            decrypted_client_id = System.decrypt_data(system_obj.paypal_client_id)
+            decrypted_secret = System.decrypt_data(system_obj.paypal_secret)
+        except Exception as decrypt_error:
+            return jsonify({"status": "error", "message": f"Failed to decrypt PayPal credentials: {str(decrypt_error)}"}), 500
+
 
         configure({
             "mode": "sandbox",
-            "client_id": system_obj.paypal_client_id,
-            "client_secret": system_obj.paypal_secret,
+            "client_id": decrypted_client_id,
+            "client_secret": decrypted_secret,
         })
 
         # Find and execute the payment

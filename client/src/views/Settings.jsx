@@ -761,6 +761,7 @@ const Settings = () => {
                 <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg w-96">
                         <h3 className="text-lg font-bold mb-4">Edit PayPal Account</h3>
+                        <h4 className="text-sm font-medium text-gray-600 mb-4"> This is encrypted credentials only. </h4>
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 PayPal Client ID
