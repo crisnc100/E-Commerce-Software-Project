@@ -22,8 +22,6 @@ const AddClientModal = ({ onClose, onSuccess }) => {
             newErrors.contactDetail = contactMethod === 'phone'
                 ? 'Phone number is required'
                 : 'Email address is required';
-        } else if (contactMethod === 'phone' && !/^\d{10}$/.test(contactDetail)) {
-            newErrors.contactDetail = 'Invalid phone number';
         } else if (contactMethod === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactDetail)) {
             newErrors.contactDetail = 'Invalid email address';
         }

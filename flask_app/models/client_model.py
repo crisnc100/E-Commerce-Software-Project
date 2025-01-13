@@ -50,9 +50,6 @@ class Client:
             contact_method = (data.get('contact_method', '') or '').strip().lower()
             contact_details = (data.get('contact_details', '') or '').strip()
 
-            print(f"contact_method: '{contact_method}'")
-            print(f"contact_details: '{contact_details}'")
-
             errors = []
 
             if not contact_details:
@@ -63,10 +60,8 @@ class Client:
                 if not EMAIL_REGEX.match(contact_details):
                     errors.append("Invalid email address.")
                     print("Validation error: Invalid email address.")
-            elif contact_method == 'phone':
-                if not PHONE_REGEX.match(contact_details):
-                    errors.append("Invalid phone number. It must be exactly 10 digits.")
-                    print("Validation error: Invalid phone number.")
+            elif contact_method != 'phone':
+                errors.append("Invalid contact method. Must be 'email' or 'phone'.")
             else:
                 errors.append("Invalid contact method. Must be 'email' or 'phone'.")
                 print("Validation error: Invalid contact method.")
@@ -176,20 +171,6 @@ class Client:
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
         return results
 
-
-    @staticmethod
-    def is_valid(data):
-        """Validate client data before saving or updating."""
-        is_valid = True
-        if len(data['first_name']) < 2:
-            is_valid = False
-        if len(data['last_name']) < 2:
-            is_valid = False
-        if data['contact_method'] not in ['email', 'phone']:
-            is_valid = False
-        if not EMAIL_REGEX.match(data['contact_details']) and not PHONE_REGEX.match(data['contact_details']):
-            is_valid = False
-        return is_valid
 
     ### Additional Methods for Business Logic ###
 
