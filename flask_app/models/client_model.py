@@ -45,37 +45,30 @@ class Client:
     
     @staticmethod
     def is_valid(data):
-        print("Entered is_valid method")
-        try:
-            contact_method = (data.get('contact_method', '') or '').strip().lower()
-            contact_details = (data.get('contact_details', '') or '').strip()
+        """Validate client data before saving or updating."""
+        errors = []
+        contact_method = (data.get('contact_method', '') or '').strip().lower()
+        contact_details = (data.get('contact_details', '') or '').strip()
 
-            errors = []
+        if not contact_details:
+            errors.append("Contact details are required.")
 
-            if not contact_details:
-                errors.append("Contact details are required.")
-                print("Validation error: Contact details are required.")
+        if contact_method == 'email':
+            if not EMAIL_REGEX.match(contact_details):
+                errors.append("Invalid email address.")
+        elif contact_method == 'phone':
+            # Allow any input for phone numbers
+            if not contact_details:  # Only ensure it's not empty
+                errors.append("Phone number is required.")
+        else:
+            errors.append("Invalid contact method. Must be 'email' or 'phone'.")
 
-            if contact_method == 'email':
-                if not EMAIL_REGEX.match(contact_details):
-                    errors.append("Invalid email address.")
-                    print("Validation error: Invalid email address.")
-            elif contact_method != 'phone':
-                errors.append("Invalid contact method. Must be 'email' or 'phone'.")
-            else:
-                errors.append("Invalid contact method. Must be 'email' or 'phone'.")
-                print("Validation error: Invalid contact method.")
-
-            if errors:
-                for error in errors:
-                    print(f"Validation error: {error}")
-                return False
-
-            print("Validation passed")
-            return True
-        except Exception as e:
-            print(f"Exception in is_valid method: {e}")
+        if errors:
+            print("Validation Errors:", errors)
             return False
+
+        return True
+
 
 
 
