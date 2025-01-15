@@ -49,6 +49,7 @@ const ClientIDPage = () => {
 
             const ordersResponse = await apiService.getPurchasesByClientId(clientId);
             setOrders(ordersResponse.data);
+            console.log(ordersResponse.data);
 
             // Calculate total sales including partial payments
             const total = ordersResponse.data.reduce((sum, order) => {
@@ -106,11 +107,6 @@ const ClientIDPage = () => {
                     editedClientInfo.contact_method === 'phone'
                         ? 'Phone number is required'
                         : 'Email address is required';
-            } else if (
-                editedClientInfo.contact_method === 'phone' &&
-                !/^\d{10}$/.test(editedClientInfo.contact_details)
-            ) {
-                newErrors.contactDetail = 'Invalid phone number';
             } else if (
                 editedClientInfo.contact_method === 'email' &&
                 !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editedClientInfo.contact_details)

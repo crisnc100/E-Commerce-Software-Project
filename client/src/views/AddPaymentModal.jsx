@@ -144,8 +144,10 @@ const AddPaymentModal = ({ purchaseId, onClose, onSuccess, totalAmountDue, clien
           <input
             type="date"
             value={paymentDate}
-            onChange={handleAmountPaidChange}
-            className={`w-full p-2 border ${errors.paymentDate ? 'border-red-500' : 'border-gray-300'} rounded-lg mb-4`}
+            onChange={(e) => setPaymentDate(e.target.value)}
+            className={`w-full p-2 border ${
+              errors.paymentDate ? 'border-red-500' : 'border-gray-300'
+            } rounded-lg mb-4`}
           />
           {errors.paymentDate && <p className="text-red-500 text-sm">{errors.paymentDate}</p>}
 

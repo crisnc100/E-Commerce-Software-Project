@@ -89,6 +89,7 @@ class PaymentModel:
         except Exception as e:
             print(f"Error updating payment: {e}")
             return {"error": "An error occurred"}, 500
+        
 
 
 
@@ -148,10 +149,17 @@ class PaymentModel:
     def get_payments_with_order_details_by_client(cls, client_id):
         """Retrieve all payments with product and order details for a specific client."""
         query = """
-        SELECT payments.*, purchases.product_id, products.name AS product_name
+        SELECT 
+            payments.*, 
+            pi.product_id, 
+            p.name AS product_name, 
+            pi.size AS product_size,
+            pi.quantity AS product_quantity,
+            pi.price_per_item AS product_price
         FROM payments
         JOIN purchases ON payments.purchase_id = purchases.id
-        JOIN products ON purchases.product_id = products.id
+        JOIN purchase_items pi ON purchases.id = pi.purchase_id
+        JOIN products p ON pi.product_id = p.id
         WHERE payments.client_id = %(client_id)s AND purchases.system_id = %(system_id)s;
         """
         data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
@@ -160,7 +168,17 @@ class PaymentModel:
         if not results or isinstance(results, bool):
             return []
         
-        return [cls(row) for row in results]
+        return [
+            {
+                **row,
+                "product_name": row.get("product_name"),
+                "product_size": row.get("product_size"),
+                "product_quantity": row.get("product_quantity"),
+                "product_price": float(row["product_price"]) if row.get("product_price") else None
+            }
+            for row in results
+        ]
+
 
 
 
@@ -198,11 +216,13 @@ class PaymentModel:
         SELECT 
             'Payment Made' AS action,
             CONCAT('Payment of $', payments.amount_paid, ' for ', 
-           '', products.name, ' by ', clients.first_name, ' ', clients.last_name) AS details,
+                p.name, ' (x', pi.quantity, ') by ', 
+                clients.first_name, ' ', clients.last_name) AS details,
             payments.created_at
         FROM payments
         JOIN purchases ON payments.purchase_id = purchases.id
-        JOIN products ON purchases.product_id = products.id
+        JOIN purchase_items pi ON purchases.id = pi.purchase_id
+        JOIN products p ON pi.product_id = p.id
         JOIN clients ON purchases.client_id = clients.id
         WHERE payments.created_at >= %s AND purchases.system_id = %s
         ORDER BY payments.created_at DESC;
@@ -212,6 +232,7 @@ class PaymentModel:
         if isinstance(result, tuple):
             result = list(result)
         return result
+
 
 
     @classmethod
@@ -228,12 +249,14 @@ class PaymentModel:
         # Base query
         query = """
         SELECT payments.id AS payment_id, payments.amount_paid, payments.payment_date, payments.payment_method,
-               clients.id AS client_id, clients.first_name, clients.last_name,
-               products.id AS product_id, products.name AS product_name, products.screenshot_photo
+            clients.id AS client_id, clients.first_name, clients.last_name,
+            pi.product_id, products.name AS product_name, products.screenshot_photo,
+            pi.quantity, pi.price_per_item
         FROM payments
-        JOIN clients ON payments.client_id = clients.id
         JOIN purchases ON payments.purchase_id = purchases.id
-        JOIN products ON purchases.product_id = products.id
+        JOIN clients ON purchases.client_id = clients.id
+        JOIN purchase_items pi ON purchases.id = pi.purchase_id
+        JOIN products ON pi.product_id = products.id
         WHERE clients.system_id = %(system_id)s
         """
 
@@ -257,10 +280,11 @@ class PaymentModel:
 
         # Count query for total
         count_query = """
-        SELECT COUNT(*) AS total
+        SELECT COUNT(DISTINCT payments.id) AS total
         FROM payments
-        JOIN clients ON payments.client_id = clients.id
         JOIN purchases ON payments.purchase_id = purchases.id
+        JOIN clients ON purchases.client_id = clients.id
+        JOIN purchase_items pi ON purchases.id = pi.purchase_id
         WHERE clients.system_id = %(system_id)s
         """
         if method != 'all':
@@ -270,6 +294,7 @@ class PaymentModel:
         total = count_result[0]['total'] if count_result else 0
 
         return {'items': results, 'total': total}
+
 
 
 

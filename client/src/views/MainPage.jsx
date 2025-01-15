@@ -34,8 +34,9 @@ const MainPage = () => {
   const [recentActivities, setRecentActivities] = useState([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState(null);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
-  const [selectedProductImage, setSelectedProductImage] = useState('');
+  const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
+  const [modalImages, setModalImages] = useState([]);   // array of item objects
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [totalAmountDueDash, setTotalAmountDueDash] = useState(null);
   const [clientId, setClientId] = useState(null);
 
@@ -116,8 +117,9 @@ const MainPage = () => {
         clientId: purchase.client_id,
         clientName: `${purchase.client_first_name} ${purchase.client_last_name}`,
         amount: purchase.amount,
-        productName: purchase.product_name,
-        productImage: purchase.product_screenshot_photo,
+        items: purchase.items,
+        singleItem: purchase.items && purchase.items.length === 1 ? purchase.items[0] : null, // Handle single item
+        itemCount: purchase.items ? purchase.items.length : 0, // Handle item count safely
         timeAgo: purchase.purchase_date
           ? formatDistanceToNow(new Date(purchase.purchase_date), {
             addSuffix: true,
@@ -370,9 +372,29 @@ const MainPage = () => {
 
 
 
-  const handleViewImageClick = (imageUrl) => {
-    setSelectedProductImage(imageUrl);
-    setIsImageModalOpen(true);
+  const handleOpenImagesModal = (itemsArray) => {
+    if (!itemsArray || itemsArray.length === 0) return;
+    setModalImages(itemsArray);
+    setCurrentIndex(0);     // start at first image
+    setIsImagesModalOpen(true);
+  };
+
+  const handleCloseImagesModal = () => {
+    setIsImagesModalOpen(false);
+    setModalImages([]);
+    setCurrentIndex(0);
+  };
+
+  const handlePrevImage = () => {
+    setCurrentIndex((prevIndex) =>
+      prevIndex === 0 ? modalImages.length - 1 : prevIndex - 1
+    );
+  };
+
+  const handleNextImage = () => {
+    setCurrentIndex((prevIndex) =>
+      prevIndex === modalImages.length - 1 ? 0 : prevIndex + 1
+    );
   };
 
   const formatDateSafely = (dateString) => {
@@ -475,20 +497,35 @@ const MainPage = () => {
                       <div className="ml-4 flex-1">
                         <p className="text-gray-800 font-medium">
                           {notification.type === 'overdue' ? (
-                            <>
-                              <span className="font-bold">
-                                {notification.clientName}
-                              </span>{' '}
-                              owes{' '}
-                              <span className="text-red-600 font-bold">
-                                ${notification.amount}
-                              </span>{' '}
-                              for{' '}
-                              <span className="font-semibold">
-                                {notification.productName}
-                              </span>
-                              .
-                            </>
+                            notification.singleItem ? (
+                              <>
+                                <span className="font-bold">
+                                  {notification.clientName}
+                                </span>{' '}
+                                owes{' '}
+                                <span className="text-red-600 font-bold">
+                                  ${notification.amount}
+                                </span>{' '}
+                                for{' '}
+                                <span className="font-semibold">
+                                  {notification.singleItem.product_name}
+                                </span>.
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-bold">
+                                  {notification.clientName}
+                                </span>{' '}
+                                owes{' '}
+                                <span className="text-red-600 font-bold">
+                                  ${notification.amount}
+                                </span>{' '}
+                                for an order containing{' '}
+                                <span className="font-semibold">
+                                  {notification.itemCount} items
+                                </span>.
+                              </>
+                            )
                           ) : (
                             <>
                               <span className="font-bold">
@@ -563,17 +600,25 @@ const MainPage = () => {
                               Mark as Delivered
                             </button>
                           )}
-                          {notification.productImage && (
+                          {notification.itemCount === 1 ? (
                             <button
                               className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center space-x-1"
-                              onClick={() =>
-                                handleViewImageClick(notification.productImage)
-                              }
+                              onClick={() => handleOpenImagesModal(notification.items)}
                             >
                               <FaImage />
-                              <span>View Image</span>
+                              <span>View Product</span>
+                            </button>
+                          ) : (
+                            // If there are multiple items
+                            <button
+                              className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center space-x-1"
+                              onClick={() => handleOpenImagesModal(notification.items)}
+                            >
+                              <FaImage />
+                              <span>View Products</span>
                             </button>
                           )}
+
                         </div>
                       </div>
                     </div>
@@ -607,6 +652,7 @@ const MainPage = () => {
           ) : (
             <p className="text-gray-500 mt-4">No new notifications.</p>
           )}
+
         </div>
       </div>
 
@@ -962,33 +1008,57 @@ const MainPage = () => {
           />
         )
       }
-      {
-        isImageModalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center z-50">
-            {/* Background Overlay */}
-            <div
-              className="absolute inset-0 bg-black opacity-50"
-              onClick={() => setIsImageModalOpen(false)}
-            ></div>
-            {/* Modal Content */}
-            <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs w-11/12">
-              {/* Image */}
-              <img
-                src={selectedProductImage}
-                alt="Product"
-                className="w-full h-auto rounded-md max-h-[500px] object-contain"
-              />
-              {/* Close Button */}
-              <button
-                onClick={() => setIsImageModalOpen(false)}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Close
-              </button>
-            </div>
+      {isImagesModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* Background Overlay */}
+          <div
+            className="absolute inset-0 bg-black opacity-50"
+            onClick={handleCloseImagesModal}
+          ></div>
+
+          {/* Modal Content */}
+          <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs sm:max-w-md md:max-w-lg w-11/12 relative">
+            {/* Display the Current Image */}
+            <img
+              src={modalImages[currentIndex].screenshot_photo}
+              alt={modalImages[currentIndex].product_name || 'Product'}
+              className="w-full h-auto rounded-md max-h-[500px] object-contain"
+            />
+
+            {/* Product Name (optional) */}
+            <p className="mt-2 text-center font-semibold">
+              {modalImages[currentIndex].product_name}
+            </p>
+
+            {/* Slideshow Controls (only if multiple images) */}
+            {modalImages.length > 1 && (
+              <div className="flex justify-between items-center mt-2">
+                <button
+                  onClick={handlePrevImage}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Prev
+                </button>
+                <button
+                  onClick={handleNextImage}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+
+            {/* Close Button */}
+            <button
+              onClick={handleCloseImagesModal}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
+            >
+              Close
+            </button>
           </div>
-        )
-      }
+        </div>
+      )}
+
     </div >
   );
 };

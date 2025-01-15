@@ -153,6 +153,9 @@ const apiService = {
     axios.post(`${API_BASE_URL}/api/create_purchase`, formData, { withCredentials: true }
 
     ),
+  addItemToOrder: (formData) =>
+    axios.post(`${API_BASE_URL}/api/add_purchase_item`, formData, { withCredentials: true }
+    ),
   generatePayPalLink: (data) =>
     axios.post(`${API_BASE_URL}/api/generate_paypal_link`, data, {
       withCredentials: true,
@@ -170,6 +173,9 @@ const apiService = {
   updatePurchase: (purchaseId, formData) =>
     axios.put(`${API_BASE_URL}/api/update_purchase/${purchaseId}`, formData, { withCredentials: true }
 
+    ),
+  updatePurchaseItem: (itemId, formData) =>
+    axios.put(`${API_BASE_URL}/api/update_purchase_item/${itemId}`, formData, { withCredentials: true }
     ),
   updatePurchaseStatus: (purchaseId, formData) => axios.put(`${API_BASE_URL}/api/update_purchase_status/${purchaseId}`, formData
     , { withCredentials: true }
@@ -193,6 +199,9 @@ const apiService = {
   },
   deletePurchase: (purchaseId) => {
     return axios.delete(`${API_BASE_URL}/api/delete_purchase/${purchaseId}`, { withCredentials: true });
+  },
+  deletePurchaseItem: (itemId) => {
+    return axios.delete(`${API_BASE_URL}/api/delete_purchase_item/${itemId}`, { withCredentials: true });
   },
   getOverduePurchases: () => {
     return axios.get(`${API_BASE_URL}/api/get_overdue_purchases`, { withCredentials: true })

@@ -3,6 +3,7 @@ from flask_app import app
 from flask_app.config.mysqlconnection import connectToMySQL
 from flask_app.models.client_model import Client
 from flask_app.models.purchases_model import Purchase
+from flask_app.models.purchase_items_model import PurchaseItems
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
@@ -11,9 +12,6 @@ from flask_app.utils.session_helper import SessionHelper
 from paypalrestsdk import configure, Payment
 from flask_app.models.products_model import Product
 from flask_app.models.systems_model import System
-
-
-from paypalrestsdk import configure, Payment
 
 
 @app.route("/payment-success", methods=["GET"])
@@ -121,37 +119,152 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
 def create_purchase():
     data = request.get_json() or {}
 
-    # Check for required fields
+    # Check if this is a single or multiple-item order
+    is_multiple = 'items' in data and isinstance(data['items'], list) and len(data['items']) > 0
+
+    # Retrieve system_id from the session
+    data['system_id'] = SessionHelper.get_system_id()
+
+    if is_multiple:
+        # Multiple-item order
+        return create_multiple_items_purchase(data)
+    else:
+        # Single-item order
+        return create_single_item_purchase(data)
+
+
+def create_single_item_purchase(data):
+    """Handles single-item purchase creation."""
+    # Validate fields
     required_fields = ['client_id', 'product_id', 'size', 'amount']
     missing_fields = [f for f in required_fields if f not in data or not data[f]]
     if missing_fields:
         return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
 
-    # Validate amount
+    # Create parent purchase
+    purchase_data = {
+        'client_id': data['client_id'],
+        'system_id': SessionHelper.get_system_id(),
+        'purchase_date': data.get('purchase_date', datetime.now().strftime('%Y-%m-%d')),
+        'amount': float(data['amount']),
+        'payment_status': 'Pending',
+        'shipping_status': 'Pending',
+    }
     try:
-        data['amount'] = float(data['amount'])
-        if data['amount'] <= 0:
-            return jsonify({"error": "Amount must be greater than 0"}), 400
-    except ValueError:
-        return jsonify({"error": "Invalid amount format"}), 400
+        purchase_id = Purchase.save(purchase_data)
+    except Exception as e:
+        print(f"Error saving single purchase: {str(e)}")
+        return jsonify({"error": "Failed to save purchase"}), 500
 
-    # Default fields
-    data['purchase_date'] = data.get('purchase_date', datetime.now().strftime('%Y-%m-%d'))
-    data['payment_status'] = 'Pending'
-    data['shipping_status'] = 'Pending'
-    # Retrieve system_id from the session or data
-    data['system_id'] = SessionHelper.get_system_id()
-
-    # Save purchase row
+    # Create purchase item
+    item_data = {
+        'purchase_id': purchase_id,
+        'product_id': data['product_id'],
+        'size': data['size'],
+        'quantity': 1,  # Default for single order
+        'price_per_item': data['amount'],
+    }
     try:
-        purchase_id = Purchase.save(data)
+        PurchaseItems.save(item_data)
         return jsonify({
-            "message": "Purchase created successfully",
+            "message": "Single-item purchase created successfully",
             "purchase_id": purchase_id,
         }), 201
     except Exception as e:
-        print(f"Error saving purchase: {str(e)}")
+        print(f"Error saving purchase item: {str(e)}")
+        return jsonify({"error": "Failed to save purchase item"}), 500
+
+
+
+def create_multiple_items_purchase(data):
+    """Handles multiple-item purchase creation."""
+    # Validate `items` array
+    if not data['items'] or not isinstance(data['items'], list):
+        return jsonify({"error": "Invalid items list"}), 400
+
+    # Validate each item in the `items` array
+    for item in data['items']:
+        required_item_fields = ['product_id', 'size', 'quantity', 'price_per_item']
+        missing_item_fields = [f for f in required_item_fields if f not in item or not item[f]]
+        if missing_item_fields:
+            return jsonify({
+                "error": f"Missing required fields in an item: {', '.join(missing_item_fields)}"
+            }), 400
+
+    # Create a purchase in the `purchases` table
+    purchase_data = {
+        'client_id': data['client_id'],
+        'system_id': data['system_id'],
+        'purchase_date': data.get('purchase_date', datetime.now().strftime('%Y-%m-%d')),
+        'payment_status': 'Pending',
+        'shipping_status': 'Pending',
+        'amount': float(data['amount']),  # <--- use user input
+    }
+    try:
+        purchase_id = Purchase.save(purchase_data)
+    except Exception as e:
+        print(f"Error saving purchase for multiple items: {str(e)}")
         return jsonify({"error": "Failed to save purchase"}), 500
+
+    # Add items to the `purchase_items` table
+    try:
+        for item in data['items']:
+            item_data = {
+                'purchase_id': purchase_id,
+                'product_id': item['product_id'],
+                'size': item['size'],
+                'quantity': item['quantity'],
+                'price_per_item': item['price_per_item'],
+            }
+            PurchaseItems.save(item_data)
+
+        return jsonify({
+            "message": "Multiple-item purchase created successfully",
+            "purchase_id": purchase_id,
+        }), 201
+    except Exception as e:
+        print(f"Error saving purchase items: {str(e)}")
+        return jsonify({"error": "Failed to save purchase items"}), 500
+
+
+@app.route('/api/add_purchase_item', methods=['POST'])
+def add_purchase_item():
+    data = request.json
+    # Validate data fields
+    required_fields = ['purchase_id', 'product_id', 'size', 'quantity', 'price_per_item']
+    missing = [f for f in required_fields if f not in data or data[f] is None]
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+
+    # 1) Insert a row in purchase_items
+    new_item_id = PurchaseItems.save({
+        'purchase_id': data['purchase_id'],
+        'product_id': data['product_id'],
+        'size': data['size'],
+        'quantity': data['quantity'],
+        'price_per_item': data['price_per_item'],
+    })
+
+    # 2) Fetch the existing purchase
+    purchase = Purchase.get_by_id(data['purchase_id'])
+    if not purchase:
+        return jsonify({"error": "Purchase not found"}), 404
+
+    # 3) Calculate the new total
+    old_total = float(purchase.amount)  # assuming `purchase.amount` is numeric
+    add_amount = float(data['quantity']) * float(data['price_per_item'])
+    new_total = old_total + add_amount
+
+    # 4) Update the purchase with the new total
+    Purchase.update_purchase_amount(data['purchase_id'], new_total)
+
+    # 5) Return success
+    return jsonify({
+        "message": "Item added and purchase amount updated.",
+        "item_id": new_item_id,
+        "new_total": new_total
+    }), 201
+
 
 
 
@@ -228,18 +341,22 @@ def get_all_purchases():
 @app.route('/api/get_overdue_purchases', methods=['GET'])
 def get_overdue_purchases():
     try:
-        # Retrieve overdue purchases from the model
-        purchases = Purchase.get_overdue_purchases()
+        # Retrieve the system_id from the session
+        system_id = SessionHelper.get_system_id()
+        if not system_id:
+            return jsonify({"error": "system_id is required"}), 400
+        
+        # Fetch overdue purchases with items
+        purchases = Purchase.get_overdue_purchases_with_items(system_id)
         
         # Serialize the purchases for JSON response
         serialized_purchases = [purchase.serialize() for purchase in purchases]
 
-        # Return the serialized data with a success response
         return jsonify(serialized_purchases), 200
     except Exception as e:
-        # Handle errors gracefully
         print(f"Error retrieving overdue purchases: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
 
 
 # READ Single Purchase by ID
@@ -309,6 +426,35 @@ def delete_purchase(purchase_id):
 
     Purchase.delete(purchase_id)
     return jsonify({"message": "Purchase deleted"}), 200
+
+@app.route('/api/update_purchase_item/<int:item_id>', methods=['PUT'])
+def update_purchase_item(item_id):
+    try:
+        data = request.json
+        # Add the item ID to the data payload
+        data['id'] = item_id
+        result = PurchaseItems.update(data)
+
+        if result is False:
+            return jsonify({"error": "Failed to update the purchase item"}), 400
+
+        return jsonify({"message": "Purchase item updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/delete_purchase_item/<int:item_id>', methods=['DELETE'])
+def delete_purchase_item(item_id):
+    try:
+        result = PurchaseItems.delete(item_id)
+        if result is False:
+            return jsonify({"error": "Failed to delete the purchase item"}), 400
+        return jsonify({"message": "Purchase item deleted successfully"}), 200
+    except Exception as e:
+        # Print or log the full error
+        print("Error in delete_purchase_item:", e)  # <-- add this
+        return jsonify({"error": str(e)}), 500
+
 
 
 # GET Purchases by Client ID

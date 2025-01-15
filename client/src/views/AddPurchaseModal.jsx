@@ -10,6 +10,8 @@ import { AsyncPaginate } from 'react-select-async-paginate';
 const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [isMultipleOrder, setIsMultipleOrder] = useState(false);
+    const [items, setItems] = useState([]);
     const [selectedSize, setSelectedSize] = useState('');
     const [customSize, setCustomSize] = useState('');
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
@@ -17,11 +19,13 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [newPurchaseId, setNewPurchaseId] = useState(null);
-    const [orderTotalAmount, setOrderTotalAmount] = useState(null);
 
     const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(true);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [imageToShow, setImageToShow] = useState('');
+    const [selectedQuantity, setSelectedQuantity] = useState(1); // Default quantity is 1
+    const [orderTotalAmount, setOrderTotalAmount] = useState(0);
+
 
     const [addPaymentNow, setAddPaymentNow] = useState(false);
 
@@ -41,7 +45,7 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
             value: client.id,
             label: `${client.first_name} ${client.last_name}`,
         }));
-    
+
         return {
             options,
             hasMore: newClients.length === 20, // Determines if there are more results
@@ -56,17 +60,17 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
             (async () => {
                 let matchedClient = null;
                 let page = 1;
-    
+
                 try {
                     while (!matchedClient) {
                         const response = await apiService.allClients(page, ''); // Load the current page
                         const newClients = response.data.clients || [];
-    
+
                         // Attempt to find the client on the current page
                         matchedClient = newClients.find(
                             (client) => client.id.toString() === clientId.toString()
                         );
-    
+
                         if (matchedClient) {
                             setSelectedClient({
                                 value: matchedClient.id,
@@ -75,13 +79,13 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                             console.log('Matched client found:', matchedClient);
                             break;
                         }
-    
+
                         // If no more clients are returned, stop
                         if (newClients.length < 20) {
                             console.warn('Client ID not found in any page.');
                             break;
                         }
-    
+
                         // Increment page to fetch the next set of clients
                         page += 1;
                     }
@@ -91,10 +95,10 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
             })();
         }
     }, [clientId]);
-    
-    
-    
-    
+
+
+
+
 
     const loadProducts = async (search, loadedOptions, { page }) => {
         const response = await apiService.getAllProducts(page, search);
@@ -121,29 +125,45 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
     };
 
 
-    useEffect(() => {
-        // When selected product changes, set the amount to the product's price
-        if (selectedProduct) {
-            setAmount(selectedProduct.price || '');
-        } else {
-            setAmount('');
-        }
-    }, [selectedProduct]);
-
     const validateFields = () => {
         const newErrors = {};
 
+        // Validate client selection
         if (!selectedClient) newErrors.selectedClient = 'Client is required.';
-        if (!selectedProduct) newErrors.selectedProduct = 'Product is required.';
-        if (!selectedSize) newErrors.selectedSize = 'Size is required.';
-        if (selectedSize === 'Custom' && !customSize.trim())
-            newErrors.customSize = 'Custom size is required.';
-        if (!amount || isNaN(amount) || amount <= 0)
-            newErrors.amount = 'Valid amount is required.';
+
+        if (isMultipleOrder) {
+            // For multiple orders
+            if (items.length === 0) {
+                newErrors.items = 'At least one product must be added to the order.';
+            }
+
+            if (selectedProduct && (!selectedQuantity || selectedQuantity <= 0)) {
+                newErrors.selectedQuantity = 'Quantity must be at least 1.';
+            }
+
+            if (selectedProduct && !selectedSize) {
+                newErrors.selectedSize = 'Size is required for the product.';
+            }
+
+            if (selectedSize === 'Custom' && !customSize.trim()) {
+                newErrors.customSize = 'Custom size is required.';
+            }
+        } else {
+            // For single orders
+            if (!selectedProduct) newErrors.selectedProduct = 'Product is required.';
+            if (!selectedSize) newErrors.selectedSize = 'Size is required.';
+            if (selectedSize === 'Custom' && !customSize.trim()) {
+                newErrors.customSize = 'Custom size is required.';
+            }
+            if (!amount || isNaN(amount) || amount <= 0) {
+                newErrors.amount = 'Valid amount is required.';
+            }
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
+
 
     const validatePaymentFields = () => {
         const newErrors = {};
@@ -157,33 +177,47 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!validateFields()) return;
+
+
+        if (isMultipleOrder && items.length === 0) {
+            setErrors({ items: 'At least one item must be added.' });
+            return;
+        }
 
         setIsLoading(true);
 
-        const sizeToSave = selectedSize === 'Custom' ? customSize : selectedSize;
 
-        const purchaseData = {
-            client_id: clientId || selectedClient.value,
-            product_id: selectedProduct.value,
-            size: sizeToSave,
-            purchase_date: purchaseDate,
-            amount: parseFloat(amount),
-            payment_status: 'Pending',
-            shipping_status: 'Pending',
-        };
-
+        const payload = isMultipleOrder
+            ? {
+                client_id: clientId || selectedClient.value,
+                items: items.map((item) => ({
+                    product_id: item.productId,
+                    size: item.size,
+                    quantity: item.quantity,
+                    price_per_item: item.pricePerItem,
+                })),
+                purchase_date: purchaseDate,
+                amount: parseFloat(amount),
+            }
+            : {
+                client_id: clientId || selectedClient.value,
+                product_id: selectedProduct.value,
+                size: selectedSize === 'Custom' ? customSize : selectedSize,
+                purchase_date: purchaseDate,
+                amount: parseFloat(amount),
+                payment_status: 'Pending',
+                shipping_status: 'Pending',
+            };
         try {
-            const response = await apiService.createPurchase(purchaseData);
+            const response = await apiService.createPurchase(payload);
             setNewPurchaseId(response.data.purchase_id); // Store the new purchase ID
-            setOrderTotalAmount(parseFloat(amount)); // Set the total order price
 
             if (addPaymentNow) {
                 setIsPurchaseModalOpen(false); // Hide the purchase modal
                 setIsPaymentModalOpen(true); // Open the payment modal
             } else {
-                onSuccess('Order created successfully',); // Show success message
+                onSuccess('Order created successfully!',); // Show success message
                 onClose(); // Close the component
             }
         } catch (error) {
@@ -212,6 +246,39 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
             setWarningMessage('');
         }
     };
+
+    const handleAddProduct = () => {
+        const newErrors = {};
+        if (!selectedProduct) newErrors.selectedProduct = 'Product is required.';
+        if (!selectedSize) newErrors.selectedSize = 'Size is required.';
+        if (!selectedQuantity || selectedQuantity <= 0)
+            newErrors.selectedQuantity = 'Quantity must be at least 1.';
+        setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) return;
+
+        const newItem = {
+            productId: selectedProduct.value,
+            productName: selectedProduct.label,
+            size: selectedSize,
+            quantity: parseInt(selectedQuantity, 10),
+            pricePerItem: selectedProduct.price,
+        };
+
+        setItems([...items, newItem]);
+        setSelectedProduct(null);
+        setSelectedSize('');
+        setSelectedQuantity(1); // Reset quantity to default
+        setErrors({});
+    };
+
+
+    const handleRemoveProduct = (index) => {
+        const updatedItems = [...items];
+        updatedItems.splice(index, 1);
+        setItems(updatedItems);
+    };
+
 
 
     const handlePaymentSubmit = async (e) => {
@@ -274,6 +341,15 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
         }
     };
 
+    useEffect(() => {
+        if (amount) {
+          setOrderTotalAmount(parseFloat(amount));
+        } else {
+          setOrderTotalAmount(0);
+        }
+      }, [amount]);
+      
+
 
     // Custom Option Component for Products
     const ProductOption = ({ innerRef, innerProps, data }) => (
@@ -316,8 +392,30 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
             {/* Purchase Modal */}
             {isPurchaseModalOpen && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
-                        <h2 className="text-xl font-bold mb-4">Create New Order</h2>
+                    <div
+                        className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg"
+                        style={{
+                            maxHeight: '100vh', // Set a max height for the modal
+                            overflowY: 'auto', // Enable scrolling when content exceeds max height
+                        }}
+                    >
+                        <h2 className="text-xl font-bold mb-4" >Create New Order</h2>
+                        <div className="flex items-center mb-4" >
+                            <label className="mr-4 font-semibold">Order Type:</label>
+                            <button
+                                onClick={() => setIsMultipleOrder(false)}
+                                className={`py-2 px-4 rounded-lg ${!isMultipleOrder ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                            >
+                                Single
+                            </button>
+                            <button
+                                onClick={() => setIsMultipleOrder(true)}
+                                className={`py-2 px-4 rounded-lg ml-2 ${isMultipleOrder ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                            >
+                                Multiple
+                            </button>
+                        </div>
+
                         <form onSubmit={handleSubmit}>
                             {/* Client Selection */}
                             <label className="block mb-2 font-semibold">Select Client</label>
@@ -335,75 +433,147 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                                 }}
                                 className="mb-4"
                                 isClearable={!clientId} // Prevent clearing if clientId is provided
-                                
+
                             />
                             {errors.selectedClient && (
                                 <p className="text-red-500 text-sm">{errors.selectedClient}</p>
                             )}
+                            {isMultipleOrder ? (
+                                <>
+                                    {/* Add Product Section for Multiple Orders */}
+                                    <div className="mb-1">
+                                        <label className="block mb-2 font-semibold">Add Product</label>
+                                        <AsyncPaginate
+                                            value={selectedProduct}
+                                            loadOptions={loadProducts}
+                                            onChange={setSelectedProduct}
+                                            placeholder="Search and select product..."
+                                            debounceTimeout={300}
+                                            additional={{ page: 1 }}
+                                            components={{
+                                                Option: ProductOption,
+                                                SingleValue: ProductSingleValue,
+                                            }}
+                                            styles={{
+                                                control: (base) =>
+                                                    errors.selectedProduct ? { ...base, borderColor: 'red' } : base,
+                                            }}
+                                            className="mb-2"
+                                            isClearable
+                                        />
+                                        <input
+                                            type="number"
+                                            placeholder="Quantity"
+                                            value={selectedQuantity}
+                                            onChange={(e) => setSelectedQuantity(e.target.value)}
+                                            className="w-full p-2 mb-2 border border-gray-300 rounded-lg"
+                                        />
 
-                            {/* Product Selection */}
-                            <label className="block mb-2 font-semibold">Select Product</label>
-                            <AsyncPaginate
-                                value={selectedProduct}
-                                loadOptions={loadProducts}
-                                onChange={(selected) => {
-                                    setSelectedProduct(selected);
-                                    setAmount(selected.price || '');
-                                }}
-                                placeholder="Search and select product..."
-                                debounceTimeout={300}
-                                additional={{ page: 1 }}
-                                components={{
-                                    Option: ProductOption,
-                                    SingleValue: ProductSingleValue,
-                                }}
-                                styles={{
-                                    control: (base) =>
-                                        errors.selectedProduct ? { ...base, borderColor: 'red' } : base,
-                                }}
-                                className="mb-4"
-                                isClearable
-                            />
-                            {errors.selectedProduct && (
-                                <p className="text-red-500 text-sm">{errors.selectedProduct}</p>
+
+                                    </div>
+
+                                    {/* Product List for Multiple Orders */}
+                                    <div className="mb-4">
+                                        <h3 className="font-semibold mb-2">Order Items</h3>
+                                        {items.length > 0 ? (
+                                            <ul className="list-disc pl-5">
+                                                {items.map((item, index) => (
+                                                    <li key={index} className="mb-2 flex justify-between">
+                                                        <span>
+                                                            {item.productName} (x{item.quantity}) - ${item.pricePerItem} ({item.size})
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveProduct(index)}
+                                                            className="text-red-500 hover:underline"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-gray-500">No items added yet.</p>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Product Selection for Single Order */}
+                                    <label className="block mb-2 font-semibold">Select Product</label>
+                                    <AsyncPaginate
+                                        value={selectedProduct}
+                                        loadOptions={loadProducts}
+                                        onChange={(selected) => {
+                                            setSelectedProduct(selected);
+                                            setAmount(selected.price || '');
+                                        }}
+                                        placeholder="Search and select product..."
+                                        debounceTimeout={300}
+                                        additional={{ page: 1 }}
+                                        components={{
+                                            Option: ProductOption,
+                                            SingleValue: ProductSingleValue,
+                                        }}
+                                        styles={{
+                                            control: (base) =>
+                                                errors.selectedProduct ? { ...base, borderColor: 'red' } : base,
+                                        }}
+                                        className="mb-4"
+                                        isClearable
+                                    />
+                                    {errors.selectedProduct && (
+                                        <p className="text-red-500 text-sm">{errors.selectedProduct}</p>
+                                    )}
+                                </>
                             )}
 
-                            {/* Size Selection */}
-                            <label className="block mb-2 font-semibold">Select Size</label>
-                            <div className="mb-4">
-                                {sizeOptions.map((size) => (
-                                    <label key={size} className="inline-flex items-center mr-4">
-                                        <input
-                                            type="radio"
-                                            name="size"
-                                            value={size}
-                                            checked={selectedSize === size}
-                                            onChange={(e) => setSelectedSize(e.target.value)}
-                                            className="form-radio"
-                                        />
-                                        <span className="ml-2">{size}</span>
-                                    </label>
-                                ))}
-                                {errors.selectedSize && (
-                                    <p className="text-red-500 text-sm">{errors.selectedSize}</p>
-                                )}
-                            </div>
 
-                            {/* Custom Size Input */}
-                            {selectedSize === 'Custom' && (
+                            {/* Size Selection for Single Orders or Adding a Product in Multiple Orders */}
+                            {(!isMultipleOrder || (isMultipleOrder && selectedProduct)) && (
                                 <div className="mb-4">
-                                    <label className="block mb-2 font-semibold">Enter Custom Size</label>
-                                    <input
-                                        type="text"
-                                        value={customSize}
-                                        onChange={(e) => setCustomSize(e.target.value)}
-                                        className={`w-full p-2 border ${errors.customSize ? 'border-red-500' : 'border-gray-300'
-                                            } rounded-lg`}
-                                        placeholder="Enter custom size"
-                                    />
-                                    {errors.customSize && (
-                                        <p className="text-red-500 text-sm">{errors.customSize}</p>
+                                    <label className="block mb-2 font-semibold">Select Size</label>
+                                    {sizeOptions.map((size) => (
+                                        <label key={size} className="inline-flex items-center mr-4">
+                                            <input
+                                                type="radio"
+                                                name="size"
+                                                value={size}
+                                                checked={selectedSize === size}
+                                                onChange={(e) => setSelectedSize(e.target.value)}
+                                                className="form-radio"
+                                            />
+                                            <span className="ml-2">{size}</span>
+                                        </label>
+                                    ))}
+                                    {selectedSize === 'Custom' && (
+                                        <div className="mt-2">
+                                            <input
+                                                type="text"
+                                                value={customSize}
+                                                onChange={(e) => setCustomSize(e.target.value)}
+                                                className="w-full p-2 border border-gray-300 rounded-lg"
+                                                placeholder="Enter custom size"
+                                            />
+                                        </div>
                                     )}
+                                        {/* Only show the “Add Item to Order” button if this is a multiple order scenario */}
+                                        {isMultipleOrder && (
+                                            <div className="mt-2">
+                                                {/* Show button only when product, quantity, and size have been selected */}
+                                                {selectedProduct && selectedQuantity && selectedSize && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleAddProduct}
+                                                        className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg"
+                                                    >
+                                                        Add Item To Order
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    {errors.selectedSize && <p className="text-red-500 text-sm">{errors.selectedSize}</p>}
+                                    {errors.customSize && <p className="text-red-500 text-sm">{errors.customSize}</p>}
                                 </div>
                             )}
 
@@ -424,6 +594,7 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                                     type="number"
                                     placeholder="Amount"
                                     value={amount}
+                                    required
                                     onChange={(e) => setAmount(e.target.value)}
                                     className={`w-full p-2 border-l border-gray-300 rounded-r-lg focus:outline-none ${errors.amount ? 'border-red-500' : ''
                                         }`}
@@ -482,7 +653,7 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                         {/* Display the total amount due */}
                         <div className="mb-4">
                             <p className="font-semibold">
-                                Total Amount Due: ${orderTotalAmount !== null ? orderTotalAmount.toFixed(2) : '0.00'}
+                            Total Amount Due: ${orderTotalAmount.toFixed(2)}
                             </p>
                         </div>
                         <form onSubmit={handlePaymentSubmit}>
