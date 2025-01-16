@@ -127,20 +127,24 @@ const MainPage = () => {
           : 'Unknown date',
       }));
 
-      const pendingDeliveries = pendingDeliveriesResponse.data.pending_deliveries.map(
-        (delivery) => ({
-          id: delivery.id,
-          type: 'pending', // Notification type for pending deliveries
-          clientName: `${delivery.client_first_name} ${delivery.client_last_name}`,
-          productName: delivery.product_name,
-          productImage: delivery.product_screenshot_photo,
-          timeAgo: delivery.purchase_date
-            ? formatDistanceToNow(new Date(delivery.purchase_date), {
-              addSuffix: true,
-            })
-            : 'Unknown date',
-        })
-      );
+      const pendingDeliveries = pendingDeliveriesResponse.data.pending_deliveries.map((delivery) => ({
+        id: delivery.id,
+        type: 'pending', // Add this property
+        clientName: `${delivery.client_first_name} ${delivery.client_last_name}`,
+        items: delivery.items.map((item) => ({
+          screenshot_photo: item.screenshot_photo,
+          product_name: item.product_name,
+        })),
+        itemCount: delivery.items.length,
+        timeAgo: delivery.purchase_date
+          ? formatDistanceToNow(new Date(delivery.purchase_date), {
+            addSuffix: true,
+          })
+          : 'Unknown date',
+      }));
+
+
+
 
       setNotifications([...overduePurchases, ...pendingDeliveries]);
     } catch (error) {
@@ -528,13 +532,23 @@ const MainPage = () => {
                             )
                           ) : (
                             <>
-                              <span className="font-bold">
-                                {notification.clientName}
-                              </span>{' '}
+                              <span className="font-bold">{notification.clientName}</span>{' '}
                               has an undelivered order for{' '}
-                              <span className="font-semibold">
-                                {notification.productName}
-                              </span>. Has this order been delivered?
+                              {notification.itemCount === 1 ? (
+                                <>
+                                  <span className="font-semibold">
+                                    {notification.items[0].product_name}
+                                  </span>.{' '}
+                                </>
+                              ) : (
+                                <>
+                                  an order containing{' '}
+                                  <span className="font-semibold">
+                                    {notification.itemCount} items
+                                  </span>.{' '}
+                                </>
+                              )}
+                              Has this order been delivered?
                             </>
                           )}
                         </p>
@@ -950,7 +964,7 @@ const MainPage = () => {
                           Total Sales: {product.total_sales > 0 ? `$${product.total_sales.toFixed(2)}` : '$0.00'}
                         </div>
                         <button
-                          onClick={() => handleViewImageClick(product.product_screenshot_photo)}
+                          onClick={() => handleOpenImagesModal([product.product_screenshot_photo])}
                           className="flex items-center justify-center space-x-1 px-2 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
                           style={{ width: '60px' }} // Set a fixed width
                         >
@@ -1020,7 +1034,7 @@ const MainPage = () => {
           <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs sm:max-w-md md:max-w-lg w-11/12 relative">
             {/* Display the Current Image */}
             <img
-              src={modalImages[currentIndex].screenshot_photo}
+              src={modalImages[currentIndex].screenshot_photo || modalImages[currentIndex]}
               alt={modalImages[currentIndex].product_name || 'Product'}
               className="w-full h-auto rounded-md max-h-[500px] object-contain"
             />

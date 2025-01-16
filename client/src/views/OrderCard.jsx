@@ -59,6 +59,8 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
     const totalPages = Math.ceil(order.items.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedItems = order.items.slice(startIndex, startIndex + itemsPerPage);
+    const [selectedImage, setSelectedImage] = useState(null);
+
 
 
 
@@ -104,7 +106,8 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
         setShowAddPaymentModal(true);
     };
 
-    const handleImageClick = () => {
+    const handleImageClick = (item) => {
+        setSelectedImage(item);
         setShowImageModal(true);
     };
 
@@ -639,8 +642,8 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                             src={order.items[0].screenshot_photo}
                             alt={order.items[0].product_name}
                             className="w-20 h-20 object-cover rounded mr-4 cursor-pointer"
-                            onClick={handleImageClick}
-                        />
+                            onClick={() => handleImageClick(order.items[0])}
+                            />
                         <div>
                             {isEditing ? (
                                 <>
@@ -696,7 +699,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                             ) : (
                                 <>
                                     {/* View mode for single-item header */}
-                                    <h3 className="text-lg font-bold">{order.items[0].product_name}</h3>
+                                    <h3 className="text-lg font-bold">Order #{order.id} - {order.items[0].product_name}</h3>
                                     <p className="text-base text-gray-600">
                                         {formatDateSafely(order.purchase_date)}
                                     </p>
@@ -725,7 +728,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                 <>
                                     <div className="flex items-center space-x-2">
                                         <FaShoppingBag className="text-2xl text-gray-600" /> {/* Shopping Bag Icon */}
-                                        <h3 className="text-lg font-bold">Order with {order.items.length} Items</h3>
+                                        <h3 className="text-lg font-bold">Order #{order.id} has {order.items.length} Items</h3>
                                     </div>
                                     <p className="text-base font-bold text-gray-600">
                                         {formatDateSafely(order.purchase_date)}
@@ -755,7 +758,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                 <>
                                     <div className="flex items-center space-x-2">
                                         <FaShoppingBag className="text-2xl text-gray-600" /> {/* Shopping Bag Icon */}
-                                        <h3 className="text-lg font-bold">Order with {order.items.length} Items</h3>
+                                        <h3 className="text-lg font-bold">Order #{order.id} has {order.items.length} Items</h3>
                                     </div>
                                     <p className="text-base text-gray-600">
                                         {formatDateSafely(order.purchase_date)}
@@ -891,7 +894,7 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                                             src={item.screenshot_photo}
                                             alt={item.product_name}
                                             className="w-16 h-16 object-cover rounded cursor-pointer"
-                                            onClick={handleImageClick}
+                                            onClick={() => handleImageClick(item)}
 
                                         />
                                         {editingItemId === item.id ? (
@@ -1102,14 +1105,14 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
 
 
 
-            {/* Image Modal */}
-            {showImageModal && (
+            {showImageModal && selectedImage && (
                 <div className="fixed inset-0 flex items-center justify-center z-50">
                     {/* Modal Overlay */}
                     <div
                         className="absolute inset-0 bg-black opacity-75"
                         onClick={() => setShowImageModal(false)}
                     ></div>
+
                     {/* Modal Content */}
                     <div className="bg-white p-4 rounded shadow-lg z-50 relative max-w-screen-md max-h-screen overflow-auto">
                         {/* Close Icon */}
@@ -1119,23 +1122,23 @@ const OrderCard = ({ order, clientId, refreshData, removeOrder, remainingBalance
                         >
                             <FaTimes size={24} />
                         </button>
-                        {/* Image */}
+
+                        {/* Single Image Display */}
                         <img
-                            src={
-                                Array.isArray(order.items) && order.items.length === 1
-                                    ? order.items[0].screenshot_photo
-                                    : '' // or handle multiple items differently
-                            }
-                            alt={
-                                Array.isArray(order.items) && order.items.length === 1
-                                    ? order.items[0].product_name
-                                    : 'Selected Item'
-                            }
+                            src={selectedImage.screenshot_photo}
+                            alt={selectedImage.product_name || 'Selected Item'}
                             className="max-w-full max-h-screen rounded-lg h-auto"
                         />
+
+                        {/* Optionally show item details */}
+                        <p className="mt-2 text-center font-semibold">
+                            {selectedImage.product_name}
+                        </p>
                     </div>
                 </div>
             )}
+
+
 
             {/* Amount Increase Confirmation Modal */}
             {isAmountIncreaseConfirmOpen && (

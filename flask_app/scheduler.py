@@ -52,7 +52,7 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
 
     scheduler.add_job(func=update_overdue_purchases, trigger='interval', hours=24)
-    scheduler.add_job(func=notify_pending_deliveries, trigger='interval', minutes=1)
+    scheduler.add_job(func=notify_pending_deliveries, trigger='interval', hours=24)
 
     scheduler.start()
 

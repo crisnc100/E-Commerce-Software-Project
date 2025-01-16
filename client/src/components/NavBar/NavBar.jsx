@@ -112,14 +112,26 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
     try {
       setIsLoading(true);
       let response;
+
       if (searchType === 'product') {
         response = await apiService.allPurchasesByProductId(itemId, page);
       } else if (searchType === 'client') {
         response = await apiService.allPurchasesByClientId(itemId, page);
       }
-      // Ensure items per page matches your calculation
+      console.log('API Response:', response.data.items); // Log the response for debugging
+
       const itemsPerPage = 4;
-      setDetailedResults(response.data.items);
+
+      // Grouping logic for client purchases
+      const groupedResults =
+        searchType === 'client'
+          ? response.data.items.map((item) => ({
+            ...item,
+            isOpen: false, // Default collapse state
+          }))
+          : response.data.items;
+
+      setDetailedResults(groupedResults);
       setTotalPages(Math.ceil(response.data.total / itemsPerPage));
       setCurrentPage(page);
     } catch (error) {
@@ -128,6 +140,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
       setIsLoading(false);
     }
   };
+
 
 
 
@@ -478,15 +491,21 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                                 setIsDetailedViewOpen(false);
                               }}
                             >
-                              {`${item.first_name} ${item.last_name}`}
+                              {`${item.first_name} ${item.last_name}`} - Order {`#${item.purchase_id}`}
                             </h3>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-gray-600 font-semibold">
                               Purchase Date: {formatDateSafely(item.purchase_date)}
                             </p>
-                            <p className="text-sm text-gray-600">
-                              Amount: ${parseFloat(item.amount).toFixed(2)}
+                            <p className="text-sm text-gray-600 font-semibold">
+                              Total Order Amount: ${parseFloat(item.amount).toFixed(2)}
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-gray-600 font-semibold">
+                              Size: {item.size}
+                            </p>
+                            <p className="text-sm text-gray-600 font-semibold">
+                              Quantity: {item.quantity}
+                            </p>
+                            <p className="text-sm text-gray-600 font-semibold">
                               Payment Status:{' '}
                               <span
                                 className={`${getStatusColor(item.payment_status)} font-semibold`}
@@ -494,107 +513,167 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                                 {item.payment_status}
                               </span>
                             </p>
-                            {/* Get PayPal Link Button */}
-                            {hasCredentials && item.payment_status !== 'Paid' && (
-                              <div>
-                                {!generatedLinks[item.purchase_id] ? (
-                                  // Generate Button
-                                  <button
-                                    className={`px-3 py-1 flex items-center ${loadingLinks[item.purchase_id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-all`}
-                                    onClick={() => handleGeneratePayPalLink(item.purchase_id)}
-                                    disabled={loadingLinks[item.purchase_id]}
-                                  >
-                                    {loadingLinks[item.purchase_id] ? (
-                                      <span className="loader mr-2"></span>
-                                    ) : (
-                                      <FaMagic className="mr-1" />
-                                    )}
-                                    {loadingLinks[item.purchase_id] ? 'Loading...' : 'Generate PayPal Link'}
-                                  </button>
-                                ) : (
-                                  // Copy Button with Subtle Checkmark
-                                  <div className="flex items-center space-x-2">
-                                    <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" /> {/* Subtle Checkmark */}
-                                    <button
-                                      className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
-                                      onClick={() => handleCopyToClipboard(generatedLinks[item.purchase_id], item.purchase_id)}
-                                    >
-                                      <FaCopy className="mr-1" />
-                                      Copy Link
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
                         ) : (
-                          <div
-                            className="flex items-center"
-                          >
-                            <img
-                              src={item.product_screenshot_photo}
-                              alt={item.product_name}
-                              className="w-16 h-16 mr-4 object-cover rounded"
-                            />
-                            <div>
-                              <h3 className="text-lg font-semibold text-blue-600">
-                                {item.product_name}
-                              </h3>
-                              <p className="text-sm text-gray-600">
-                                Purchase Date: {formatDateSafely(item.purchase_date)}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                Amount: ${parseFloat(item.amount).toFixed(2)}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                Payment Status:{' '}
-                                <span
-                                  className={`${getStatusColor(item.payment_status)} font-semibold`}
-                                >
-                                  {item.payment_status}
-                                </span>
-                              </p>
-                              {/* Generate/Copy PayPal Link Buttons */}
-                              {/* Get PayPal Link Button */}
-                              {hasCredentials && item.payment_status !== 'Paid' && (
+                          <div>
+                            {item.items.length === 1 ? (
+                              // Single-item order: Use the original UI format
+                              <div className="flex items-center">
+                                <img
+                                  src={item.items[0].product_screenshot_photo}
+                                  alt={item.items[0].product_name}
+                                  className="w-20 h-22 mr-4 object-cover rounded"
+                                />
                                 <div>
-                                  {!generatedLinks[item.id] ? (
-                                    // Generate Button
-                                    <button
-                                      className={`px-3 py-1 flex items-center ${loadingLinks[item.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded transition-all`}
-                                      onClick={() => handleGeneratePayPalLink(item.id)}
-                                      disabled={loadingLinks[item.id]}
-                                    >
-                                      {loadingLinks[item.id] ? (
-                                        <span className="loader mr-2"></span>
+                                  <h3 className="text-lg font-semibold text-blue-600">
+                                    {item.items[0].product_name}
+                                  </h3>
+                                  <p className="text-sm text-gray-600 font-semibold">
+                                    Purchase Date: {formatDateSafely(item.purchase_date)}
+                                  </p>
+                                  <p className="text-sm text-gray-600 font-semibold">
+                                    Total Amount: ${parseFloat(item.amount).toFixed(2)}
+                                  </p>
+                                  <p className="text-sm text-gray-600 font-semibold">
+                                    Payment Status:{' '}
+                                    <span className={`${getStatusColor(item.payment_status)} font-semibold`}>
+                                      {item.payment_status}
+                                    </span>
+                                  </p>
+                                  <p className="text-sm text-gray-600 font-semibold">Size: {item.items[0].size}</p>
+                                  <p className="text-sm text-gray-600 font-semibold">Quantity: {item.items[0].quantity}</p>
+                                  {/* Generate PayPal Button for Single Item */}
+                                  {hasCredentials && item.payment_status !== 'Paid' && (
+                                    <div>
+                                      {!generatedLinks[item.id] ? (
+                                        <button
+                                          className={`px-3 py-1 flex items-center ${loadingLinks[item.id]
+                                            ? 'bg-gray-400 cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700'
+                                            } text-white rounded transition-all mt-2`}
+                                          onClick={() => handleGeneratePayPalLink(item.id)}
+                                          disabled={loadingLinks[item.id]}
+                                        >
+                                          {loadingLinks[item.id] ? (
+                                            <span className="loader mr-2"></span>
+                                          ) : (
+                                            <FaMagic className="mr-1" />
+                                          )}
+                                          {loadingLinks[item.id] ? 'Generating...' : 'Generate PayPal Link'}
+                                        </button>
                                       ) : (
-                                        <FaMagic className="mr-1" />
+                                        <div className="flex items-center space-x-2">
+                                          <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" />
+                                          <button
+                                            className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
+                                            onClick={() => handleCopyToClipboard(generatedLinks[item.id], item.id)}
+                                          >
+                                            <FaCopy className="mr-1" />
+                                            Copy Link
+                                          </button>
+                                        </div>
                                       )}
-                                      {loadingLinks[item.id] ? 'Generating...' : 'Generate PayPal Link'}
-                                    </button>
-                                  ) : (
-                                    // Copy Button with Subtle Checkmark
-                                    <div className="flex items-center space-x-2">
-                                      <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" /> {/* Subtle Checkmark */}
-                                      <button
-                                        className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
-                                        onClick={() => handleCopyToClipboard(generatedLinks[item.id], item.id)}
-                                      >
-                                        <FaCopy className="mr-1" />
-                                        Copy Link
-                                      </button>
                                     </div>
                                   )}
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            ) : (
+                              // Multi-item order: Use collapsible format
+                              <div>
+                                {/* Collapsible Order Header */}
+                                <div
+                                  className="cursor-pointer font-semibold text-blue-600 flex justify-between items-center"
+                                  onClick={() =>
+                                    setDetailedResults((prev) =>
+                                      prev.map((o) =>
+                                        o.purchase_id === item.purchase_id
+                                          ? { ...o, isOpen: !o.isOpen }
+                                          : o
+                                      )
+                                    )
+                                  }
+                                >
+                                  <div>
+                                    <p className="text-lg font-semibold">Order #{item.purchase_id}</p>
+                                    <p className="text-sm text-gray-600">
+                                      Purchase Date: {formatDateSafely(item.purchase_date)}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      Total Amount: ${parseFloat(item.amount).toFixed(2)}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      Payment Status:{' '}
+                                      <span className={`${getStatusColor(item.payment_status)} font-semibold`}>
+                                        {item.payment_status}
+                                      </span>
+                                    </p>
+                                    {/* Generate PayPal Button for Multi-Item Order */}
+                                    {hasCredentials && item.payment_status !== 'Paid' && (
+                                      <div>
+                                        {!generatedLinks[item.id] ? (
+                                          <button
+                                            className={`px-3 py-1 flex items-center ${loadingLinks[item.id]
+                                                ? 'bg-gray-400 cursor-not-allowed'
+                                                : 'bg-blue-600 hover:bg-blue-700'
+                                              } text-white rounded transition-all mt-2`}
+                                            onClick={() => handleGeneratePayPalLink(item.id)}
+                                            disabled={loadingLinks[item.id]}
+                                          >
+                                            {loadingLinks[item.id] ? (
+                                              <span className="loader mr-2"></span>
+                                            ) : (
+                                              <FaMagic className="mr-1" />
+                                            )}
+                                            {loadingLinks[item.id] ? 'Generating...' : 'Generate PayPal Link'}
+                                          </button>
+                                        ) : (
+                                          <div className="flex items-center space-x-2">
+                                            <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" />
+                                            <button
+                                              className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
+                                              onClick={() => handleCopyToClipboard(generatedLinks[item.id], item.id)}
+                                            >
+                                              <FaCopy className="mr-1" />
+                                              Copy Link
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span>{item.isOpen ? '-' : '+'}</span>
+                                </div>
+                                {/* Collapsible Product List */}
+                                {item.isOpen && (
+                                  <ul className="mt-4 space-y-2">
+                                    {item.items.map((product) => (
+                                      <li
+                                        key={product.product_id}
+                                        className="flex items-center p-2 border rounded shadow-sm"
+                                      >
+                                        <img
+                                          src={product.product_screenshot_photo || '/placeholder.jpg'}
+                                          alt={product.product_name || 'Unnamed Product'}
+                                          className="w-16 h-16 mr-4 object-cover rounded"
+                                        />
+                                        <div>
+                                          <h3 className="text-sm font-semibold">{product.product_name || 'Unnamed Product'}</h3>
+                                          <p className="text-sm text-gray-600">Size: {product.size || 'N/A'}</p>
+                                          <p className="text-sm text-gray-600">Quantity: {product.quantity || 'N/A'}</p>
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </li>
                     ))}
                   </ul>
                   {/* Pagination Controls */}
-                  <div className="flex justify-between items-center mt-4">
+                  < div className="flex justify-between items-center mt-4" >
                     <button
                       className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
                         }`}

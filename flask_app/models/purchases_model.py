@@ -110,19 +110,6 @@ class Purchase:
         return connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
     ### Additional Methods ###
-
-    @classmethod
-    def get_purchases_by_client(cls, client_id):
-        """Retrieve all purchases made by a specific client."""
-        query = "SELECT * FROM purchases WHERE client_id = %(client_id)s AND system_id = %(system_id)s;"
-        data = {'client_id': client_id, 'system_id': SessionHelper.get_system_id()}
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        
-        # Check if results are valid
-        if not results or isinstance(results, bool):
-            return []  # Return an empty list if no results or query fails
-        
-        return [cls(row) for row in results]
     
     @classmethod
     def all_purchases_for_client(cls, client_id, page=1):
@@ -141,10 +128,35 @@ class Purchase:
         JOIN purchase_items ON purchases.id = purchase_items.purchase_id
         JOIN products ON purchase_items.product_id = products.id
         WHERE purchases.client_id = %(client_id)s AND purchases.system_id = %(system_id)s
+        ORDER BY purchases.purchase_date DESC
         LIMIT %(limit)s OFFSET %(offset)s;
         """
         params = {'client_id': client_id, 'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
+
+        # Organize results by purchase_id
+        purchases = {}
+        for row in results:
+            purchase_id = row['purchase_id']
+            if purchase_id not in purchases:
+                purchases[purchase_id] = {
+                    'purchase_id': purchase_id,
+                    'purchase_date': row['purchase_date'],
+                    'amount': row['amount'],
+                    'payment_status': row['payment_status'],
+                    'client_name': f"{row['client_first_name']} {row['client_last_name']}",
+                    'items': []
+                }
+            # Add product details to the purchase
+            purchases[purchase_id]['items'].append({
+                'product_id': row['product_id'],
+                'product_name': row['product_name'],
+                'product_description': row['product_description'],
+                'product_screenshot_photo': row['product_screenshot_photo'],
+                'size': row['size'],
+                'quantity': row['quantity'],
+                'price_per_item': row['price_per_item']
+            })
 
         # Fetch the total count
         count_query = """
@@ -156,7 +168,11 @@ class Purchase:
         count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, data)
         total = count_result[0]['total'] if count_result else 0
 
-        return {'items': results, 'total': total}
+        # Convert purchases dictionary to a list for easier handling
+        grouped_purchases = list(purchases.values())
+
+        return {'items': grouped_purchases, 'total': total}
+
 
 
 
@@ -170,7 +186,7 @@ class Purchase:
         query = """
         SELECT clients.id AS client_id, clients.first_name, clients.last_name, purchases.id AS purchase_id,
             purchase_items.size, purchase_items.quantity, purchase_items.price_per_item, purchases.purchase_date,
-            purchases.amount, purchases.payment_status
+            purchases.amount, purchases.payment_status, purchase_items.size, purchase_items.quantity
         FROM clients
         JOIN purchases ON clients.id = purchases.client_id
         JOIN purchase_items ON purchases.id = purchase_items.purchase_id
@@ -460,43 +476,6 @@ class Purchase:
         
         return [cls(result) for result in results]
 
-    
-    @staticmethod
-    def get_items_for_purchases(purchase_ids):
-        query = f"""
-            SELECT
-                pi.id,
-                pi.purchase_id,
-                pi.product_id,
-                pi.size,
-                pi.quantity,
-                pi.price_per_item,
-                prod.name AS product_name,
-                prod.screenshot_photo
-            FROM purchase_items pi
-            LEFT JOIN products prod ON pi.product_id = prod.id
-            WHERE pi.purchase_id IN ({','.join(map(str, purchase_ids))})
-        """
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query)
-        
-        # Ensure results is a list
-        if not results:
-            results = []
-        
-        items_by_purchase = {}
-        for row in results:
-            purchase_id = row['purchase_id']
-            if purchase_id not in items_by_purchase:
-                items_by_purchase[purchase_id] = []
-            items_by_purchase[purchase_id].append({
-                "id": row["id"],
-                "product_id": row["product_id"],
-                "quantity": row["quantity"],
-                "product_name": row["product_name"],
-                "screenshot_photo": row["screenshot_photo"],
-            })
-        return items_by_purchase
-
     @classmethod
     def get_overdue_purchases_with_items(cls, system_id):
         # Step 1: Fetch overdue purchases
@@ -514,36 +493,28 @@ class Purchase:
 
         return overdue_purchases
 
-
-
-
-
-
     @classmethod
     def check_for_pending_deliveries(cls, system_id):
         """
         Identifies purchases that are 'Paid' but have not been marked as delivered after 28 days.
-        Returns a list of such purchases.
+        Groups items by purchase_id for easier handling in the frontend.
         """
         query = """
         SELECT 
             p.id AS purchase_id, 
             p.client_id, 
+            c.first_name AS client_first_name, 
+            c.last_name AS client_last_name, 
             p.purchase_date, 
             p.amount, 
             p.payment_status, 
             p.shipping_status, 
-            p.created_at, 
-            p.updated_at, 
-            c.first_name AS client_first_name, 
-            c.last_name AS client_last_name, 
             pi.product_id, 
             pi.size, 
             pi.quantity, 
             pi.price_per_item, 
             pr.name AS product_name, 
-            pr.description AS product_description, 
-            pr.screenshot_photo AS product_screenshot_photo
+            pr.screenshot_photo AS screenshot_photo
         FROM purchases p
         JOIN clients c ON p.client_id = c.id
         JOIN purchase_items pi ON p.id = pi.purchase_id
@@ -556,10 +527,35 @@ class Purchase:
         data = {'system_id': system_id}
         try:
             results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-            return [cls(data) for data in results]
+            # Group items by purchase_id
+            grouped_deliveries = {}
+            for row in results:
+                purchase_id = row['purchase_id']
+                if purchase_id not in grouped_deliveries:
+                    grouped_deliveries[purchase_id] = {
+                        "id": purchase_id,
+                        "client_id": row["client_id"],
+                        "client_first_name": row["client_first_name"],
+                        "client_last_name": row["client_last_name"],
+                        "purchase_date": row["purchase_date"],
+                        "amount": row["amount"],
+                        "payment_status": row["payment_status"],
+                        "shipping_status": row["shipping_status"],
+                        "items": [],
+                    }
+                grouped_deliveries[purchase_id]["items"].append({
+                    "product_id": row.get("product_id"),  # May be None
+                    "product_name": row.get("product_name", "Unknown"),  # Provide a fallback
+                    "size": row.get("size"),
+                    "quantity": row.get("quantity"),
+                    "price_per_item": row.get("price_per_item"),
+                    "screenshot_photo": row.get("screenshot_photo"),
+                })
+            return list(grouped_deliveries.values())
         except Exception as e:
             print(f"Error executing query for pending deliveries for system_id {system_id}: {e}")
             return []
+
 
 
     
