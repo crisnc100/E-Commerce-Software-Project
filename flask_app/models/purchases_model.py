@@ -223,6 +223,7 @@ class Purchase:
             clients.id AS client_id, 
             clients.first_name, 
             clients.last_name,
+            purchases.id AS purchase_id,
             purchase_items.size, 
             purchase_items.quantity, 
             purchase_items.price_per_item, 

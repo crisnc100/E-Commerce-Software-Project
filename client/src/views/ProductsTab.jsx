@@ -525,7 +525,7 @@ const ProductsTab = () => {
                   >
                     <div>
                       <p className="font-medium">
-                        {client.first_name} {client.last_name}
+                        {client.first_name} {client.last_name} - Order #{client.purchase_id}
                       </p>
                       <p className="text-sm text-gray-500">
                         Purchased on:{' '}
@@ -535,7 +535,7 @@ const ProductsTab = () => {
                         Size: {client.size}
                       </p>
                       <p className="text-sm text-gray-500">
-                        Amount: ${client.amount}
+                        Total Order Amount: ${client.amount}
                       </p>
                     </div>
                     <button
