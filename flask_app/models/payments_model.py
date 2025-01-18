@@ -212,33 +212,63 @@ class PaymentModel:
     
     @classmethod
     def get_recent_payments(cls, since_date):
-        query = """
+        # Query for recent payments
+        payment_query = """
         SELECT 
-            'Payment Made' AS action,
-            CONCAT('Payment of $', payments.amount_paid, ' for ', 
-                p.name, ' (x', pi.quantity, ') by ', 
-                clients.first_name, ' ', clients.last_name) AS details,
+            payments.id AS payment_id,
+            purchases.id AS purchase_id,
+            payments.amount_paid,
+            clients.first_name,
+            clients.last_name,
             payments.created_at
         FROM payments
         JOIN purchases ON payments.purchase_id = purchases.id
-        JOIN purchase_items pi ON purchases.id = pi.purchase_id
-        JOIN products p ON pi.product_id = p.id
         JOIN clients ON purchases.client_id = clients.id
         WHERE payments.created_at >= %s AND purchases.system_id = %s
         ORDER BY payments.created_at DESC;
         """
-        data = (since_date, SessionHelper.get_system_id())
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
-        if isinstance(result, tuple):
-            result = list(result)
-        return result
+        payment_data = (since_date, SessionHelper.get_system_id())
+        payments = connectToMySQL('maria_ortegas_project_schema').query_db(payment_query, payment_data)
+
+        # Initialize result list
+        recent_payments = []
+
+        # Query for each purchase's items
+        for payment in payments:
+            item_query = """
+            SELECT 
+                p.name AS product_name,
+                pi.quantity
+            FROM purchase_items pi
+            JOIN products p ON pi.product_id = p.id
+            WHERE pi.purchase_id = %s;
+            """
+            items = connectToMySQL('maria_ortegas_project_schema').query_db(item_query, (payment['purchase_id'],))
+
+            # Build the details message
+            if len(items) == 1:
+                # Single item purchase
+                item_details = f"{items[0]['product_name']} (x{items[0]['quantity']})"
+            else:
+                # Multiple items
+                item_details = f"{len(items)} items"
+
+            # Append the formatted payment to the result list
+            recent_payments.append({
+                'action': 'Payment Made',
+                'details': f"Payment of ${payment['amount_paid']} for order #{payment['purchase_id']} ({item_details}) by {payment['first_name']} {payment['last_name']}",
+                'created_at': payment['created_at']
+            })
+
+        return recent_payments
+
 
 
 
     @classmethod
     def get_paginated_payments(cls, page=1, limit=12, method='PayPal'):
         """
-        Fetch paginated payments with client, purchase, and product details.
+        Fetch paginated payments grouped by purchase_id with client and product details.
         :param page: Current page number.
         :param limit: Number of payments to fetch per page.
         :param method: Payment method filter ('PayPal' or 'all').
@@ -248,10 +278,18 @@ class PaymentModel:
 
         # Base query
         query = """
-        SELECT payments.id AS payment_id, payments.amount_paid, payments.payment_date, payments.payment_method,
-            clients.id AS client_id, clients.first_name, clients.last_name,
-            pi.product_id, products.name AS product_name, products.screenshot_photo,
-            pi.quantity, pi.price_per_item
+        SELECT 
+            payments.id AS payment_id, 
+            payments.amount_paid, 
+            payments.payment_date, 
+            payments.payment_method,
+            clients.id AS client_id, 
+            CONCAT(clients.first_name, ' ', clients.last_name) AS client_name,
+            purchases.id AS purchase_id,
+            products.name AS product_name,
+            products.screenshot_photo,
+            pi.quantity,
+            pi.price_per_item
         FROM payments
         JOIN purchases ON payments.purchase_id = purchases.id
         JOIN clients ON purchases.client_id = clients.id
@@ -259,41 +297,73 @@ class PaymentModel:
         JOIN products ON pi.product_id = products.id
         WHERE clients.system_id = %(system_id)s
         """
-
+        
         # Add payment method filter if not "all"
         if method != 'all':
             query += " AND payments.payment_method = %(payment_method)s"
 
-        # Sorting and pagination
+        # Add sorting and pagination
         query += " ORDER BY payments.created_at DESC LIMIT %(limit)s OFFSET %(offset)s;"
-
-        # Parameters for the query
+        
+        # Query parameters
         params = {
             'system_id': SessionHelper.get_system_id(),
             'payment_method': method,
             'limit': limit,
             'offset': offset
         }
+        
+        # Execute the query
+        raw_results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
 
-        # Execute query
-        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
+        # Group results by purchase_id
+        payments = {}
+        for row in raw_results:
+            purchase_id = row['purchase_id']
+            if purchase_id not in payments:
+                payments[purchase_id] = {
+                    "payment_id": row["payment_id"],
+                    "amount_paid": float(row["amount_paid"]),  # Convert to float
+                    "payment_date": row["payment_date"],
+                    "payment_method": row["payment_method"],
+                    "client_id": row["client_id"],
+                    "client_name": row["client_name"],
+                    "purchase_id": purchase_id,
+                    "product_details": [],
+                    "total_cost": 0.0,
+                    "product_photos": []
+                }
+            
+            # Add product details
+            product_detail = f"{row['product_name']} (x{row['quantity']})"
+            payments[purchase_id]["product_details"].append(product_detail)
+            payments[purchase_id]["total_cost"] += float(row['quantity']) * float(row['price_per_item'])  # Convert to float
+            if row['screenshot_photo']:
+                payments[purchase_id]["product_photos"].append(row['screenshot_photo'])
 
-        # Count query for total
+        # Format the grouped results into a list
+        formatted_results = []
+        for payment in payments.values():
+            payment["product_details"] = ", ".join(payment["product_details"])
+            payment["product_photos"] = list(set(payment["product_photos"]))  # Remove duplicates if any
+            formatted_results.append(payment)
+
+        # Count query for total number of payments
         count_query = """
         SELECT COUNT(DISTINCT payments.id) AS total
         FROM payments
         JOIN purchases ON payments.purchase_id = purchases.id
         JOIN clients ON purchases.client_id = clients.id
-        JOIN purchase_items pi ON purchases.id = pi.purchase_id
         WHERE clients.system_id = %(system_id)s
         """
         if method != 'all':
             count_query += " AND payments.payment_method = %(payment_method)s"
-
         count_result = connectToMySQL('maria_ortegas_project_schema').query_db(count_query, params)
         total = count_result[0]['total'] if count_result else 0
 
-        return {'items': results, 'total': total}
+        return {'items': formatted_results, 'total': total}
+
+
 
 
 

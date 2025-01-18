@@ -562,48 +562,68 @@ class Purchase:
     
     @classmethod
     def get_recent_purchases(cls, since_date):
-        query = """
+        # Step 1: Fetch basic purchase data
+        purchase_query = """
             SELECT 
                 p.id AS purchase_id,
                 'Create Purchase Order' AS action,
-                GROUP_CONCAT(CONCAT(pr.name, ' (', pi.size, ')') SEPARATOR ', ') AS product_details,
                 CONCAT(c.first_name, ' ', c.last_name) AS client_name,
                 p.created_at,
                 COUNT(pi.id) AS item_count
             FROM purchases p
             JOIN clients c ON p.client_id = c.id
             JOIN purchase_items pi ON p.id = pi.purchase_id
-            JOIN products pr ON pi.product_id = pr.id
             WHERE p.created_at >= %s AND p.system_id = %s
             GROUP BY p.id, c.first_name, c.last_name, p.created_at
             ORDER BY p.created_at DESC;
         """
-        data = (since_date, SessionHelper.get_system_id())
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        purchase_data = (since_date, SessionHelper.get_system_id())
+        purchases = connectToMySQL('maria_ortegas_project_schema').query_db(purchase_query, purchase_data)
 
-        if not result or isinstance(result, bool):
+        if not purchases:
             return []
 
-        purchases = []
-        for row in result:
-            # if item_count > 3, show just "{client_name}: X items"
-            if row['item_count'] > 3:
-                details_str = (
-                    f"Order for {row['client_name']}: {row['item_count']} item"
-                    f"{'s' if row['item_count'] != 1 else ''}"
-                )
-            else:
-                # otherwise, show the actual product_details
-                details_str = f"Order for {row['product_details']} by {row['client_name']}"
+        # Step 2: Fetch product details for small orders
+        small_order_ids = [row['purchase_id'] for row in purchases if row['item_count'] <= 2]
 
-            purchases.append({
+        if small_order_ids:
+            product_query = """
+                SELECT 
+                    pi.purchase_id,
+                    pr.name AS product_name,
+                    pi.size
+                FROM purchase_items pi
+                JOIN products pr ON pi.product_id = pr.id
+                WHERE pi.purchase_id IN (%s);
+            """ % ', '.join(['%s'] * len(small_order_ids))
+            product_data = connectToMySQL('maria_ortegas_project_schema').query_db(product_query, small_order_ids)
+            
+            # Organize product details by purchase_id
+            product_details = {}
+            for row in product_data:
+                if row['purchase_id'] not in product_details:
+                    product_details[row['purchase_id']] = []
+                product_details[row['purchase_id']].append(f"{row['product_name']} ({row['size']})")
+        else:
+            product_details = {}
+
+        # Step 3: Build the final result
+        result = []
+        for row in purchases:
+            if row['item_count'] > 2:
+                details_str = f"Order for {row['client_name']}: {row['item_count']} items"
+            else:
+                details_str = f"Order for {', '.join(product_details.get(row['purchase_id'], []))} by {row['client_name']}"
+            
+            result.append({
                 "purchase_id": row["purchase_id"],
                 "action": row["action"],
                 "details": details_str,
                 "created_at": row["created_at"],
             })
 
-        return purchases
+        return result
+
 
     
     @classmethod
@@ -640,7 +660,7 @@ class Purchase:
         query = """
         SELECT 
             SUM(p.amount) AS gross_sales,
-            SUM(p.amount - (pi.quantity * pi.price_per_item)) AS revenue_earned,
+            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
             SUM(payments.amount_paid) AS net_sales
         FROM purchases p
         LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
@@ -663,7 +683,7 @@ class Purchase:
         SELECT 
             MONTH(p.purchase_date) AS month,
             SUM(p.amount) AS gross_sales,
-            SUM(p.amount - SUM(pi.quantity * pi.price_per_item)) AS revenue_earned,
+            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
             SUM(payments.amount_paid) AS net_sales
         FROM purchases p
         LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
@@ -692,7 +712,7 @@ class Purchase:
         query = """
         SELECT 
             SUM(p.amount) AS gross_sales,
-            SUM(p.amount - SUM(pi.quantity * pi.price_per_item)) AS revenue_earned,
+            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
             SUM(payments.amount_paid) AS net_sales
         FROM purchases p
         LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
@@ -728,7 +748,7 @@ class Purchase:
         SELECT 
             YEAR(p.purchase_date) AS year,
             SUM(p.amount) AS gross_sales,
-            SUM(p.amount - SUM(pi.quantity * pi.price_per_item)) AS revenue_earned,
+            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
             SUM(payments.amount_paid) AS net_sales
         FROM purchases p
         LEFT JOIN purchase_items pi ON p.id = pi.purchase_id

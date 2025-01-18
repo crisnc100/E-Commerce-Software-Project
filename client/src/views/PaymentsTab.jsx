@@ -9,13 +9,15 @@ const PaymentsTab = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [filterMethod, setFilterMethod] = useState('PayPal'); // Default to PayPal
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
+  const [modalImages, setModalImages] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   // Fetch payments from API
   const fetchPayments = async (page, method) => {
     setIsLoading(true);
     try {
-      const response = await apiService.getPaginatedPayments(page, 12, method);
+      const response = await apiService.getPaginatedPayments(page, 10, method);
       const { items, total } = response.data;
       console.log('Fetched Payments:', items);
 
@@ -49,9 +51,26 @@ const PaymentsTab = () => {
   };
 
   // Open product modal
-  const handleViewProduct = (product) => {
-    setSelectedProduct(product);
-    setIsModalOpen(true);
+  const handleViewImages = (payment) => {
+    setSelectedProduct(payment); // Set the selected product details for the modal
+    setModalImages(payment.product_photos || []); // Set the images for the carousel
+    setIsImagesModalOpen(true); // Open the modal
+    setCurrentIndex(0); // Start with the first image
+  };
+
+
+  const handleCloseImagesModal = () => {
+    setIsImagesModalOpen(false);
+    setModalImages([]);
+    setCurrentIndex(0);
+  };
+
+  const handleNextImage = () => {
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % modalImages.length);
+  };
+
+  const handlePrevImage = () => {
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + modalImages.length) % modalImages.length);
   };
 
   const formatDateSafely = (dateString) => {
@@ -97,17 +116,19 @@ const PaymentsTab = () => {
         {payments.map((payment) => (
           <div key={payment.payment_id} className="p-4 border rounded shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center">
-              {payment.product_name && payment.product_screenshot_photo && (
+              {payment.product_photos?.length === 1 ? (
                 <img
-                  src={payment.product_screenshot_photo}
-                  alt={payment.product_name}
-                  className="w-16 h-16 rounded mr-4 object-cover"
+                 
+                />
+              ) : payment.product_photos?.length > 1 && (
+                <img
+                  
                 />
               )}
               <div className="flex-1">
-                <h2 className="font-bold text-xl">{`${payment.first_name} ${payment.last_name}`}</h2>
+                <h2 className="font-bold text-xl">{`${payment.client_name}`}</h2>
                 <p className="text-base text-gray-600">
-                  Paid <span className="font-bold">${parseFloat(payment.amount_paid).toFixed(2)}</span> for{' '}
+                  Paid <span className="font-bold">${parseFloat(payment.amount_paid).toFixed(2)}</span> for order #{`${payment.purchase_id}`}
                   <span className="font-semibold">{payment.product_name}</span>
                 </p>
                 <p className="text-base text-gray-500">
@@ -115,7 +136,7 @@ const PaymentsTab = () => {
                 </p>
                 <button
                   className="text-blue-600 hover:underline mt-2 flex items-center"
-                  onClick={() => handleViewProduct(payment)}
+                  onClick={() => handleViewImages(payment)} // Use handleViewImages for modal
                 >
                   <FaEye className="mr-1" /> View Product Details
                 </button>
@@ -138,28 +159,36 @@ const PaymentsTab = () => {
         </div>
       )}
 
-      {/* Product Modal */}
-      {isModalOpen && selectedProduct && (
+      {isImagesModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          {/* Background Overlay */}
           <div
             className="absolute inset-0 bg-black opacity-50"
-            onClick={() => setIsModalOpen(false)}
+            onClick={handleCloseImagesModal}
           ></div>
-
-          {/* Modal Content */}
-          <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs w-11/12">
-            {/* Product Image */}
-            {selectedProduct.screenshot_photo && (
-              <img
-                src={selectedProduct.screenshot_photo}
-                alt={selectedProduct.product_name}
-                className="w-full h-auto rounded-md max-h-[500px] object-contain mb-4"
-              />
+          <div className="bg-white p-3 rounded-lg shadow-lg z-10 max-w-xs sm:max-w-md md:max-w-lg w-11/12 relative">
+            <img
+              src={modalImages[currentIndex]}
+              alt="Product"
+              className="w-full h-auto rounded-md max-h-[500px] object-contain"
+            />
+            {modalImages.length > 1 && (
+              <div className="flex justify-between items-center mt-2">
+                <button
+                  onClick={handlePrevImage}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Prev
+                </button>
+                <button
+                  onClick={handleNextImage}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  Next
+                </button>
+              </div>
             )}
-
-            {/* Product Details */}
-            <div className="text-center">
+              {/* Product Details */}
+              <div className="text-center">
               <h2 className="text-lg font-bold">{selectedProduct.product_name}</h2>
               <p className="text-base text-gray-600 mt-2">
                 Paid <span className="font-bold">${parseFloat(selectedProduct.amount_paid).toFixed(2)}</span>
@@ -168,10 +197,8 @@ const PaymentsTab = () => {
                 Transaction Date: <span className="font-medium">{formatDateSafely(selectedProduct.payment_date)}</span>
               </p>
             </div>
-
-            {/* Close Button */}
             <button
-              onClick={() => setIsModalOpen(false)}
+              onClick={handleCloseImagesModal}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
             >
               Close
