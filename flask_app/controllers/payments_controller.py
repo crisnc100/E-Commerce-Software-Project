@@ -66,7 +66,7 @@ def execute_payment():
 
         # Get access token
         token_response = requests.post(
-            'https://api-m.sandbox.paypal.com/v1/oauth2/token',
+            'https://api-m.paypal.com/v1/oauth2/token',
             auth=(decrypted_client_id, decrypted_secret),
             headers={'Accept': 'application/json'},
             data={'grant_type': 'client_credentials'}
@@ -80,7 +80,7 @@ def execute_payment():
 
         # Capture the order
         capture_response = requests.post(
-            f'https://api-m.sandbox.paypal.com/v2/checkout/orders/{order_id}/capture',
+            f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture',
             headers={
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {access_token}'

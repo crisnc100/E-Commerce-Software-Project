@@ -65,7 +65,7 @@ def generate_paypal_link(client_id, amount, system_id, purchase_id_val):
 
         # (2) Get access token from PayPal
         token_response = requests.post(
-            'https://api-m.sandbox.paypal.com/v1/oauth2/token',
+            'https://api-m.paypal.com/v1/oauth2/token',
             auth=(paypal_client_id, paypal_secret),
             headers={'Accept': 'application/json'},
             data={'grant_type': 'client_credentials'}
@@ -102,7 +102,7 @@ def generate_paypal_link(client_id, amount, system_id, purchase_id_val):
         }
 
         order_response = requests.post(
-            'https://api-m.sandbox.paypal.com/v2/checkout/orders',
+            'https://api-m.paypal.com/v2/checkout/orders',
             headers={
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {access_token}'

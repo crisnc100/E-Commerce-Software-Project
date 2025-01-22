@@ -106,7 +106,7 @@ class System:
         """
         Validates PayPal credentials by attempting to obtain an OAuth token.
         """
-        validation_url = "https://api-m.sandbox.paypal.com/v1/oauth2/token"
+        validation_url = "https://api-m.paypal.com/v1/oauth2/token"
         headers = {
             "Accept": "application/json",
             "Accept-Language": "en_US"
