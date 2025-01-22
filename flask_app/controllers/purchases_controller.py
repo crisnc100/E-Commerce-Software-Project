@@ -33,11 +33,10 @@ def payment_cancel():
     return render_template('payment_cancel.html')
 
 
-def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_val):
+def generate_paypal_link(client_id, amount, system_id, purchase_id_val):
     try:
         # (1) Fetch client, product, and system info
         client = Client.get_by_id(client_id)
-        product = Product.get_by_id(product_id)
         system = System.get_system_by_id(system_id)
         if not system or not system.paypal_client_id or not system.paypal_secret:
             raise Exception("PayPal credentials are missing for this system.")
@@ -45,9 +44,28 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
         paypal_client_id = System.decrypt_data(system.paypal_client_id)
         paypal_secret = System.decrypt_data(system.paypal_secret)
 
+        purchase_items = PurchaseItems.get_by_purchase_id(purchase_id_val)
+        if not purchase_items:
+            raise Exception(f"No purchase items found for purchase ID {purchase_id_val}")
+        detailed_description = "; ".join(
+            [f"{item.product_name} (x{item.quantity})" for item in purchase_items]
+        )
+
+        # Truncate custom_id if needed
+        custom_id = detailed_description[:255]
+
+        # Create a shorter description for PayPal's 'description' field
+        if len(purchase_items) > 3:
+            summary_description = f"{len(purchase_items)} items - Purchased by {client.first_name} {client.last_name}"
+        else:
+            summary_description = f"{detailed_description} - Purchased by {client.first_name} {client.last_name}"
+        if len(summary_description) > 127:
+            summary_description = summary_description[:124] + "..."
+
+
         # (2) Get access token from PayPal
         token_response = requests.post(
-            'https://api-m.paypal.com/v1/oauth2/token',
+            'https://api-m.sandbox.paypal.com/v1/oauth2/token',
             auth=(paypal_client_id, paypal_secret),
             headers={'Accept': 'application/json'},
             data={'grant_type': 'client_credentials'}
@@ -76,14 +94,15 @@ def generate_paypal_link(client_id, product_id, amount, system_id, purchase_id_v
                         "currency_code": "USD",
                         "value": f"{amount:.2f}"
                     },
-                    "description": f"{product.name} - Purchased by {client.first_name} {client.last_name}",
+                    "description": summary_description,
+                    "custom_id": custom_id,
                     "invoice_id": str(purchase_id_val)
                 }
             ]
         }
 
         order_response = requests.post(
-            'https://api-m.paypal.com/v2/checkout/orders',
+            'https://api-m.sandbox.paypal.com/v2/checkout/orders',
             headers={
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {access_token}'
@@ -162,7 +181,8 @@ def create_single_item_purchase(data):
         'product_id': data['product_id'],
         'size': data['size'],
         'quantity': 1,  # Default for single order
-        'price_per_item': data['amount'],
+        'price_per_item': float(data['price_per_item']),
+
     }
     try:
         PurchaseItems.save(item_data)
@@ -281,14 +301,12 @@ def regenerate_paypal_link(purchase_id):
 
         # Extract necessary details using attribute access
         client_id = purchase.client_id
-        product_id = purchase.product_id
         amount = purchase.amount
         system_id = purchase.system_id
 
         # Regenerate PayPal link
         (paypal_approval_url, paypal_order_id) = generate_paypal_link(
             client_id=client_id,
-            product_id=product_id,
             amount=amount,
             system_id=system_id,  # Pass the correct system_id here
             purchase_id_val=purchase_id

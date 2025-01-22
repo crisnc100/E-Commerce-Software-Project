@@ -106,7 +106,7 @@ class System:
         """
         Validates PayPal credentials by attempting to obtain an OAuth token.
         """
-        validation_url = "https://api-m.paypal.com/v1/oauth2/token"
+        validation_url = "https://api-m.sandbox.paypal.com/v1/oauth2/token"
         headers = {
             "Accept": "application/json",
             "Accept-Language": "en_US"
@@ -140,10 +140,13 @@ class System:
 
         # Step 4: Update the database
         query = """
-        UPDATE systems
-        SET paypal_client_id = %(paypal_client_id)s, paypal_secret = %(paypal_secret)s
-        WHERE id = %(system_id)s
-        """
+            UPDATE systems
+            SET 
+                paypal_client_id = %(paypal_client_id)s, 
+                paypal_secret = %(paypal_secret)s, 
+                updated_at = NOW()
+            WHERE id = %(system_id)s
+            """
         data = {
             'system_id': system_id,
             'paypal_client_id': encrypted_client_id,

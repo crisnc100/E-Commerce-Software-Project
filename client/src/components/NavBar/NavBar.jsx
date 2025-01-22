@@ -302,10 +302,21 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
 
 
   return (
-    <nav className="bg-gray-800 p-3 md:p-4 flex justify-between items-center">
-      <FaBars onClick={() => setSidebarToggle(!sidebarToggle)}
-        className='text-white cursor-pointer' size={26} />
-      <div className="w-full md:flex-1 mx-2 md:mx-4 relative mb-2 md:mb-0" ref={searchDropdownRef}>
+    <nav className="bg-gray-800 p-3 md:p-4 flex flex-col md:flex-row md:items-center md:justify-between">
+      {/* LEFT SECTION: Hamburger + (Optional Branding) */}
+      <div className="flex items-center justify-between w-full md:w-auto">
+        <FaBars
+          onClick={() => setSidebarToggle(!sidebarToggle)}
+          className="text-white cursor-pointer mr-3"
+          size={26}
+        />
+      </div>
+
+      {/* MIDDLE SECTION: SEARCH (Grows to fill space) */}
+      <div
+        className="flex-1 mx-2 md:mx-4 relative my-2 md:my-0"
+        ref={searchDropdownRef}
+      >
         <div className="flex space-x-2">
           <select
             value={searchType}
@@ -320,7 +331,8 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
             placeholder={`Search ${searchType}s...`}
             value={searchTerm}
             onChange={handleSearchChange}
-            className="w-full p-1 md:p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
+            className="w-full p-1 md:p-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
           />
         </div>
 
@@ -346,7 +358,7 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                     <>
                       <span
                         onClick={(e) => {
-                          e.stopPropagation(); // Prevent the parent container's onClick
+                          e.stopPropagation();
                           setImageToShow(result.screenshot_photo || 'https://via.placeholder.com/150');
                           setIsImageModalOpen(true);
                         }}
@@ -359,7 +371,6 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                       </span>
                       <span>{result.name}</span>
                     </>
-
                   ) : (
                     <span>{`${result.first_name} ${result.last_name}`}</span>
                   )}
@@ -369,31 +380,42 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
         )}
       </div>
 
-      <div className="w-full md:w-auto flex items-center space-x-2 md:space-x-4 mt-2 md:mt-0">
+      {/* RIGHT SECTION: Upload, Lock, Profile */}
+      <div className="flex items-center space-x-2 md:space-x-4">
         <button
           onClick={() => setIsUploadModalOpen(true)}
-          className="flex items-center bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
+          className="flex items-center bg-blue-600 hover:bg-blue-700 text-white 
+                   py-2 px-3 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
         >
-          <FiUpload className="mr-1" size={16} />
+          <FiUpload className="mr-1" size={18} />
+          {/* Show 'Upload' on small screens; 'Upload Product' on md+ screens */}
+          <span className="inline md:hidden">Upload</span>
           <span className="hidden md:inline">Upload Product</span>
         </button>
 
         <button
           onClick={handleLogout}
-          className="flex items-center bg-red-600 hover:bg-red-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
+          className="flex items-center bg-red-600 hover:bg-red-700 text-white 
+                   py-2 px-3 md:py-2 md:px-4 rounded-lg text-sm md:text-base"
         >
-          <FiLock className="mr-1" size={16} />
+          <FiLock className="mr-1" size={18} />
+          {/* Show 'Lock' on small screens; 'Lock Software' on md+ screens */}
+          <span className="inline md:hidden">Lock</span>
           <span className="hidden md:inline">Lock Software</span>
         </button>
 
+        {/* Profile Button + Menu */}
         <div className="relative profile-menu">
           <button
             onClick={toggleProfileMenu}
-            className="flex items-center bg-gray-700 text-white py-1 px-2 md:py-2 md:px-4 rounded-lg focus:outline-none text-sm md:text-base"
+            className="flex items-center bg-gray-700 text-white 
+                     py-2 px-3 md:py-2 md:px-4 rounded-lg 
+                     focus:outline-none text-sm md:text-base"
           >
-            <FiUser className="mr-1" size={16} />
+            <FiUser className="mr-1" size={18} />
             <span className="hidden md:inline">Profile</span>
           </button>
+
           {isProfileMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg flex flex-col">
               <Link
@@ -413,7 +435,6 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
             </div>
           )}
         </div>
-
       </div>
 
       {/* Upload Product Modal */}
@@ -610,28 +631,28 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                                     {/* Generate PayPal Button for Multi-Item Order */}
                                     {hasCredentials && item.payment_status !== 'Paid' && (
                                       <div>
-                                        {!generatedLinks[item.id] ? (
+                                        {!generatedLinks[item.purchase_id] ? (
                                           <button
-                                            className={`px-3 py-1 flex items-center ${loadingLinks[item.id]
-                                                ? 'bg-gray-400 cursor-not-allowed'
-                                                : 'bg-blue-600 hover:bg-blue-700'
+                                            className={`px-3 py-1 flex items-center ${loadingLinks[item.purchase_id]
+                                              ? 'bg-gray-400 cursor-not-allowed'
+                                              : 'bg-blue-600 hover:bg-blue-700'
                                               } text-white rounded transition-all mt-2`}
-                                            onClick={() => handleGeneratePayPalLink(item.id)}
-                                            disabled={loadingLinks[item.id]}
+                                            onClick={() => handleGeneratePayPalLink(item.purchase_id)}
+                                            disabled={loadingLinks[item.purchase_id]}
                                           >
                                             {loadingLinks[item.id] ? (
                                               <span className="loader mr-2"></span>
                                             ) : (
                                               <FaMagic className="mr-1" />
                                             )}
-                                            {loadingLinks[item.id] ? 'Generating...' : 'Generate PayPal Link'}
+                                            {loadingLinks[item.purchase_id] ? 'Generating...' : 'Generate PayPal Link'}
                                           </button>
                                         ) : (
                                           <div className="flex items-center space-x-2">
                                             <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" />
                                             <button
                                               className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
-                                              onClick={() => handleCopyToClipboard(generatedLinks[item.id], item.id)}
+                                              onClick={() => handleCopyToClipboard(generatedLinks[item.purchase_id], item.purchase_id)}
                                             >
                                               <FaCopy className="mr-1" />
                                               Copy Link

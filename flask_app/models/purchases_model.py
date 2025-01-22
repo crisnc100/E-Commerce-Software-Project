@@ -112,11 +112,26 @@ class Purchase:
     ### Additional Methods ###
     
     @classmethod
-    def all_purchases_for_client(cls, client_id, page=1):
-        limit = 4
+    def all_purchases_for_client(cls, client_id, page=1, limit=4):
         offset = (page - 1) * limit
 
-        # Fetch the paginated results
+        # Step 1: Fetch distinct purchase IDs with LIMIT and OFFSET
+        purchase_ids_query = """
+        SELECT purchases.id AS purchase_id
+        FROM purchases
+        WHERE purchases.client_id = %(client_id)s AND purchases.system_id = %(system_id)s
+        ORDER BY purchases.purchase_date DESC
+        LIMIT %(limit)s OFFSET %(offset)s;
+        """
+        params = {'client_id': client_id, 'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
+        purchase_ids_result = connectToMySQL('maria_ortegas_project_schema').query_db(purchase_ids_query, params)
+
+        # Extract purchase IDs
+        purchase_ids = [row['purchase_id'] for row in purchase_ids_result]
+        if not purchase_ids:
+            return {'items': [], 'total': 0}
+
+        # Step 2: Fetch all data for the selected purchases
         query = """
         SELECT purchases.id AS purchase_id, purchases.purchase_date, purchases.amount, purchases.payment_status,
             clients.first_name AS client_first_name, clients.last_name AS client_last_name,
@@ -127,11 +142,10 @@ class Purchase:
         JOIN clients ON purchases.client_id = clients.id
         JOIN purchase_items ON purchases.id = purchase_items.purchase_id
         JOIN products ON purchase_items.product_id = products.id
-        WHERE purchases.client_id = %(client_id)s AND purchases.system_id = %(system_id)s
-        ORDER BY purchases.purchase_date DESC
-        LIMIT %(limit)s OFFSET %(offset)s;
+        WHERE purchases.id IN %(purchase_ids)s
+        ORDER BY purchases.purchase_date DESC;
         """
-        params = {'client_id': client_id, 'system_id': SessionHelper.get_system_id(), 'limit': limit, 'offset': offset}
+        params = {'purchase_ids': tuple(purchase_ids)}
         results = connectToMySQL('maria_ortegas_project_schema').query_db(query, params)
 
         # Organize results by purchase_id
@@ -147,7 +161,6 @@ class Purchase:
                     'client_name': f"{row['client_first_name']} {row['client_last_name']}",
                     'items': []
                 }
-            # Add product details to the purchase
             purchases[purchase_id]['items'].append({
                 'product_id': row['product_id'],
                 'product_name': row['product_name'],
@@ -158,7 +171,7 @@ class Purchase:
                 'price_per_item': row['price_per_item']
             })
 
-        # Fetch the total count
+        # Step 3: Fetch the total count of purchases for the client
         count_query = """
         SELECT COUNT(*) AS total
         FROM purchases
@@ -172,6 +185,8 @@ class Purchase:
         grouped_purchases = list(purchases.values())
 
         return {'items': grouped_purchases, 'total': total}
+
+
 
 
 
@@ -629,20 +644,24 @@ class Purchase:
     @classmethod
     def get_recent_shipping_updates(cls, since_date):
         query = """
-        SELECT 
-            'Update Shipping' AS action,
-            CONCAT('Shipping status changed to ', p.shipping_status, 
-                ' for ', pr.name, ' by ', c.first_name, ' ', c.last_name) AS details,
-            p.shipping_updated_at AS created_at
-        FROM purchases p
-        JOIN clients c ON p.client_id = c.id
-        JOIN purchase_items pi ON p.id = pi.purchase_id
-        JOIN products pr ON pi.product_id = pr.id
-        WHERE p.shipping_updated_at >= %s 
-        AND p.system_id = %s
-        AND p.shipping_status IS NOT NULL
-        ORDER BY p.shipping_updated_at DESC;
-        """
+            SELECT 
+                'Update Shipping' AS action,
+                CONCAT(
+                    'Shipping status changed to ', p.shipping_status, 
+                    ' for order #', p.id, 
+                    ' with ', COUNT(pi.product_id), ' item(s)', 
+                    ' by ', c.first_name, ' ', c.last_name
+                ) AS details,
+                p.shipping_updated_at AS created_at
+            FROM purchases p
+            JOIN clients c ON p.client_id = c.id
+            JOIN purchase_items pi ON p.id = pi.purchase_id
+            WHERE p.shipping_updated_at >= %s 
+            AND p.system_id = %s
+            AND p.shipping_status IS NOT NULL
+            GROUP BY p.id, p.shipping_status, c.first_name, c.last_name, p.shipping_updated_at
+            ORDER BY p.shipping_updated_at DESC;
+            """
         data = (since_date, SessionHelper.get_system_id())
         try:
             result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
@@ -658,18 +677,44 @@ class Purchase:
     @classmethod
     def calculate_weekly_metrics(cls):
         query = """
-        SELECT 
-            SUM(p.amount) AS gross_sales,
-            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
-            SUM(payments.amount_paid) AS net_sales
-        FROM purchases p
-        LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
-        LEFT JOIN payments ON p.id = payments.purchase_id
-        WHERE p.purchase_date >= CURDATE() - INTERVAL 7 DAY
-        AND p.system_id = %(system_id)s;
+            SELECT 
+                /* SUM of p.amount at the purchase level */
+                SUM(p.amount) AS gross_sales,
+
+                /* Revenue = sum of purchase amounts minus sum of all item costs */
+                SUM(p.amount) - SUM(COALESCE(item_summary.total_cost, 0)) AS revenue_earned,
+
+                /* Net sales = sum of all payments across these purchases */
+                SUM(COALESCE(pay_summary.total_paid, 0)) AS net_sales
+
+            FROM purchases p
+
+            /* Subquery that aggregates the cost of items per purchase_id */
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(quantity * price_per_item) AS total_cost
+                FROM purchase_items
+                GROUP BY purchase_id
+            ) AS item_summary ON p.id = item_summary.purchase_id
+
+            /* Subquery that aggregates total payments per purchase_id */
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(amount_paid) AS total_paid
+                FROM payments
+                GROUP BY purchase_id
+            ) AS pay_summary ON p.id = pay_summary.purchase_id
+
+            /* Filter for the last 7 days and your system_id */
+            WHERE p.purchase_date >= CURDATE() - INTERVAL 7 DAY
+            AND p.system_id = %(system_id)s
         """
         data = {'system_id': SessionHelper.get_system_id()}
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+        # result[0] will contain gross_sales, revenue_earned, and net_sales (or all NULL if no data)
         return {
             'gross_sales': result[0]['gross_sales'] if result and result[0]['gross_sales'] else 0.0,
             'revenue_earned': result[0]['revenue_earned'] if result and result[0]['revenue_earned'] else 0.0,
@@ -680,17 +725,42 @@ class Purchase:
     @classmethod
     def calculate_monthly_metrics(cls, year):
         query = """
-        SELECT 
-            MONTH(p.purchase_date) AS month,
-            SUM(p.amount) AS gross_sales,
-            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
-            SUM(payments.amount_paid) AS net_sales
-        FROM purchases p
-        LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
-        LEFT JOIN payments ON p.id = payments.purchase_id
-        WHERE YEAR(p.purchase_date) = %s AND p.system_id = %s
-        GROUP BY MONTH(p.purchase_date)
-        ORDER BY MONTH(p.purchase_date);
+            SELECT 
+                MONTH(p.purchase_date) AS month,
+                -- Sum of p.amount across each month
+                SUM(p.amount) AS gross_sales,
+                
+                -- Revenue = sum of amounts minus sum of item costs
+                SUM(p.amount) - SUM(COALESCE(item_summary.total_cost, 0)) AS revenue_earned,
+                
+                -- Net sales = sum of all payments
+                SUM(COALESCE(pay_summary.total_paid, 0)) AS net_sales
+            
+            FROM purchases p
+            
+            -- Subquery #1: total item cost per purchase
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(quantity * price_per_item) AS total_cost
+                FROM purchase_items
+                GROUP BY purchase_id
+            ) AS item_summary ON p.id = item_summary.purchase_id
+            
+            -- Subquery #2: total payments per purchase
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(amount_paid) AS total_paid
+                FROM payments
+                GROUP BY purchase_id
+            ) AS pay_summary ON p.id = pay_summary.purchase_id
+            
+            WHERE YEAR(p.purchase_date) = %s
+            AND p.system_id = %s
+            
+            GROUP BY MONTH(p.purchase_date)
+            ORDER BY MONTH(p.purchase_date)
         """
         data = (year, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
@@ -705,27 +775,41 @@ class Purchase:
             for row in result
         ] if result else []
 
+
     
 
     @classmethod
     def calculate_single_monthly_metrics(cls, year, month):
         query = """
-        SELECT 
-            SUM(p.amount) AS gross_sales,
-            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
-            SUM(payments.amount_paid) AS net_sales
-        FROM purchases p
-        LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
-        LEFT JOIN payments ON p.id = payments.purchase_id
-        WHERE YEAR(p.purchase_date) = %s
-        AND MONTH(p.purchase_date) = %s
-        AND p.system_id = %s
-        GROUP BY YEAR(p.purchase_date), MONTH(p.purchase_date);
+            SELECT
+                SUM(p.amount) AS gross_sales,
+                SUM(p.amount) - SUM(COALESCE(item_summary.total_cost, 0)) AS revenue_earned,
+                SUM(COALESCE(pay_summary.total_paid, 0)) AS net_sales
+            FROM purchases p
+            
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(quantity * price_per_item) AS total_cost
+                FROM purchase_items
+                GROUP BY purchase_id
+            ) AS item_summary ON p.id = item_summary.purchase_id
+            
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(amount_paid) AS total_paid
+                FROM payments
+                GROUP BY purchase_id
+            ) AS pay_summary ON p.id = pay_summary.purchase_id
+            
+            WHERE YEAR(p.purchase_date) = %s
+            AND MONTH(p.purchase_date) = %s
+            AND p.system_id = %s
         """
         data = (year, month, SessionHelper.get_system_id())
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
-        # If no results or the metrics are None, return zeroed values.
         if not result or not result[0]:
             return {
                 'gross_sales': 0.0,
@@ -739,39 +823,50 @@ class Purchase:
             'net_sales': float(result[0]['net_sales']) if result[0]['net_sales'] else 0.0
         }
 
+
  
 
 
     @classmethod
     def calculate_yearly_metrics(cls, year=None):
-        query = """
-        SELECT 
-            YEAR(p.purchase_date) AS year,
-            SUM(p.amount) AS gross_sales,
-            SUM(p.amount) - SUM(pi.quantity * pi.price_per_item) AS revenue_earned,
-            SUM(payments.amount_paid) AS net_sales
-        FROM purchases p
-        LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
-        LEFT JOIN payments ON p.id = payments.purchase_id
-        {}
-        GROUP BY YEAR(p.purchase_date)
-        ORDER BY YEAR(p.purchase_date);
-        """
+        # We’ll build the WHERE clause + parameters
+        where_clause = "WHERE p.system_id = %s"
+        data = [SessionHelper.get_system_id()]
         
-        # Add WHERE clause if a specific year is provided
-        where_clause = ""
-        data = None
         if year:
             where_clause = "WHERE YEAR(p.purchase_date) = %s AND p.system_id = %s"
-            data = (year, SessionHelper.get_system_id())
-        else:
-            where_clause = "WHERE p.system_id = %s"
-            data = (SessionHelper.get_system_id(),)
+            data = [year, SessionHelper.get_system_id()]
         
-        # Replace placeholder in query
-        query = query.format(where_clause)
-
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        query = f"""
+            SELECT 
+                YEAR(p.purchase_date) AS year,
+                SUM(p.amount) AS gross_sales,
+                SUM(p.amount) - SUM(COALESCE(item_summary.total_cost, 0)) AS revenue_earned,
+                SUM(COALESCE(pay_summary.total_paid, 0)) AS net_sales
+            FROM purchases p
+            
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(quantity * price_per_item) AS total_cost
+                FROM purchase_items
+                GROUP BY purchase_id
+            ) AS item_summary ON p.id = item_summary.purchase_id
+            
+            LEFT JOIN (
+                SELECT 
+                    purchase_id,
+                    SUM(amount_paid) AS total_paid
+                FROM payments
+                GROUP BY purchase_id
+            ) AS pay_summary ON p.id = pay_summary.purchase_id
+            
+            {where_clause}
+            
+            GROUP BY YEAR(p.purchase_date)
+            ORDER BY YEAR(p.purchase_date);
+        """
+        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, tuple(data))
 
         return [
             {
@@ -782,6 +877,7 @@ class Purchase:
             }
             for row in result
         ] if result else []
+
 
 
 

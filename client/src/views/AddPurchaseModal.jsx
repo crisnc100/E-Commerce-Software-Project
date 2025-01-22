@@ -208,6 +208,8 @@ const AddPurchaseModal = ({ clientId, onClose, onSuccess }) => {
                 amount: parseFloat(amount),
                 payment_status: 'Pending',
                 shipping_status: 'Pending',
+                price_per_item: parseFloat(selectedProduct.price),
+                
             };
         try {
             const response = await apiService.createPurchase(payload);
