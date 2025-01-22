@@ -25,7 +25,7 @@ app.config['MAIL_DEFAULT_SENDER'] = 'noreplyecommercesystems@gmail.com'  # My Gm
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True
 app.config['SESSION_COOKIE_NAME'] = 'admin_user_session'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)  # Adjust the time as needed
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=4)  # Adjust the time as needed
 app.config['SESSION_COOKIE_SECURE'] = True  # Use this if you're using HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Control cross-site behavior
