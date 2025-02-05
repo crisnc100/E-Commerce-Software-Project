@@ -708,8 +708,9 @@ class Purchase:
             ) AS pay_summary ON p.id = pay_summary.purchase_id
 
             /* Filter for the last 7 days and your system_id */
-            WHERE p.purchase_date >= CURDATE() - INTERVAL 7 DAY
-            AND p.system_id = %(system_id)s
+            WHERE p.purchase_date >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+                AND p.purchase_date < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)
+                AND p.system_id = %(system_id)s
         """
         data = {'system_id': SessionHelper.get_system_id()}
         result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)

@@ -566,28 +566,28 @@ const Navbar = ({ role, sidebarToggle, setSidebarToggle }) => {
                                   {/* Generate PayPal Button for Single Item */}
                                   {hasCredentials && item.payment_status !== 'Paid' && (
                                     <div>
-                                      {!generatedLinks[item.id] ? (
+                                      {!generatedLinks[item.purchase_id] ? (
                                         <button
-                                          className={`px-3 py-1 flex items-center ${loadingLinks[item.id]
+                                          className={`px-3 py-1 flex items-center ${loadingLinks[item.purchase_id]
                                             ? 'bg-gray-400 cursor-not-allowed'
                                             : 'bg-blue-600 hover:bg-blue-700'
                                             } text-white rounded transition-all mt-2`}
-                                          onClick={() => handleGeneratePayPalLink(item.id)}
-                                          disabled={loadingLinks[item.id]}
+                                          onClick={() => handleGeneratePayPalLink(item.purchase_id)}
+                                          disabled={loadingLinks[item.purchase_id]}
                                         >
-                                          {loadingLinks[item.id] ? (
+                                          {loadingLinks[item.purchase_id] ? (
                                             <span className="loader mr-2"></span>
                                           ) : (
                                             <FaMagic className="mr-1" />
                                           )}
-                                          {loadingLinks[item.id] ? 'Generating...' : 'Generate PayPal Link'}
+                                          {loadingLinks[item.purchase_id] ? 'Generating...' : 'Generate PayPal Link'}
                                         </button>
                                       ) : (
                                         <div className="flex items-center space-x-2">
                                           <FaCheck className="text-green-500 text-xl" aria-label="Link Generated" />
                                           <button
                                             className="px-3 py-1 flex items-center bg-green-600 hover:bg-green-700 text-white rounded transition-all"
-                                            onClick={() => handleCopyToClipboard(generatedLinks[item.id], item.id)}
+                                            onClick={() => handleCopyToClipboard(generatedLinks[item.purchase_id], item.purchase_id)}
                                           >
                                             <FaCopy className="mr-1" />
                                             Copy Link

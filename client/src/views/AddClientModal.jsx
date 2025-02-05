@@ -57,7 +57,7 @@ const AddClientModal = ({ onClose, onSuccess }) => {
 
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-1/3">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg">
                 <h2 className="text-lg font-bold mb-4">New Customer</h2>
                 <form onSubmit={handleSubmit}>
                     {/* First Name Input */}
