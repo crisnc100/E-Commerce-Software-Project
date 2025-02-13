@@ -147,33 +147,17 @@ def get_monthly_metrics_for_year():
 
 @app.route('/api/get_top_products', methods=['GET'])
 def get_top_products():
-    """
-    Endpoint to return top products based on 'metric' query param.
-    - ?metric=clients => Top by distinct clients
-    - ?metric=sales   => Top by total sales
-    Default is 'clients'.
-    """
     try:
         year = int(request.args.get('year', datetime.now().year))
         month = int(request.args.get('month', datetime.now().month))
-        metric = request.args.get('metric', 'clients').lower()
+        category = request.args.get('category', 'orders')  # 'orders' or 'sales'
 
-        if metric == 'clients':
-            # For example, use threshold=2 so only products with >=2 distinct clients appear
-            result = Purchase.get_top_products_by_clients(year, month, threshold=2, top_n=3)
-        elif metric == 'sales':
-            # Show top 3 by total sales
-            result = Purchase.get_top_products_by_sales(year, month, top_n=3)
-        else:
-            return jsonify({
-                'message': f"Invalid 'metric' value '{metric}'. Use 'clients' or 'sales'."
-            }), 400
-
+        result = Purchase.get_top_products(year, month, category)
         return jsonify({'top_products': result}), 200
-
     except Exception as e:
         print(f"Error fetching top products: {e}")
         return jsonify({'message': 'Internal Server Error'}), 500
+
 
 
 
