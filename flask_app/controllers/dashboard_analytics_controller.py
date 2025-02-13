@@ -160,10 +160,10 @@ def get_top_products():
 
         if metric == 'clients':
             # For example, use threshold=2 so only products with >=2 distinct clients appear
-            result = Product.get_top_products_by_clients(year, month, threshold=2, top_n=3)
+            result = Purchase.get_top_products_by_clients(year, month, threshold=2, top_n=3)
         elif metric == 'sales':
             # Show top 3 by total sales
-            result = Product.get_top_products_by_sales(year, month, top_n=3)
+            result = Purchase.get_top_products_by_sales(year, month, top_n=3)
         else:
             return jsonify({
                 'message': f"Invalid 'metric' value '{metric}'. Use 'clients' or 'sales'."
