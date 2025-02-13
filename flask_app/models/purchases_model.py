@@ -883,43 +883,57 @@ class Purchase:
 
 
     @classmethod
-    def get_top_products(cls, year, month, category):
+    def get_top_products_by_clients(cls, year, month, threshold=2, top_n=3):
+        """
+        Returns the top products (up to `top_n`) by number of DISTINCT clients
+        who purchased them, with tie-breakers:
+          1) total distinct clients (DESC)
+          2) total quantity sold (DESC)
+          3) product_name (ASC)
+        
+        Excludes products with fewer than `threshold` distinct clients.
+        """
+        # Get system_id directly from SessionHelper, not passed as parameter
+        system_id = SessionHelper.get_system_id()
+
         query = """
-        SELECT product_id, product_name, product_screenshot_photo, total_orders, total_sales, rnk FROM (
-            SELECT 
-                product_id,
-                product_name,
-                product_screenshot_photo,
-                total_orders,
-                total_sales,
-                RANK() OVER (
-                    ORDER BY 
-                        (CASE WHEN %s = 'orders' THEN total_orders ELSE 0 END) DESC,
-                        (CASE WHEN %s = 'sales' THEN total_sales ELSE 0 END) DESC
-                ) AS rnk
+            SELECT *
             FROM (
                 SELECT 
-                    pi.product_id AS product_id,
-                    p.name AS product_name,
-                    p.screenshot_photo AS product_screenshot_photo,
-                    COUNT(DISTINCT pi.purchase_id) AS total_orders,
-                    COALESCE(SUM(pi.quantity * pi.price_per_item), 0) AS total_sales
-                FROM purchase_items pi
-                JOIN products p ON pi.product_id = p.id
-                JOIN purchases pu ON pi.purchase_id = pu.id
-                WHERE YEAR(pu.purchase_date) = %s
-                AND MONTH(pu.purchase_date) = %s
-                AND pu.system_id = %s
-                GROUP BY pi.product_id, p.name, p.screenshot_photo
-            ) AS ProductMetrics
-        ) AS RankedMetrics
-        WHERE rnk <= 3;
+                    product_id,
+                    product_name,
+                    product_screenshot_photo,
+                    total_clients,
+                    total_quantity,
+                    RANK() OVER (
+                        ORDER BY total_clients DESC,
+                                 total_quantity DESC,
+                                 product_name ASC
+                    ) AS rnk
+                FROM (
+                    SELECT
+                        pi.product_id           AS product_id,
+                        p.name                  AS product_name,
+                        p.screenshot_photo      AS product_screenshot_photo,
+                        COUNT(DISTINCT pu.client_id) AS total_clients,
+                        SUM(pi.quantity)        AS total_quantity
+                    FROM purchase_items pi
+                    JOIN products p   ON pi.product_id = p.id
+                    JOIN purchases pu ON pi.purchase_id = pu.id
+                    WHERE YEAR(pu.purchase_date)  = %s
+                      AND MONTH(pu.purchase_date) = %s
+                      AND pu.system_id            = %s
+                    GROUP BY pi.product_id, p.name, p.screenshot_photo
+                    HAVING COUNT(DISTINCT pu.client_id) >= %s
+                ) AS ProductMetrics
+            ) AS RankedMetrics
+            WHERE rnk <= %s;
         """
 
-        data = (category, category, year, month, SessionHelper.get_system_id())
-        result = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+        data = (year, month, system_id, threshold, top_n)
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
 
-        if not result:
+        if not results:
             return []
 
         return [
@@ -927,11 +941,70 @@ class Purchase:
                 'product_id': row['product_id'],
                 'product_name': row['product_name'],
                 'product_screenshot_photo': row['product_screenshot_photo'],
-                'total_orders': row['total_orders'] or 0,
-                'total_sales': float(row['total_sales']) if row['total_sales'] is not None else 0.0,
+                'total_clients': row['total_clients'],
+                'total_quantity': row['total_quantity'],
                 'rank': row['rnk']
             }
-            for row in result
+            for row in results
+        ]
+
+    @classmethod
+    def get_top_products_by_sales(cls, year, month, top_n=3):
+        """
+        Returns the top products (up to `top_n`) by total sales (DESC),
+        breaking ties alphabetically by product name.
+
+        This currently multiplies quantity * price_per_item.
+        If you have a final or allocated price, replace `price_per_item`.
+        """
+        # Get system_id directly from SessionHelper
+        system_id = SessionHelper.get_system_id()
+
+        query = """
+            SELECT * 
+            FROM (
+                SELECT
+                    product_id,
+                    product_name,
+                    product_screenshot_photo,
+                    total_sales,
+                    RANK() OVER (
+                        ORDER BY total_sales DESC,
+                                 product_name ASC
+                    ) AS rnk
+                FROM (
+                    SELECT 
+                        pi.product_id      AS product_id,
+                        p.name             AS product_name,
+                        p.screenshot_photo AS product_screenshot_photo,
+                        COALESCE(SUM(pi.quantity * pi.price_per_item), 0) AS total_sales
+                    FROM purchase_items pi
+                    JOIN products p   ON pi.product_id = p.id
+                    JOIN purchases pu ON pi.purchase_id = pu.id
+                    WHERE YEAR(pu.purchase_date)  = %s
+                      AND MONTH(pu.purchase_date) = %s
+                      AND pu.system_id            = %s
+                    GROUP BY pi.product_id, p.name, p.screenshot_photo
+                ) AS ProductMetrics
+            ) AS RankedMetrics
+            WHERE rnk <= %s;
+        """
+
+        data = (year, month, system_id, top_n)
+        results = connectToMySQL('maria_ortegas_project_schema').query_db(query, data)
+
+        if not results:
+            return []
+
+        return [
+            {
+                'product_id': row['product_id'],
+                'product_name': row['product_name'],
+                'product_screenshot_photo': row['product_screenshot_photo'],
+                'total_sales': float(row['total_sales']),
+                'rank': row['rnk']
+            }
+            for row in results
         ]
 
 
